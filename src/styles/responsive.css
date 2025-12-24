@@ -1,0 +1,115 @@
+/* ===================================================
+    LAAMTAG RESPONSIVE STYLES (Mobile & Seeker)
+   =================================================== */
+
+@media (max-width: 768px) {
+    /* NAVIGATION */
+    .nav-top {
+        padding: 8px 15px;
+    }
+
+    .top-container {
+        padding: 5px 0;
+    }
+
+    .logo-link h1 {
+        font-size: 1.8rem; /* Scaled down for mobile */
+    }
+
+    .logo-link img {
+        width: 40px; /* Scaled down for mobile */
+    }
+
+    #wallet-btn {
+        padding: 8px 14px;
+        font-size: 0.8rem;
+        border-radius: 8px;
+    }
+
+    /* HERO & BANNERS */
+    .banner-first, 
+    .banner-second {
+        padding: 40px 15px;
+    }
+
+    .banner-first h1, 
+    .banner-second h1 {
+        font-size: 2rem;
+        line-height: 1.2;
+    }
+
+    .banner-first h4, 
+    .banner-second h4 {
+        font-size: 1rem;
+        padding: 0 10px;
+    }
+
+    .banner-second img {
+        max-width: 260px; /* Fits comfortably on Seeker screen */
+    }
+
+    /* MINT SECTION */
+    .mint-stats-container {
+        padding: 20px;
+        margin: 20px auto;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    #countdown-timer {
+        font-size: 1.1rem;
+    }
+
+    #mint-btn {
+        width: 100%; /* Easier touch target */
+        padding: 16px;
+        font-size: 1.1rem;
+    }
+
+    /* FEATURES GRID */
+    .features-section {
+        padding: 50px 15px;
+    }
+
+    .features-grid {
+        grid-template-columns: 1fr; /* Single column stack */
+        gap: 15px;
+        margin-top: 30px;
+    }
+
+    .feature-card {
+        padding: 25px;
+        text-align: center; /* Center-aligned icons look better on mobile */
+    }
+
+    .feature-card i {
+        margin-bottom: 15px;
+    }
+
+    /* MODALS & POPUPS */
+    .modal-content {
+        width: 92%;
+        padding: 25px 15px;
+    }
+
+    .wallet-option {
+        padding: 18px; /* Fat-finger friendly for mobile users */
+        font-size: 1rem;
+    }
+
+    /* SUCCESS POPUP */
+    .success-content {
+        width: 90%;
+        padding: 30px 20px;
+    }
+}
+
+/* SPECIAL FIX FOR VERY NARROW SCREENS (Seeker in Split View) */
+@media (max-width: 400px) {
+    .logo-link h1 {
+        font-size: 1.4rem;
+    }
+    
+    /* If still too crowded, hide the logo text to prioritize the wallet button */
+    /* .logo-link h1 { display: none; } */
+}

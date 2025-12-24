@@ -1,0 +1,62 @@
+{
+  "name": "LaamTag #20",
+  "symbol": "LAAM",
+  "description": "Echoes of Tagworld",
+  "image": "20.png",
+  "attributes": [
+    {
+      "trait_type": "Image",
+      "value": "6"
+    },
+    {
+      "trait_type": "Genesis Mark",
+      "value": "Yes"
+    },
+    {
+      "trait_type": "Identity Tier",
+      "value": "Sybil-Resistant"
+    },
+    {
+      "trait_type": "Rarity Level",
+      "value": "Uncommon"
+    },
+    {
+      "trait_type": "Skill Sync Speed",
+      "value": "Instant"
+    },
+    {
+      "trait_type": "Tagworld Affinity",
+      "value": "Flame-Bound"
+    },
+    {
+      "trait_type": "Domain Status",
+      "value": "Reserved"
+    },
+    {
+      "trait_type": "Multi-Chain Sync",
+      "value": "Enabled"
+    },
+    {
+      "trait_type": "Character Access",
+      "value": "5 Characters"
+    },
+    {
+      "trait_type": "Tag Energy",
+      "value": "Red Sparks"
+    },
+    {
+      "trait_type": "Utility Tier",
+      "value": "Tier III"
+    }
+  ],
+  "seller_fee_basis_points": 500,
+  "properties": {
+    "files": [
+      {
+        "uri": "20.png",
+        "type": "image/png"
+      }
+    ],
+    "category": "image"
+  }
+}

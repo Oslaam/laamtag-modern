@@ -1,69 +1,81 @@
-// Next, React
-import { FC, useEffect, useState } from 'react';
-import Link from 'next/link';
+import { FC, useState } from 'react';
+import { useConnection, useWallet } from '@solana/wallet-adapter-react';
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 
-// Wallet
-import { useWallet, useConnection } from '@solana/wallet-adapter-react';
-
-// Components
-import { RequestAirdrop } from '../../components/RequestAirdrop';
-import pkg from '../../../package.json';
-
-// Store
-import useUserSOLBalanceStore from '../../stores/useUserSOLBalanceStore';
+// Metaplex Umi Imports
+import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
+import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
+import { createNft, mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
+import { generateSigner, percentAmount } from '@metaplex-foundation/umi';
 
 export const HomeView: FC = ({ }) => {
-  const wallet = useWallet();
-  const { connection } = useConnection();
+    const { connection } = useConnection();
+    const wallet = useWallet();
+    const [isMinting, setIsMinting] = useState(false);
 
-  const balance = useUserSOLBalanceStore((s) => s.balance)
-  const { getUserSOLBalance } = useUserSOLBalanceStore()
+    // --- PASTE THE LOGIC HERE ---
+    const rpcUrl = process.env.NEXT_PUBLIC_RPC_ENDPOINT || connection.rpcEndpoint;
 
-  useEffect(() => {
-    if (wallet.publicKey) {
-      console.log(wallet.publicKey.toBase58())
-      getUserSOLBalance(wallet.publicKey, connection)
-    }
-  }, [wallet.publicKey, connection, getUserSOLBalance])
+    const umi = createUmi(rpcUrl)
+        .use(mplTokenMetadata())
+        .use(walletAdapterIdentity(wallet));
+    // ----------------------------
 
-  return (
+    const handleMint = async () => {
+        if (!wallet.publicKey) {
+            alert("Please connect your wallet first!");
+            return;
+        }
 
-    <div className="md:hero mx-auto p-4">
-      <div className="md:hero-content flex flex-col">
-        <div className='mt-6'>
-        <div className='text-sm font-normal align-bottom text-right text-slate-600 mt-4'>v{pkg.version}</div>
-        <h1 className="text-center text-5xl md:pl-12 font-bold text-transparent bg-clip-text bg-gradient-to-br from-indigo-500 to-fuchsia-500 mb-4">
-          Solana Next
-        </h1>
+        setIsMinting(true);
+        try {
+            const mint = generateSigner(umi);
+
+            // 1. Build and Send
+            const result = await createNft(umi, {
+                mint,
+                name: "LaamTag Seeker Genesis",
+                symbol: "LTSG",
+                uri: "https://arweave.net/27n4gq6THBMLHzJWZDRBDyAHD7ot5DQBdZJgFinE8Rdq",
+                sellerFeeBasisPoints: percentAmount(5),
+            }).sendAndConfirm(umi);
+
+            // 2. Success Feedback
+            alert(`Success! NFT Minted: ${mint.publicKey.toString()}`);
+            console.log("View Transaction:", `https://explorer.solana.com/address/${mint.publicKey.toString()}?cluster=mainnet-beta`);
+
+        } catch (error) {
+            // ... error handling
+        }
+    };
+
+    return (
+        <div className="flex flex-col items-center p-4">
+            {/* Header */}
+            <div className="flex justify-between w-full max-w-2xl mb-12 items-center">
+                <h1 className="text-2xl font-extrabold text-white">LAAMTAG</h1>
+                <WalletMultiButton />
+            </div>
+
+            {/* Minting Card */}
+            <div className="bg-gray-900 border border-gray-800 p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center">
+                <img
+                    src="https://arweave.net/7ntGd7LE3HtNFmzDymUVGqMbXeBVx2kL7LgV99xNB9C8"
+                    alt="NFT Preview"
+                    className="rounded-2xl mb-6 shadow-lg"
+                />
+                <h2 className="text-3xl font-bold text-white mb-2">LaamTag Pass</h2>
+                <p className="text-gray-400 mb-6">Exclusive Perk For Limited Seeker Users</p>
+
+                <button
+                    onClick={handleMint}
+                    disabled={!wallet.publicKey || isMinting}
+                    className={`w-full py-4 rounded-xl font-bold transition-all ${isMinting ? 'bg-gray-700' : 'bg-gradient-to-r from-purple-500 to-green-400 hover:scale-105 text-black'
+                        }`}
+                >
+                    {isMinting ? "Checking Seed Vault..." : "CLAIM NOW"}
+                </button>
+            </div>
         </div>
-        <h4 className="md:w-full text-2x1 md:text-4xl text-center text-slate-300 my-2">
-          <p>Unleash the full power of blockchain with Solana and Next.js 13.</p>
-          <p className='text-slate-500 text-2x1 leading-relaxed'>Full-stack Solana applications made easy.</p>
-        </h4>
-        <div className="relative group">
-          <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-indigo-500 rounded-lg blur opacity-40 animate-tilt"></div>
-          <div className="max-w-md mx-auto mockup-code bg-primary border-2 border-[#5252529f] p-6 px-10 my-2">
-            <pre data-prefix=">">
-              <code className="truncate">{`npx create-solana-dapp <dapp-name>`} </code>
-            </pre>
-          </div>
-        </div>
-        <div className="flex flex-col mt-2">
-          <RequestAirdrop />
-          <h4 className="md:w-full text-2xl text-slate-300 my-2">
-          {wallet &&
-          <div className="flex flex-row justify-center">
-            <div>
-              {(balance || 0).toLocaleString()}
-              </div>
-              <div className='text-slate-600 ml-2'>
-                SOL
-              </div>
-          </div>
-          }
-          </h4>
-        </div>
-      </div>
-    </div>
-  );
+    );
 };

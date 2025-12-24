@@ -1,0 +1,62 @@
+{
+  "name": "LaamTag #2116",
+  "symbol": "LAAM",
+  "description": "Echoes of Tagworld",
+  "image": "2116.png",
+  "attributes": [
+    {
+      "trait_type": "Image",
+      "value": "3"
+    },
+    {
+      "trait_type": "Genesis Mark",
+      "value": "Yes"
+    },
+    {
+      "trait_type": "Identity Tier",
+      "value": "Sybil-Resistant"
+    },
+    {
+      "trait_type": "Rarity Level",
+      "value": "Rare"
+    },
+    {
+      "trait_type": "Skill Sync Speed",
+      "value": "Fast"
+    },
+    {
+      "trait_type": "Tagworld Affinity",
+      "value": "Portal-Bound"
+    },
+    {
+      "trait_type": "Domain Status",
+      "value": "Reserved"
+    },
+    {
+      "trait_type": "Multi-Chain Sync",
+      "value": "Enabled"
+    },
+    {
+      "trait_type": "Character Access",
+      "value": "5 Characters"
+    },
+    {
+      "trait_type": "Tag Energy",
+      "value": "Electric Blue"
+    },
+    {
+      "trait_type": "Utility Tier",
+      "value": "Elite"
+    }
+  ],
+  "seller_fee_basis_points": 500,
+  "properties": {
+    "files": [
+      {
+        "uri": "2116.png",
+        "type": "image/png"
+      }
+    ],
+    "category": "image"
+  }
+}
