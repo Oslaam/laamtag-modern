@@ -1,64 +1,87 @@
 import { WalletAdapterNetwork, WalletError } from '@solana/wallet-adapter-base';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
+import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import {
-    UnsafeBurnerWalletAdapter
+    SolflareWalletAdapter,
+    PhantomWalletAdapter,
+    BackpackWalletAdapter
 } from '@solana/wallet-adapter-wallets';
-import { Cluster, clusterApiUrl } from '@solana/web3.js';
-import { FC, ReactNode, useCallback, useMemo } from 'react';
-import { AutoConnectProvider, useAutoConnect } from './AutoConnectProvider';
+import { clusterApiUrl } from '@solana/web3.js';
+import { FC, ReactNode, useCallback, useMemo, useEffect } from 'react';
 import { notify } from "../utils/notifications";
-import { NetworkConfigurationProvider, useNetworkConfiguration } from './NetworkConfigurationProvider';
-import dynamic from "next/dynamic";
 
-const ReactUIWalletModalProviderDynamic = dynamic(
-  async () =>
-    (await import("@solana/wallet-adapter-react-ui")).WalletModalProvider,
-  { ssr: false }
-);
+// IMPORT BOTH MOBILE PACKAGES WITH DISTINCT ALIASES
+import { 
+    SolanaMobileWalletAdapter, 
+    createDefaultAddressSelector, 
+    createDefaultAuthorizationResultCache, 
+    createDefaultWalletNotFoundHandler as adapterNotFound // For the list
+} from '@solana-mobile/wallet-adapter-mobile';
 
-const WalletContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
-    const { autoConnect } = useAutoConnect();
-    const { networkConfiguration } = useNetworkConfiguration();
-    const network = networkConfiguration as WalletAdapterNetwork.Devnet;
-    const endpoint = useMemo(() => clusterApiUrl(network), [network]);
+import {
+    registerMwa,
+    createDefaultAuthorizationCache,
+    createDefaultChainSelector,
+    createDefaultWalletNotFoundHandler as standardNotFound // For registration
+} from '@solana-mobile/wallet-standard-mobile';
 
-    console.log(network);
-
-    const wallets = useMemo(
-        () => [
-            new UnsafeBurnerWalletAdapter(),
-        ],
-        [network]
-    );
-
-    const onError = useCallback(
-        (error: WalletError) => {
-            notify({ type: 'error', message: error.message ? `${error.name}: ${error.message}` : error.name });
-            console.error(error);
-        },
-        []
-    );
-
-    return (
-        // TODO: updates needed for updating and referencing endpoint: wallet adapter rework
-        <ConnectionProvider endpoint={endpoint}>
-            <WalletProvider wallets={wallets} onError={onError} autoConnect={autoConnect}>
-                <ReactUIWalletModalProviderDynamic>
-                    {children}
-                </ReactUIWalletModalProviderDynamic>
-			</WalletProvider>
-        </ConnectionProvider>
-    );
-};
+require('@solana/wallet-adapter-react-ui/styles.css');
 
 export const ContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
+    const network = WalletAdapterNetwork.Mainnet;
+    const endpoint = useMemo(() => clusterApiUrl(network), [network]);
+
+    // 1. REGISTER GLOBAL STANDARDS
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                registerMwa({
+                    appIdentity: {
+                        name: 'LaamTag',
+                        uri: 'https://laamtag-modern.vercel.app',
+                        icon: '/favicon.ico',
+                    },
+                    authorizationCache: createDefaultAuthorizationCache(),
+                    chains: ['solana:mainnet'],
+                    chainSelector: createDefaultChainSelector(),
+                    // FIX: Uses the Standard-specific handler
+                    onWalletNotFound: standardNotFound(), 
+                    remoteHostAuthority: 'https://solana-mobile-stack.com',
+                });
+            } catch (err) {
+                console.error("MWA Registration failed", err);
+            }
+        }
+    }, []);
+
+    // 2. CONFIGURE THE WALLET LIST
+    const wallets = useMemo(() => [
+        new SolanaMobileWalletAdapter({
+            addressSelector: createDefaultAddressSelector(),
+            appIdentity: {
+                name: 'LaamTag',
+                uri: 'https://laamtag-modern.vercel.app',
+                icon: '/favicon.ico',
+            },
+            authorizationResultCache: createDefaultAuthorizationResultCache(),
+            cluster: network,
+            // FIX: Uses the Adapter-specific handler
+            onWalletNotFound: adapterNotFound(),
+        }),
+        new SolflareWalletAdapter(),
+        new PhantomWalletAdapter(),
+        new BackpackWalletAdapter(),
+    ], [network]);
+
+    const onError = useCallback((error: WalletError) => {
+        notify({ type: 'error', message: error.message || error.name });
+    }, []);
+
     return (
-        <>
-            <NetworkConfigurationProvider>
-                <AutoConnectProvider>
-                    <WalletContextProvider>{children}</WalletContextProvider>
-                </AutoConnectProvider>
-            </NetworkConfigurationProvider>
-        </>
+        <ConnectionProvider endpoint={endpoint}>
+            <WalletProvider wallets={wallets} onError={onError} autoConnect={true}>
+                <WalletModalProvider>{children}</WalletModalProvider>
+            </WalletProvider>
+        </ConnectionProvider>
     );
 };

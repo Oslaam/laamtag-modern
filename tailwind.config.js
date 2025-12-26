@@ -1,58 +1,38 @@
+/** @type {import('tailwindcss').Config} */
 module.exports = {
-  mode: "jit",
-  content: ["./src/**/*.{js,jsx,ts,tsx}"],
-  darkMode: "media",
-  theme: {
-    extend: {},
-  },
-  plugins: [
-    require('daisyui'),
-    require("@tailwindcss/typography")
+  content: [
+    "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  theme: {
+    extend: {
+      colors: {
+        'laam-dark': '#000B17',
+        'laam-purple': '#5B2CA0',
+        'laam-lime': '#81e757',
+        'laam-card': '#0a1625',
+        'laam-border': '#1e3a5f',
+      },
+      fontFamily: {
+        'mea-culpa': ['"Mea Culpa"', 'cursive'],
+      },
+    },
+  },
+  plugins: [require("daisyui")],
   daisyui: {
-    styled: true,
-    // TODO: Theme needs works
     themes: [
       {
-        'solana': { 
-          fontFamily: {
-            display: ['PT Mono, monospace'],
-            body: ['Inter, sans-serif'],
-          },
-          'primary': '#000000',           /* Primary color */
-          'primary-focus': '#9945FF',     /* Primary color - focused */
-          'primary-content': '#ffffff',   /* Foreground content color to use on primary color */
-
-          'secondary': '#808080',         /* Secondary color */
-          'secondary-focus': '#f3cc30',   /* Secondary color - focused */
-          'secondary-content': '#ffffff', /* Foreground content color to use on secondary color */
-
-          'accent': '#33a382',            /* Accent color */
-          'accent-focus': '#2aa79b',      /* Accent color - focused */
-          'accent-content': '#ffffff',    /* Foreground content color to use on accent color */
-
-          'neutral': '#2b2b2b',           /* Neutral color */
-          'neutral-focus': '#2a2e37',     /* Neutral color - focused */
-          'neutral-content': '#ffffff',   /* Foreground content color to use on neutral color */
-
-          'base-100': '#000000',          /* Base color of page, used for blank backgrounds */
-          'base-200': '#35363a',          /* Base color, a little darker */
-          'base-300': '#222222',          /* Base color, even more darker */
-          'base-content': '#f9fafb',      /* Foreground content color to use on base color */
-
-          'info': '#2094f3',              /* Info */
-          'success': '#009485',           /* Success */
-          'warning': '#ff9900',           /* Warning */
-          'error': '#ff5724',             /* Error */
+        solana: {
+          "primary": "#81e757", // Your lime green
+          "secondary": "#5B2CA0", // Your purple
+          "accent": "#81e757",
+          "neutral": "#1e3a5f",
+          "base-100": "#000B17", // Your dark background
+          "info": "#2094f3",
+          "success": "#009485",
+          "warning": "#ff9900",
+          "error": "#ff5724",
         },
       },
-      // backup themes:
-      // 'dark',
-      // 'synthwave'
     ],
-    base: true,
-    utils: true,
-    logs: true,
-    rtl: false,
   },
 }

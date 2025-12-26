@@ -34,8 +34,8 @@ export const HomeView: FC = ({ }) => {
             // 1. Build and Send
             const result = await createNft(umi, {
                 mint,
-                name: "LaamTag Seeker Genesis",
-                symbol: "LTSG",
+                name: "LaamTag",
+                symbol: "laamtag",
                 uri: "https://arweave.net/27n4gq6THBMLHzJWZDRBDyAHD7ot5DQBdZJgFinE8Rdq",
                 sellerFeeBasisPoints: percentAmount(5),
             }).sendAndConfirm(umi);
