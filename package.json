@@ -39,7 +39,7 @@
   "devDependencies": {
     "@types/istanbul-lib-coverage": "^2.0.6",
     "@types/istanbul-reports": "^3.0.4",
-    "@types/node": "^18.11.18",
+    "@types/node": "^25.0.3",
     "@types/react": "^18.0.27",
     "@types/yargs": "^17.0.35",
     "autoprefixer": "^10.4.2",
