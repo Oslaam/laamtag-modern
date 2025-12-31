@@ -75,7 +75,7 @@ const Mint: NextPage = () => {
   const handleIncrement = () => { if (amount < (3 - stats.personal)) setAmount(prev => prev + 1); };
   const handleDecrement = () => { if (amount > 1) setAmount(prev => prev - 1); };
 
-  const handleMint = async () => {
+ const handleMint = async () => {
     if (!publicKey || !wallet || !wallet.publicKey) return;
     setLoading(true);
 
@@ -92,6 +92,20 @@ const Mint: NextPage = () => {
       }
       const candyGuard = await fetchCandyGuard(umi, candyMachine.mintAuthority);
 
+      // --- NEW: COLLECTION MINT LOGIC ---
+      // We try the CM state first, then fallback to your .env variable
+      let colMintStr = unwrapOption(candyMachine.collectionMint as any);
+      if (!colMintStr) {
+        colMintStr = process.env.NEXT_PUBLIC_COLLECTION_MINT;
+      }
+
+      if (!colMintStr) {
+        throw new Error("Collection Mint address not found in CM or .env");
+      }
+
+      const colMint = umiPublicKey(colMintStr as string);
+      // ----------------------------------
+
       let builder = transactionBuilder().add(
         setComputeUnitLimit(umi, { units: 800000 })
       );
@@ -99,25 +113,19 @@ const Mint: NextPage = () => {
       for (let i = 0; i < amount; i++) {
         const nftMint = generateSigner(umi);
 
-        // 1. Properly unwrap the collection mint
-        // We cast to 'any' then back to 'PublicKey' to bypass the complex Metaplex types
-        const colMint = unwrapOption(candyMachine.collectionMint as any) as any;
-
         builder = builder.add(
           mintV2(umi, {
             candyMachine: candyMachine.publicKey,
             candyGuard: candyGuard.publicKey,
             nftMint: nftMint,
-            // 2. If colMint exists, use it directly. If not, use undefined.
-            // DO NOT use some() or none() here; mintV2 wants the raw address.
-            collectionMint: colMint || undefined,
+            collectionMint: colMint,
             collectionUpdateAuthority: candyMachine.authority,
             mintArgs: {},
-          })
-
+          } as any)
         );
       }
-      console.log("Building transaction...");
+
+      console.log("Building transaction for:", amount, "NFTs");
       const { signature } = await builder.sendAndConfirm(umi, {
         send: { skipPreflight: false, preflightCommitment: 'confirmed' }
       });
@@ -134,8 +142,9 @@ const Mint: NextPage = () => {
       fetchStatus();
     } catch (err: any) {
       console.error("MINT ERROR:", err);
-      // This will show you exactly what is failing in the alert box
-      alert(`Mint Failed: ${err.message || "Assertion failed"}`);
+      // Detailed error reporting for the Seeker screen
+      const errorMsg = err.message || "Unknown error";
+      alert(`Mint Failed: ${errorMsg}`);
     } finally {
       setLoading(false);
     }
