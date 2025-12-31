@@ -1,0 +1,54 @@
+{
+  "tokenStandard": "nft",
+  "number": 5000,
+  "symbol": "LAAM",
+  "sellerFeeBasisPoints": 500,
+  "isMutable": true,
+  "isSequential": true,
+  "creators": [
+    {
+      "address": "43ARBKVdGKR2a1t7gh3oAu4ZjbnRZaTvM9YDp5twzgvn",
+      "share": 100
+    }
+  ],
+  "uploadMethod": "bundlr",
+  "ruleSet": null,
+  "awsConfig": null,
+  "sdriveApiKey": null,
+  "pinataConfig": null,
+  "hiddenSettings": {
+    "name": "LAAMTAG - SEEKER EXCLUSIVE #",
+    "uri": "https://gateway.irys.xyz/fqUaBd0rD7CsufZ29zF16fY3ypLpvMVxKEJswk3Jtew",
+    "hash": "HTWpDeQUvsSJh2d33aBfyvEwvdY6wE4M"
+  },
+  "guards": {
+    "default": {
+      "botTax": null,
+      "solPayment": {
+        "value": 0.001,
+        "destination": "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc"
+      },
+      "tokenPayment": null,
+      "startDate": null,
+      "thirdPartySigner": null,
+      "tokenGate": null,
+      "gatekeeper": null,
+      "endDate": null,
+      "allowList": null,
+      "mintLimit": null,
+      "nftPayment": null,
+      "redeemedAmount": null,
+      "addressGate": null,
+      "nftGate": null,
+      "nftBurn": null,
+      "tokenBurn": null,
+      "freezeSolPayment": null,
+      "freezeTokenPayment": null,
+      "programGate": null,
+      "allocation": null,
+      "token2022Payment": null
+    },
+    "groups": null
+  },
+  "maxEditionSupply": null
+}

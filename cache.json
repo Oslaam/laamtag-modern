@@ -1,0 +1,26 @@
+{
+  "program": {
+    "candyMachine": "Dtz8f1hsqCKwa7TEkzzi8dXELk11y4YXaxqVqTDA1pAS",
+    "candyGuard": "6VbMRH2XHrZKQPVtUEMJVh3wbYAs3dF6sTkt7r11E2sC",
+    "candyMachineCreator": "G3NtCTVEYmqBS8QZiWqAdfUQcbyxtTATTvydzksuyB7k",
+    "collectionMint": "3e1pfV6fucUZScyed1sfBdFwyeVCXvXud1UkZMq1iy7L"
+  },
+  "items": {
+    "-1": {
+      "name": "LAAMTAG Genesis #0",
+      "image_hash": "f034221a3e3d855ce0bad54a6a3b71d9c7ada1d224294c16fbba26016bb12930",
+      "image_link": "https://gateway.irys.xyz/3eFmPeSC_BL3-EfI2UxJyCt3apDJaPC321kVgeaTX9w?ext=gif",
+      "metadata_hash": "821e5e04d5b318578b4d54a046bf7b7abf269cf230f253bb8541545af67f0f9d",
+      "metadata_link": "https://gateway.irys.xyz/rhPlBZ2Wm8gkHoM-5Cxk4aCxBkx-OmcCyBMdyk7Bbxo",
+      "onChain": true
+    },
+    "0": {
+      "name": "LAAMTAG Genesis #0",
+      "image_hash": "f034221a3e3d855ce0bad54a6a3b71d9c7ada1d224294c16fbba26016bb12930",
+      "image_link": "https://gateway.irys.xyz/x9mkDwvzALQXNSfhT0uVZWMUaW4CDQuaa_knDkFTAIM?ext=gif",
+      "metadata_hash": "821e5e04d5b318578b4d54a046bf7b7abf269cf230f253bb8541545af67f0f9d",
+      "metadata_link": "https://gateway.irys.xyz/THpqptNGdALOykxodfv2_27qbB97McMGhgldSApN_Ko",
+      "onChain": false
+    }
+  }
+}
