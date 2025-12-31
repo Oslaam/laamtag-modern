@@ -92,19 +92,12 @@ const Mint: NextPage = () => {
       }
       const candyGuard = await fetchCandyGuard(umi, candyMachine.mintAuthority);
 
-      // --- NEW: COLLECTION MINT LOGIC ---
-      // We try the CM state first, then fallback to your .env variable
-      // --- COLLECTION MINT LOGIC (HARDCODED FALLBACK) ---
+      // --- COLLECTION MINT LOGIC ---
       let colMintStr: any = unwrapOption(candyMachine.collectionMint as any);
-
-      // If Candy Machine doesn't have it, try ENV, then try hardcoded string
       if (!colMintStr) {
         colMintStr = process.env.NEXT_PUBLIC_COLLECTION_MINT || "3e1pfV6fucUZScyed1sfBdFwyeVCXvXud1UkZMq1iy7L";
       }
-
-      console.log("Using Collection Mint:", colMintStr);
       const colMint = umiPublicKey(colMintStr as string);
-      // ----------------------------------
 
       let builder = transactionBuilder().add(
         setComputeUnitLimit(umi, { units: 800000 })
@@ -120,12 +113,16 @@ const Mint: NextPage = () => {
             nftMint: nftMint,
             collectionMint: colMint,
             collectionUpdateAuthority: candyMachine.authority,
+            // ADD THESE THREE LINES:
+            tokenStandard: candyMachine.tokenStandard,
+            minter: umi.identity,
+            tokenOwner: umi.identity.publicKey,
             mintArgs: {},
           } as any)
         );
       }
 
-      console.log("Building transaction for:", amount, "NFTs");
+      console.log("Requesting signature...");
       const { signature } = await builder.sendAndConfirm(umi, {
         send: { skipPreflight: false, preflightCommitment: 'confirmed' }
       });
@@ -142,9 +139,7 @@ const Mint: NextPage = () => {
       fetchStatus();
     } catch (err: any) {
       console.error("MINT ERROR:", err);
-      // Detailed error reporting for the Seeker screen
-      const errorMsg = err.message || "Unknown error";
-      alert(`Mint Failed: ${errorMsg}`);
+      alert(`Mint Failed: ${err.message || "Assertion failed - Check balance or Collection"}`);
     } finally {
       setLoading(false);
     }
