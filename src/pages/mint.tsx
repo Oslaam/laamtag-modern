@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import axios from "axios";
-import { Minus, Plus } from "lucide-react";
+import { Minus, Plus, Activity } from "lucide-react"; // Added Activity icon
 import Navbar from "../components/Navbar";
 import AppFooter from "../components/AppFooter";
 import SeekerGuard from "../components/SeekerGuard";
@@ -17,16 +17,10 @@ import {
   mintV2,
   mplCandyMachine,
   fetchCandyMachine,
-  fetchCandyGuard
 } from "@metaplex-foundation/mpl-candy-machine";
-import { setComputeUnitLimit } from "@metaplex-foundation/mpl-essentials";
 import {
   publicKey as umiPublicKey,
-  generateSigner,
-  transactionBuilder,
   some,
-  none,
-  unwrapOption
 } from "@metaplex-foundation/umi";
 
 const MY_TREASURY_ADDR = "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc";
@@ -47,7 +41,25 @@ const Mint: NextPage = () => {
   const [loading, setLoading] = useState(false);
   const [amount, setAmount] = useState(1);
 
+  // PUBLIC RPC FALLBACK OPTION:
+  // "https://api.mainnet-beta.solana.com" (Very stable but slow)
+  // "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3" (Your current one)
+  const RPC_URL = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
+
   useEffect(() => { setIsClient(true); }, []);
+
+  // VERIFICATION TOOL: Check if the Candy Machine is actually alive
+  const checkCandyMachineStatus = async () => {
+    console.log("Checking Candy Machine Health...");
+    try {
+      const umi = createUmi(RPC_URL).use(mplCandyMachine());
+      const cm = await fetchCandyMachine(umi, umiPublicKey(MY_CANDY_ID));
+      alert(`✅ HEALTHY\nItems: ${cm.itemsRedeemed}/${cm.data.itemsAvailable}\nAuthority: ${cm.authority.toString().slice(0, 8)}...`);
+    } catch (err: any) {
+      console.error(err);
+      alert(`❌ ERROR: ${err.message}`);
+    }
+  };
 
   const fetchStatus = async () => {
     try {
@@ -76,79 +88,67 @@ const Mint: NextPage = () => {
   const handleDecrement = () => { if (amount > 1) setAmount(prev => prev - 1); };
 
   const handleMint = async () => {
-    if (!publicKey || !wallet || !wallet.publicKey) return;
+    if (!publicKey || !wallet.sendTransaction) return;
     setLoading(true);
 
     try {
-      const umi = createUmi(connection.rpcEndpoint)
-        .use(walletAdapterIdentity(wallet))
-        .use(mplCandyMachine());
+      const { Transaction, Connection, ComputeBudgetProgram } = await import("@solana/web3.js");
+      const { toWeb3JsInstruction, toWeb3JsKeypair } = await import("@metaplex-foundation/umi-web3js-adapters");
+      const { generateSigner, some } = await import("@metaplex-foundation/umi");
 
-      const candyMachinePk = umiPublicKey(MY_CANDY_ID);
-      const candyMachine = await fetchCandyMachine(umi, candyMachinePk);
+      const web3Conn = new Connection(RPC_URL, "confirmed");
+      const umi = createUmi(RPC_URL).use(walletAdapterIdentity(wallet)).use(mplCandyMachine());
 
-      // DEBUG LOGS - Check your browser console
-      console.log("Candy Machine Pk:", candyMachine.publicKey.toString());
-      console.log("Mint Authority Pk:", candyMachine.mintAuthority ? candyMachine.mintAuthority.toString() : "NULL");
+      const nftMintSigner = generateSigner(umi);
+      const nftMintKeypair = toWeb3JsKeypair(nftMintSigner);
 
-      if (!candyMachine.mintAuthority) {
-        throw new Error("Candy Machine has no Mint Authority (Guard). Check if guards are assigned.");
-      }
+      const mintBuilder = mintV2(umi, {
+        candyMachine: umiPublicKey(MY_CANDY_ID),
+        candyGuard: umiPublicKey("6VbMRH2XHrZKQPVtUEMJVh3wbYAs3dF6sTkt7r11E2sC"),
+        nftMint: nftMintSigner,
+        collectionMint: umiPublicKey("3e1pfV6fucUZScyed1sfBdFwyeVCXvXud1UkZMq1iy7L"),
+        collectionUpdateAuthority: umiPublicKey("G3NtCTVEYmqBS8QZiWqAdfUQcbyxtTATTvydzksuyB7k"),
+        mintArgs: {
+          solPayment: some({ destination: umiPublicKey(MY_TREASURY_ADDR) })
+        },
+      });
 
-      const candyGuard = await fetchCandyGuard(umi, candyMachine.mintAuthority);
-
-      // --- COLLECTION MINT LOGIC ---
-      let colMintStr: any = unwrapOption(candyMachine.collectionMint as any);
-      if (!colMintStr) {
-        colMintStr = process.env.NEXT_PUBLIC_COLLECTION_MINT || "3e1pfV6fucUZScyed1sfBdFwyeVCXvXud1UkZMq1iy7L";
-      }
-      const colMint = umiPublicKey(colMintStr as string);
-
-      let builder = transactionBuilder().add(
-        setComputeUnitLimit(umi, { units: 800000 })
+      const transaction = new Transaction();
+      transaction.add(
+        ComputeBudgetProgram.setComputeUnitLimit({ units: 800000 }),
+        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 250000 })
       );
+      transaction.add(toWeb3JsInstruction(mintBuilder.getInstructions()[0]));
 
-      for (let i = 0; i < amount; i++) {
-        const nftMint = generateSigner(umi);
+      const { blockhash, lastValidBlockHeight } = await web3Conn.getLatestBlockhash("finalized");
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = publicKey;
 
-        builder = builder.add(
-          mintV2(umi, {
-            candyMachine: candyMachine.publicKey,
-            candyGuard: candyGuard.publicKey,
-            nftMint: nftMint,
-            collectionMint: colMint,
-            collectionUpdateAuthority: candyMachine.authority,
-            tokenOwner: umi.identity.publicKey,
-            minter: umi.identity,
-            mintArgs: {
-              // This is the critical fix for the solPayment guard
-              solPayment: some({ destination: umiPublicKey(MY_TREASURY_ADDR) }),
-            },
-          } as any)
-        );
+      // --- THE PRE-CHECK (SIMULATION) ---
+      // We manually simulate to see WHY it is failing before the wallet crashes
+      const simulation = await web3Conn.simulateTransaction(transaction);
+      if (simulation.value.err) {
+        console.error("Simulation Error Details:", simulation.value.logs);
+        const logs = simulation.value.logs?.join(" ") || "";
+        if (logs.includes("MintNotLive")) throw new Error("MINT IS NOT LIVE YET (Check your Start Date)");
+        if (logs.includes("NotEnoughSOL")) throw new Error("INSUFFICIENT FUNDS (Need more SOL)");
+        if (logs.includes("InvalidMintAuthority")) throw new Error("MINT AUTHORITY MISMATCH");
+        throw new Error("Blockchain rejected this mint. This usually means the 'Start Date' in your config hasn't passed yet.");
       }
 
-      console.log("Requesting signature...");
-      const { signature } = await builder.sendAndConfirm(umi, {
-        send: { skipPreflight: false, preflightCommitment: 'confirmed' }
+      console.log("Requesting Wallet Signature...");
+      const signature = await wallet.sendTransaction(transaction, web3Conn, {
+        signers: [nftMintKeypair],
+        skipPreflight: true,
       });
 
-      const txSig = Buffer.from(signature).toString('hex');
-
-      await axios.post("https://laamtag-production.up.railway.app/mint", {
-        wallet: publicKey.toBase58(),
-        txSignature: txSig,
-        count: amount
-      });
-
-      alert(`Success! Minted ${amount} boxes.`);
+      await web3Conn.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
+      alert("SUCCESS! Mint Complete.");
       fetchStatus();
     } catch (err: any) {
       console.error("MINT ERROR:", err);
-      // More descriptive error for troubleshooting
-      const msg = err.message || "";
-      if (msg.includes("Constraint")) alert("Mint Failed: Guard constraint not met (Check SOL balance)");
-      else alert(`Mint Failed: ${msg || "Assertion failed - Open Console (F12) for logs"}`);
+      // This will now show the SPECIFIC reason from the simulation
+      alert(`MINT FAILED: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -176,9 +176,18 @@ const Mint: NextPage = () => {
               <div>
                 <h1 className="text-6xl font-black italic tracking-tighter text-yellow-500 uppercase leading-none">Laamtag Genesis</h1>
                 <p className="mt-4 text-gray-400 text-lg">Claim your position, <span className="text-white font-bold">{displayName}</span>.</p>
-                <p className={`text-sm font-mono mt-2 ${balance < totalDisplay ? 'text-red-500' : 'text-yellow-500'}`}>
-                  Balance: {balance.toFixed(3)} SOL {balance < totalDisplay && "(Low Funds)"}
-                </p>
+                <div className="flex items-center gap-4 mt-2">
+                  <p className={`text-sm font-mono ${balance < totalDisplay ? 'text-red-500' : 'text-yellow-500'}`}>
+                    Balance: {balance.toFixed(3)} SOL
+                  </p>
+                  {/* NEW STATUS CHECK BUTTON */}
+                  <button
+                    onClick={checkCandyMachineStatus}
+                    className="text-[10px] flex items-center gap-1 bg-white/10 hover:bg-white/20 px-2 py-1 rounded text-gray-400 border border-white/5 transition"
+                  >
+                    <Activity size={10} /> Check On-Chain Health
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-3">
