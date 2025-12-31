@@ -75,7 +75,7 @@ const Mint: NextPage = () => {
   const handleIncrement = () => { if (amount < (3 - stats.personal)) setAmount(prev => prev + 1); };
   const handleDecrement = () => { if (amount > 1) setAmount(prev => prev - 1); };
 
- const handleMint = async () => {
+  const handleMint = async () => {
     if (!publicKey || !wallet || !wallet.publicKey) return;
     setLoading(true);
 
@@ -94,15 +94,15 @@ const Mint: NextPage = () => {
 
       // --- NEW: COLLECTION MINT LOGIC ---
       // We try the CM state first, then fallback to your .env variable
-      let colMintStr = unwrapOption(candyMachine.collectionMint as any);
+      // --- COLLECTION MINT LOGIC (HARDCODED FALLBACK) ---
+      let colMintStr: any = unwrapOption(candyMachine.collectionMint as any);
+
+      // If Candy Machine doesn't have it, try ENV, then try hardcoded string
       if (!colMintStr) {
-        colMintStr = process.env.NEXT_PUBLIC_COLLECTION_MINT;
+        colMintStr = process.env.NEXT_PUBLIC_COLLECTION_MINT || "3e1pfV6fucUZScyed1sfBdFwyeVCXvXud1UkZMq1iy7L";
       }
 
-      if (!colMintStr) {
-        throw new Error("Collection Mint address not found in CM or .env");
-      }
-
+      console.log("Using Collection Mint:", colMintStr);
       const colMint = umiPublicKey(colMintStr as string);
       // ----------------------------------
 
