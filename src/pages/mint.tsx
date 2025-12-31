@@ -26,7 +26,7 @@ import {
   transactionBuilder,
   some,
   none,
-  unwrapOption // IMPORTANT: This handles the Hidden Settings "None" value
+  unwrapOption
 } from "@metaplex-foundation/umi";
 
 const MY_TREASURY_ADDR = "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc";
@@ -87,9 +87,14 @@ const Mint: NextPage = () => {
       const candyMachinePk = umiPublicKey(MY_CANDY_ID);
       const candyMachine = await fetchCandyMachine(umi, candyMachinePk);
 
+      // DEBUG LOGS - Check your browser console
+      console.log("Candy Machine Pk:", candyMachine.publicKey.toString());
+      console.log("Mint Authority Pk:", candyMachine.mintAuthority ? candyMachine.mintAuthority.toString() : "NULL");
+
       if (!candyMachine.mintAuthority) {
-        throw new Error("Candy Machine has no Mint Authority (Guard).");
+        throw new Error("Candy Machine has no Mint Authority (Guard). Check if guards are assigned.");
       }
+
       const candyGuard = await fetchCandyGuard(umi, candyMachine.mintAuthority);
 
       // --- COLLECTION MINT LOGIC ---
@@ -113,11 +118,12 @@ const Mint: NextPage = () => {
             nftMint: nftMint,
             collectionMint: colMint,
             collectionUpdateAuthority: candyMachine.authority,
-            // ADD THESE THREE LINES:
-            tokenStandard: candyMachine.tokenStandard,
-            minter: umi.identity,
             tokenOwner: umi.identity.publicKey,
-            mintArgs: {},
+            minter: umi.identity,
+            mintArgs: {
+              // This is the critical fix for the solPayment guard
+              solPayment: some({ destination: umiPublicKey(MY_TREASURY_ADDR) }),
+            },
           } as any)
         );
       }
@@ -139,7 +145,10 @@ const Mint: NextPage = () => {
       fetchStatus();
     } catch (err: any) {
       console.error("MINT ERROR:", err);
-      alert(`Mint Failed: ${err.message || "Assertion failed - Check balance or Collection"}`);
+      // More descriptive error for troubleshooting
+      const msg = err.message || "";
+      if (msg.includes("Constraint")) alert("Mint Failed: Guard constraint not met (Check SOL balance)");
+      else alert(`Mint Failed: ${msg || "Assertion failed - Open Console (F12) for logs"}`);
     } finally {
       setLoading(false);
     }
