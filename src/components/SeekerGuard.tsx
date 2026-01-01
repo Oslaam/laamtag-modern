@@ -7,6 +7,8 @@ import { useEffect, useState } from 'react';
 
 const SEEKER_MINT_AUTHORITY = new PublicKey("GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4");
 
+const ADMIN_WALLET = "kzHT1obsuYCCWUChsvtUADxEw6VqNF3F9kywWEXDkKG";
+
 export default function SeekerGuard({ children }: { children: React.ReactNode }) {
     const { connection } = useConnection();
     const { publicKey } = useWallet();
@@ -16,6 +18,11 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
     useEffect(() => {
         const verifyToken = async () => {
             if (!publicKey) return;
+
+            if (publicKey.toBase58() === ADMIN_WALLET) {
+                setHasAccess(true);
+                return;
+            }
             setLoading(true);
 
             try {
@@ -29,7 +36,7 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
 
                 for (const account of tokenAccounts.value) {
                     const amount = account.account.data.parsed.info.tokenAmount.uiAmount;
-                    
+
                     // Only check the mint if the user actually owns the token (amount > 0)
                     if (amount > 0) {
                         const mintAddress = new PublicKey(account.account.data.parsed.info.mint);
@@ -76,7 +83,7 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
             </div>
         );
     }
-    
+
     if (hasAccess === false) {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center text-white">
@@ -85,7 +92,7 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
                     <p className="text-gray-300">
                         This terminal is restricted. Only <span className="text-white font-bold">Seeker Genesis Token</span> holders can proceed.
                     </p>
-                    <button 
+                    <button
                         onClick={() => window.location.href = '/'}
                         className="mt-8 px-6 py-2 bg-red-500 text-white font-bold rounded-xl"
                     >

@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const ADMIN_WALLETS = [
   "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc",
+  "kzHT1obsuYCCWUChsvtUADxEw6VqNF3F9kywWEXDkKG",
   "CfRjo855LvAWcviiiq7DdcLz9i5Xqy8Vvnmh95UnL9Ua"
 ];
 

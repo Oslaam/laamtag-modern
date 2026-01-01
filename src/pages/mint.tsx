@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import axios from "axios";
-import { Minus, Plus, Activity } from "lucide-react"; // Added Activity icon
+import { Minus, Plus, Activity } from "lucide-react";
 import Navbar from "../components/Navbar";
 import AppFooter from "../components/AppFooter";
 import SeekerGuard from "../components/SeekerGuard";
@@ -21,10 +21,13 @@ import {
 import {
   publicKey as umiPublicKey,
   some,
+  none, // Added none for guard group logic
 } from "@metaplex-foundation/umi";
 
 const MY_TREASURY_ADDR = "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc";
 const MY_CANDY_ID = "Dtz8f1hsqCKwa7TEkzzi8dXELk11y4YXaxqVqTDA1pAS";
+// The actual authority from your 'sugar show' output
+const ACTUAL_AUTHORITY = "E4cHwRYWTznNjTvchSkZVXH8LWqdWbLekVXWjzmite6M"; 
 
 const MAX_SUPPLY = 5000;
 const RENT_PER_NFT = 0.022;
@@ -41,22 +44,16 @@ const Mint: NextPage = () => {
   const [loading, setLoading] = useState(false);
   const [amount, setAmount] = useState(1);
 
-  // PUBLIC RPC FALLBACK OPTION:
-  // "https://api.mainnet-beta.solana.com" (Very stable but slow)
-  // "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3" (Your current one)
   const RPC_URL = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
 
   useEffect(() => { setIsClient(true); }, []);
 
-  // VERIFICATION TOOL: Check if the Candy Machine is actually alive
   const checkCandyMachineStatus = async () => {
-    console.log("Checking Candy Machine Health...");
     try {
       const umi = createUmi(RPC_URL).use(mplCandyMachine());
       const cm = await fetchCandyMachine(umi, umiPublicKey(MY_CANDY_ID));
-      alert(`✅ HEALTHY\nItems: ${cm.itemsRedeemed}/${cm.data.itemsAvailable}\nAuthority: ${cm.authority.toString().slice(0, 8)}...`);
+      alert(`✅ HEALTHY\nItems: ${cm.itemsRedeemed}/${cm.data.itemsAvailable}\nAuthority: ${cm.authority.toString()}`);
     } catch (err: any) {
-      console.error(err);
       alert(`❌ ERROR: ${err.message}`);
     }
   };
@@ -94,7 +91,7 @@ const Mint: NextPage = () => {
     try {
       const { Transaction, Connection, ComputeBudgetProgram } = await import("@solana/web3.js");
       const { toWeb3JsInstruction, toWeb3JsKeypair } = await import("@metaplex-foundation/umi-web3js-adapters");
-      const { generateSigner, some } = await import("@metaplex-foundation/umi");
+      const { generateSigner } = await import("@metaplex-foundation/umi");
 
       const web3Conn = new Connection(RPC_URL, "confirmed");
       const umi = createUmi(RPC_URL).use(walletAdapterIdentity(wallet)).use(mplCandyMachine());
@@ -102,12 +99,16 @@ const Mint: NextPage = () => {
       const nftMintSigner = generateSigner(umi);
       const nftMintKeypair = toWeb3JsKeypair(nftMintSigner);
 
+      // Identify if we should use the "admin" guard group
+      const isAdmin = publicKey.toBase58() === "kzHT1obsuYCCWUChsvtUADxEw6VqNF3F9kywWEXDkKG";
+
       const mintBuilder = mintV2(umi, {
         candyMachine: umiPublicKey(MY_CANDY_ID),
         candyGuard: umiPublicKey("FQdbrCW5vux7xXGUXTDnR32psGn7NWCWvsV3KzSxKotU"),
         nftMint: nftMintSigner,
         collectionMint: umiPublicKey("3e1pfV6fucUZScyed1sfBdFwyeVCXvXud1UkZMq1iy7L"),
-        collectionUpdateAuthority: umiPublicKey("G3NtCTVEYmqBS8QZiWqAdfUQcbyxtTATTvydzksuyB7k"),
+        collectionUpdateAuthority: umiPublicKey(ACTUAL_AUTHORITY),
+        group: isAdmin ? some("admin") : none(), // Use admin group if applicable
         mintArgs: {
           solPayment: some({ destination: umiPublicKey(MY_TREASURY_ADDR) })
         },
@@ -116,7 +117,7 @@ const Mint: NextPage = () => {
       const transaction = new Transaction();
       transaction.add(
         ComputeBudgetProgram.setComputeUnitLimit({ units: 800000 }),
-        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 250000 })
+        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 500000 }) // Slightly higher for reliability
       );
       transaction.add(toWeb3JsInstruction(mintBuilder.getInstructions()[0]));
 
@@ -124,19 +125,20 @@ const Mint: NextPage = () => {
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = publicKey;
 
-      // --- THE PRE-CHECK (SIMULATION) ---
-      // We manually simulate to see WHY it is failing before the wallet crashes
       const simulation = await web3Conn.simulateTransaction(transaction);
       if (simulation.value.err) {
-        console.error("Simulation Error Details:", simulation.value.logs);
         const logs = simulation.value.logs?.join(" ") || "";
-        if (logs.includes("MintNotLive")) throw new Error("MINT IS NOT LIVE YET (Check your Start Date)");
-        if (logs.includes("NotEnoughSOL")) throw new Error("INSUFFICIENT FUNDS (Need more SOL)");
-        if (logs.includes("InvalidMintAuthority")) throw new Error("MINT AUTHORITY MISMATCH");
-        throw new Error("Blockchain rejected this mint. This usually means the 'Start Date' in your config hasn't passed yet.");
+        console.error("SIMULATION LOGS:", logs);
+        
+        if (logs.includes("0x177a") || logs.includes("IncorrectCollectionAuthority")) {
+            throw new Error("AUTHORITY ERROR: Use the wallet that deployed the collection.");
+        }
+        if (logs.includes("NotEnoughSOL")) throw new Error("INSUFFICIENT FUNDS (Need ~0.03 SOL total)");
+        if (logs.includes("0x1786")) throw new Error("MINT DATE NOT REACHED");
+        
+        throw new Error("Blockchain Rejected Simulation. Check Console for Hex Code.");
       }
 
-      console.log("Requesting Wallet Signature...");
       const signature = await wallet.sendTransaction(transaction, web3Conn, {
         signers: [nftMintKeypair],
         skipPreflight: true,
@@ -147,7 +149,6 @@ const Mint: NextPage = () => {
       fetchStatus();
     } catch (err: any) {
       console.error("MINT ERROR:", err);
-      // This will now show the SPECIFIC reason from the simulation
       alert(`MINT FAILED: ${err.message}`);
     } finally {
       setLoading(false);
@@ -180,7 +181,6 @@ const Mint: NextPage = () => {
                   <p className={`text-sm font-mono ${balance < totalDisplay ? 'text-red-500' : 'text-yellow-500'}`}>
                     Balance: {balance.toFixed(3)} SOL
                   </p>
-                  {/* NEW STATUS CHECK BUTTON */}
                   <button
                     onClick={checkCandyMachineStatus}
                     className="text-[10px] flex items-center gap-1 bg-white/10 hover:bg-white/20 px-2 py-1 rounded text-gray-400 border border-white/5 transition"
