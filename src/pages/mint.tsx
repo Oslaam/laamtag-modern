@@ -104,7 +104,7 @@ const Mint: NextPage = () => {
 
       const mintBuilder = mintV2(umi, {
         candyMachine: umiPublicKey(MY_CANDY_ID),
-        candyGuard: umiPublicKey("6VbMRH2XHrZKQPVtUEMJVh3wbYAs3dF6sTkt7r11E2sC"),
+        candyGuard: umiPublicKey("FQdbrCW5vux7xXGUXTDnR32psGn7NWCWvsV3KzSxKotU"),
         nftMint: nftMintSigner,
         collectionMint: umiPublicKey("3e1pfV6fucUZScyed1sfBdFwyeVCXvXud1UkZMq1iy7L"),
         collectionUpdateAuthority: umiPublicKey("G3NtCTVEYmqBS8QZiWqAdfUQcbyxtTATTvydzksuyB7k"),
