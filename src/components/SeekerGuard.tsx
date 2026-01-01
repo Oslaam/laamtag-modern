@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 
 const SEEKER_MINT_AUTHORITY = new PublicKey("GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4");
 
-const ADMIN_WALLET = "kzHT1obsuYCCWUChsvtUADxEw6VqNF3F9kywWEXDkKG";
+const ADMIN_WALLET = "E4cHwRYWTznNjTvchSkZVXH8LWqdWbLekVXWjzmite6M";
 
 export default function SeekerGuard({ children }: { children: React.ReactNode }) {
     const { connection } = useConnection();

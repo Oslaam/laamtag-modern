@@ -21,13 +21,12 @@ import {
 import {
   publicKey as umiPublicKey,
   some,
-  none, // Added none for guard group logic
+  none,
 } from "@metaplex-foundation/umi";
 
 const MY_TREASURY_ADDR = "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc";
 const MY_CANDY_ID = "Dtz8f1hsqCKwa7TEkzzi8dXELk11y4YXaxqVqTDA1pAS";
-// The actual authority from your 'sugar show' output
-const ACTUAL_AUTHORITY = "E4cHwRYWTznNjTvchSkZVXH8LWqdWbLekVXWjzmite6M"; 
+const ACTUAL_AUTHORITY = "E4cHwRYWTznNjTvchSkZVXH8LWqdWbLekVXWjzmite6M";
 
 const MAX_SUPPLY = 5000;
 const RENT_PER_NFT = 0.022;
@@ -52,7 +51,7 @@ const Mint: NextPage = () => {
     try {
       const umi = createUmi(RPC_URL).use(mplCandyMachine());
       const cm = await fetchCandyMachine(umi, umiPublicKey(MY_CANDY_ID));
-      alert(`✅ HEALTHY\nItems: ${cm.itemsRedeemed}/${cm.data.itemsAvailable}\nAuthority: ${cm.authority.toString()}`);
+      alert(`✅ HEALTHY\nItems: ${cm.itemsRedeemed}/${cm.data.itemsAvailable}\nAuthority: ${cm.authority.toString()}\nMint Authority: ${cm.mintAuthority.toString()}`);
     } catch (err: any) {
       alert(`❌ ERROR: ${err.message}`);
     }
@@ -99,57 +98,64 @@ const Mint: NextPage = () => {
       const nftMintSigner = generateSigner(umi);
       const nftMintKeypair = toWeb3JsKeypair(nftMintSigner);
 
-      // Identify if we should use the "admin" guard group
-      const isAdmin = publicKey.toBase58() === "kzHT1obsuYCCWUChsvtUADxEw6VqNF3F9kywWEXDkKG";
+      // 1. Fetch the CM dynamically to get the correct Guard (mintAuthority)
+      const candyMachine = await fetchCandyMachine(umi, umiPublicKey(MY_CANDY_ID));
 
+      // 2. Build Mint Instruction
       const mintBuilder = mintV2(umi, {
-        candyMachine: umiPublicKey(MY_CANDY_ID),
-        candyGuard: umiPublicKey("FQdbrCW5vux7xXGUXTDnR32psGn7NWCWvsV3KzSxKotU"),
+        candyMachine: candyMachine.publicKey,
+        candyGuard: candyMachine.mintAuthority, // DYNAMIC GUARD FIX
         nftMint: nftMintSigner,
-        collectionMint: umiPublicKey("3e1pfV6fucUZScyed1sfBdFwyeVCXvXud1UkZMq1iy7L"),
-        collectionUpdateAuthority: umiPublicKey(ACTUAL_AUTHORITY),
-        group: isAdmin ? some("admin") : none(), // Use admin group if applicable
+        collectionMint: candyMachine.collectionMint,
+        collectionUpdateAuthority: candyMachine.authority,
+        group: none(), // Using 'default' guard group as per your config.json
         mintArgs: {
-          solPayment: some({ destination: umiPublicKey(MY_TREASURY_ADDR) })
+          solPayment: some({ destination: umiPublicKey(MY_TREASURY_ADDR) }),
         },
       });
 
       const transaction = new Transaction();
+
+      // High priority for Mainnet
       transaction.add(
         ComputeBudgetProgram.setComputeUnitLimit({ units: 800000 }),
-        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 500000 }) // Slightly higher for reliability
+        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 12000 })
       );
-      transaction.add(toWeb3JsInstruction(mintBuilder.getInstructions()[0]));
+
+      // Add ALL instructions from the builder
+      mintBuilder.getInstructions().forEach((ix) => {
+        transaction.add(toWeb3JsInstruction(ix));
+      });
 
       const { blockhash, lastValidBlockHeight } = await web3Conn.getLatestBlockhash("finalized");
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = publicKey;
 
+      // 3. Simulation
       const simulation = await web3Conn.simulateTransaction(transaction);
       if (simulation.value.err) {
         const logs = simulation.value.logs?.join(" ") || "";
-        console.error("SIMULATION LOGS:", logs);
+        console.error("FULL SIMULATION LOGS:", logs);
         
-        if (logs.includes("0x177a") || logs.includes("IncorrectCollectionAuthority")) {
-            throw new Error("AUTHORITY ERROR: Use the wallet that deployed the collection.");
-        }
-        if (logs.includes("NotEnoughSOL")) throw new Error("INSUFFICIENT FUNDS (Need ~0.03 SOL total)");
-        if (logs.includes("0x1786")) throw new Error("MINT DATE NOT REACHED");
+        if (logs.includes("0x3c")) throw new Error("AUTHORITY MISMATCH: Verification failed. You might need to be connected with the update authority.");
+        if (logs.includes("0x1786")) throw new Error("START DATE: The mint hasn't started yet according to the blockchain.");
+        if (logs.includes("0xbc4") || logs.includes("AccountNotInitialized")) throw new Error("CANDY GUARD ERROR: The Guard account is not initialized or mismatched.");
         
-        throw new Error("Blockchain Rejected Simulation. Check Console for Hex Code.");
+        throw new Error(`Simulation Failed: ${logs.slice(-100)}`);
       }
 
+      // 4. Send Transaction
       const signature = await wallet.sendTransaction(transaction, web3Conn, {
         signers: [nftMintKeypair],
         skipPreflight: true,
       });
 
       await web3Conn.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
-      alert("SUCCESS! Mint Complete.");
+      alert("SUCCESS! Your NFT is minted.");
       fetchStatus();
     } catch (err: any) {
       console.error("MINT ERROR:", err);
-      alert(`MINT FAILED: ${err.message}`);
+      alert(err.message);
     } finally {
       setLoading(false);
     }
