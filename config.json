@@ -7,7 +7,7 @@
   "isSequential": true,
   "creators": [
     {
-      "address": "43ARBKVdGKR2a1t7gh3oAu4ZjbnRZaTvM9YDp5twzgvn",
+      "address": "G3NtCTVEYmqBS8QZiWqAdfUQcbyxtTATTvydzksuyB7k",
       "share": 100
     }
   ],
@@ -19,7 +19,7 @@
   "hiddenSettings": {
     "name": "LAAMTAG - SEEKER EXCLUSIVE #",
     "uri": "https://gateway.irys.xyz/fqUaBd0rD7CsufZ29zF16fY3ypLpvMVxKEJswk3Jtew",
-    "hash": "DfQt5vz5UvgNxuZozDFi6Rdm9HtwW3cm"
+    "hash": "6bRdq8dhiu4P52iWwFenrJcANqaxdsDU"
   },
   "guards": {
     "default": {
@@ -29,7 +29,9 @@
         "destination": "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc"
       },
       "tokenPayment": null,
-      "startDate": null,
+      "startDate": {
+        "date": "2025-01-01T00:00:00Z"
+      },
       "thirdPartySigner": null,
       "tokenGate": null,
       "gatekeeper": null,
