@@ -6,7 +6,7 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 
 // ADD MULTIPLE ADMIN WALLETS HERE
 const ADMIN_WALLETS = [
-  "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc", 
+  "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc",
   "CfRjo855LvAWcviiiq7DdcLz9i5Xqy8Vvnmh95UnL9Ua"
 ];
 
@@ -22,7 +22,8 @@ export default function Navbar() {
     const checkPending = async () => {
       if (!isAdmin) return; // Only fetch count if user is admin
       try {
-        const res = await fetch('/api/admin/pending', {
+        // Replace the old fetch with this:
+        const res = await fetch('https://laamtag-production.up.railway.app/admin/pending', {
           headers: { 'x-admin-wallet': publicKey.toString() }
         });
         if (res.ok) {
@@ -33,7 +34,7 @@ export default function Navbar() {
         console.error("Admin check failed", err);
       }
     };
-    
+
     checkPending();
     const interval = setInterval(checkPending, 30000);
     return () => clearInterval(interval);
@@ -47,17 +48,17 @@ export default function Navbar() {
         </Link>
 
         <div className="flex gap-6 items-center border-l border-white/10 pl-6">
-          <Link 
-            href="/leaderboard" 
+          <Link
+            href="/leaderboard"
             className="text-[10px] font-black opacity-70 hover:opacity-100 uppercase tracking-[0.2em] transition-all"
           >
             Leaderboard
           </Link>
-          
+
           {/* ONLY SHOWS FOR ADMINS */}
           {isAdmin && (
-            <Link 
-              href="/admin/dashboard" 
+            <Link
+              href="/admin/dashboard"
               className="relative text-[10px] font-black text-yellow-500 uppercase tracking-[0.2em] animate-pulse"
             >
               Terminal

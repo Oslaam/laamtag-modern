@@ -14,14 +14,15 @@ export const useRankWatcher = () => {
     const checkRank = async () => {
       try {
         // Fetch latest user data from your existing API
-        const res = await fetch(`/api/user/${publicKey.toString()}`);
+        // Inside checkRank function
+        const res = await fetch(`https://laamtag-production.up.railway.app/user/${publicKey.toString()}`);
         if (!res.ok) return;
-        
+
         const data = await res.json();
-        
+
         if (data.laamPoints !== undefined) {
           const currentRankObj = getRank(data.laamPoints);
-          
+
           // On first load, just save the rank, don't popup
           if (lastKnownRank === null) {
             setLastKnownRank(currentRankObj.name);
@@ -42,7 +43,7 @@ export const useRankWatcher = () => {
 
     // Check immediately, then every 10 seconds
     checkRank();
-    const interval = setInterval(checkRank, 10000); 
+    const interval = setInterval(checkRank, 10000);
 
     return () => clearInterval(interval);
   }, [publicKey, lastKnownRank]);

@@ -20,3 +20,7 @@ yarn-error.log*
 # System files
 .DS_Store
 /src/generated/prisma
+
+authority.json
+
+*.json

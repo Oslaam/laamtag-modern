@@ -22,12 +22,14 @@ import {
   publicKey as umiPublicKey,
   some,
   none,
+  generateSigner,
 } from "@metaplex-foundation/umi";
+import { toWeb3JsInstruction, toWeb3JsKeypair } from "@metaplex-foundation/umi-web3js-adapters";
 
+// --- CONSTANTS RESTORED ---
+const MY_CANDY_ID = "AChnsAMBB52i3QKwf18AMYXaaJtsM7hVrhmgaGZuw32t";
 const MY_TREASURY_ADDR = "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc";
-const MY_CANDY_ID = "Dtz8f1hsqCKwa7TEkzzi8dXELk11y4YXaxqVqTDA1pAS";
-const ACTUAL_AUTHORITY = "E4cHwRYWTznNjTvchSkZVXH8LWqdWbLekVXWjzmite6M";
-
+const RPC_URL = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
 const MAX_SUPPLY = 5000;
 const RENT_PER_NFT = 0.022;
 const MINT_PRICE = 0.001;
@@ -43,15 +45,13 @@ const Mint: NextPage = () => {
   const [loading, setLoading] = useState(false);
   const [amount, setAmount] = useState(1);
 
-  const RPC_URL = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
-
   useEffect(() => { setIsClient(true); }, []);
 
   const checkCandyMachineStatus = async () => {
     try {
       const umi = createUmi(RPC_URL).use(mplCandyMachine());
       const cm = await fetchCandyMachine(umi, umiPublicKey(MY_CANDY_ID));
-      alert(`✅ HEALTHY\nItems: ${cm.itemsRedeemed}/${cm.data.itemsAvailable}\nAuthority: ${cm.authority.toString()}\nMint Authority: ${cm.mintAuthority.toString()}`);
+      alert(`✅ HEALTHY\nItems: ${cm.itemsRedeemed}/${cm.data.itemsAvailable}\nAuthority: ${cm.authority.toString()}`);
     } catch (err: any) {
       alert(`❌ ERROR: ${err.message}`);
     }
@@ -59,24 +59,22 @@ const Mint: NextPage = () => {
 
   const fetchStatus = async () => {
     try {
-      const walletAddr = publicKey ? publicKey.toBase58() : "none";
-      const res = await axios.get(`https://laamtag-production.up.railway.app/status/${walletAddr}`);
+      if (!publicKey) return;
+      const res = await axios.get(`https://laamtag-production.up.railway.app/status/${publicKey.toBase58()}`);
       setStats({
         global: res.data.globalMinted || 0,
         personal: res.data.personalMinted || 0,
         soldOut: res.data.isSoldOut || false
       });
-    } catch (e) { console.warn("Railway API waking up..."); }
+    } catch (e) { console.warn("API Error:", e); }
   };
 
   useEffect(() => {
-    if (isClient) {
+    if (isClient && publicKey) {
       fetchStatus();
-      if (publicKey) {
-        connection.getAccountInfo(publicKey).then(info => {
-          if (info) setBalance(info.lamports / LAMPORTS_PER_SOL);
-        });
-      }
+      connection.getAccountInfo(publicKey).then(info => {
+        if (info) setBalance(info.lamports / LAMPORTS_PER_SOL);
+      });
     }
   }, [isClient, publicKey, connection]);
 
@@ -89,73 +87,53 @@ const Mint: NextPage = () => {
 
     try {
       const { Transaction, Connection, ComputeBudgetProgram } = await import("@solana/web3.js");
-      const { toWeb3JsInstruction, toWeb3JsKeypair } = await import("@metaplex-foundation/umi-web3js-adapters");
-      const { generateSigner } = await import("@metaplex-foundation/umi");
-
       const web3Conn = new Connection(RPC_URL, "confirmed");
-      const umi = createUmi(RPC_URL).use(walletAdapterIdentity(wallet)).use(mplCandyMachine());
 
+      const umi = createUmi(RPC_URL).use(walletAdapterIdentity(wallet)).use(mplCandyMachine());
       const nftMintSigner = generateSigner(umi);
       const nftMintKeypair = toWeb3JsKeypair(nftMintSigner);
-
-      // 1. Fetch the CM dynamically to get the correct Guard (mintAuthority)
       const candyMachine = await fetchCandyMachine(umi, umiPublicKey(MY_CANDY_ID));
 
-      // 2. Build Mint Instruction
       const mintBuilder = mintV2(umi, {
         candyMachine: candyMachine.publicKey,
-        candyGuard: candyMachine.mintAuthority, // DYNAMIC GUARD FIX
+        candyGuard: candyMachine.mintAuthority,
         nftMint: nftMintSigner,
         collectionMint: candyMachine.collectionMint,
         collectionUpdateAuthority: candyMachine.authority,
-        group: none(), // Using 'default' guard group as per your config.json
-        mintArgs: {
-          solPayment: some({ destination: umiPublicKey(MY_TREASURY_ADDR) }),
-        },
+        group: none(),
+        mintArgs: { solPayment: some({ destination: umiPublicKey(MY_TREASURY_ADDR) }) },
       });
 
       const transaction = new Transaction();
-
-      // High priority for Mainnet
       transaction.add(
         ComputeBudgetProgram.setComputeUnitLimit({ units: 800000 }),
-        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 12000 })
+        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 80000 }) // Slightly higher for reliability
       );
 
-      // Add ALL instructions from the builder
-      mintBuilder.getInstructions().forEach((ix) => {
-        transaction.add(toWeb3JsInstruction(ix));
-      });
+      mintBuilder.getInstructions().forEach((ix) => { transaction.add(toWeb3JsInstruction(ix)); });
 
-      const { blockhash, lastValidBlockHeight } = await web3Conn.getLatestBlockhash("finalized");
-      transaction.recentBlockhash = blockhash;
+      // FIX FOR SEEKER: Get the absolute latest blockhash
+      const latest = await web3Conn.getLatestBlockhash("confirmed");
+      transaction.recentBlockhash = latest.blockhash;
       transaction.feePayer = publicKey;
 
-      // 3. Simulation
-      const simulation = await web3Conn.simulateTransaction(transaction);
-      if (simulation.value.err) {
-        const logs = simulation.value.logs?.join(" ") || "";
-        console.error("FULL SIMULATION LOGS:", logs);
-        
-        if (logs.includes("0x3c")) throw new Error("AUTHORITY MISMATCH: Verification failed. You might need to be connected with the update authority.");
-        if (logs.includes("0x1786")) throw new Error("START DATE: The mint hasn't started yet according to the blockchain.");
-        if (logs.includes("0xbc4") || logs.includes("AccountNotInitialized")) throw new Error("CANDY GUARD ERROR: The Guard account is not initialized or mismatched.");
-        
-        throw new Error(`Simulation Failed: ${logs.slice(-100)}`);
-      }
-
-      // 4. Send Transaction
       const signature = await wallet.sendTransaction(transaction, web3Conn, {
         signers: [nftMintKeypair],
-        skipPreflight: true,
+        skipPreflight: false, // Changed to false so you see the price simulation!
       });
 
-      await web3Conn.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
-      alert("SUCCESS! Your NFT is minted.");
-      fetchStatus();
+      // FIX FOR SEEKER: Proper confirmation check
+      await web3Conn.confirmTransaction({
+        signature,
+        blockhash: latest.blockhash,
+        lastValidBlockHeight: latest.lastValidBlockHeight
+      }, "confirmed");
+
+      alert("🎉 SUCCESS! Position Claimed.");
+      fetchStatus(); // This updates the 0/3 and 0/5000 numbers
     } catch (err: any) {
       console.error("MINT ERROR:", err);
-      alert(err.message);
+      alert("Mint issue: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -187,10 +165,7 @@ const Mint: NextPage = () => {
                   <p className={`text-sm font-mono ${balance < totalDisplay ? 'text-red-500' : 'text-yellow-500'}`}>
                     Balance: {balance.toFixed(3)} SOL
                   </p>
-                  <button
-                    onClick={checkCandyMachineStatus}
-                    className="text-[10px] flex items-center gap-1 bg-white/10 hover:bg-white/20 px-2 py-1 rounded text-gray-400 border border-white/5 transition"
-                  >
+                  <button onClick={checkCandyMachineStatus} className="text-[10px] flex items-center gap-1 bg-white/10 hover:bg-white/20 px-2 py-1 rounded text-gray-400 border border-white/5 transition">
                     <Activity size={10} /> Check On-Chain Health
                   </button>
                 </div>
