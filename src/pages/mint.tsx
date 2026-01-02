@@ -31,8 +31,8 @@ const MY_CANDY_ID = "AChnsAMBB52i3QKwf18AMYXaaJtsM7hVrhmgaGZuw32t";
 const MY_TREASURY_ADDR = "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc";
 const RPC_URL = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
 const MAX_SUPPLY = 5000;
-const RENT_PER_NFT = 0.022;
-const MINT_PRICE = 0.001;
+const RENT_PER_NFT = 0.0;
+const MINT_PRICE = 0.27;
 
 const Mint: NextPage = () => {
   const { connection } = useConnection();
