@@ -47,16 +47,6 @@ const Mint: NextPage = () => {
 
   useEffect(() => { setIsClient(true); }, []);
 
-  const checkCandyMachineStatus = async () => {
-    try {
-      const umi = createUmi(RPC_URL).use(mplCandyMachine());
-      const cm = await fetchCandyMachine(umi, umiPublicKey(MY_CANDY_ID));
-      alert(`✅ HEALTHY\nItems: ${cm.itemsRedeemed}/${cm.data.itemsAvailable}\nAuthority: ${cm.authority.toString()}`);
-    } catch (err: any) {
-      alert(`❌ ERROR: ${err.message}`);
-    }
-  };
-
   const fetchStatus = async () => {
     try {
       if (!publicKey) return;
@@ -89,11 +79,19 @@ const Mint: NextPage = () => {
       const { Transaction, Connection, ComputeBudgetProgram } = await import("@solana/web3.js");
       const web3Conn = new Connection(RPC_URL, "confirmed");
 
-      const umi = createUmi(RPC_URL).use(walletAdapterIdentity(wallet)).use(mplCandyMachine());
+      // Use the proper Umi identity for Mobile Wallet Adapter
+      const umi = createUmi(RPC_URL)
+        .use(walletAdapterIdentity(wallet))
+        .use(mplCandyMachine());
+
+      // 1. GENERATE SIGNER
       const nftMintSigner = generateSigner(umi);
       const nftMintKeypair = toWeb3JsKeypair(nftMintSigner);
+
+      // 2. FETCH CM WITH STRICT KEYS
       const candyMachine = await fetchCandyMachine(umi, umiPublicKey(MY_CANDY_ID));
 
+      // 3. BUILD MINT (Strictly 1 mint at a time for Mobile)
       const mintBuilder = mintV2(umi, {
         candyMachine: candyMachine.publicKey,
         candyGuard: candyMachine.mintAuthority,
@@ -101,39 +99,45 @@ const Mint: NextPage = () => {
         collectionMint: candyMachine.collectionMint,
         collectionUpdateAuthority: candyMachine.authority,
         group: none(),
-        mintArgs: { solPayment: some({ destination: umiPublicKey(MY_TREASURY_ADDR) }) },
+        mintArgs: {
+          solPayment: some({ destination: umiPublicKey(MY_TREASURY_ADDR) })
+        },
       });
 
       const transaction = new Transaction();
+
+      // FIX: Lower Compute Units for Seeker (300k-400k is the sweet spot)
       transaction.add(
-        ComputeBudgetProgram.setComputeUnitLimit({ units: 800000 }),
-        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 80000 }) // Slightly higher for reliability
+        ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
+        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100000 })
       );
 
-      mintBuilder.getInstructions().forEach((ix) => { transaction.add(toWeb3JsInstruction(ix)); });
+      // Convert Umi instructions to Web3Js
+      mintBuilder.getInstructions().forEach((ix) => {
+        transaction.add(toWeb3JsInstruction(ix));
+      });
 
-      // FIX FOR SEEKER: Get the absolute latest blockhash
+      // FIX: Blockhash management for Mobile
       const latest = await web3Conn.getLatestBlockhash("confirmed");
       transaction.recentBlockhash = latest.blockhash;
       transaction.feePayer = publicKey;
 
       const signature = await wallet.sendTransaction(transaction, web3Conn, {
         signers: [nftMintKeypair],
-        skipPreflight: false, // Changed to false so you see the price simulation!
+        skipPreflight: false,
       });
 
-      // FIX FOR SEEKER: Proper confirmation check
       await web3Conn.confirmTransaction({
         signature,
         blockhash: latest.blockhash,
         lastValidBlockHeight: latest.lastValidBlockHeight
       }, "confirmed");
 
-      alert("🎉 SUCCESS! Position Claimed.");
-      fetchStatus(); // This updates the 0/3 and 0/5000 numbers
+      alert("🎉 SUCCESS! Seeker Mint Verified.");
+      fetchStatus();
     } catch (err: any) {
       console.error("MINT ERROR:", err);
-      alert("Mint issue: " + err.message);
+      alert("Mint failed: " + (err.message || "Unknown Error"));
     } finally {
       setLoading(false);
     }
@@ -165,16 +169,13 @@ const Mint: NextPage = () => {
                   <p className={`text-sm font-mono ${balance < totalDisplay ? 'text-red-500' : 'text-yellow-500'}`}>
                     Balance: {balance.toFixed(3)} SOL
                   </p>
-                  <button onClick={checkCandyMachineStatus} className="text-[10px] flex items-center gap-1 bg-white/10 hover:bg-white/20 px-2 py-1 rounded text-gray-400 border border-white/5 transition">
-                    <Activity size={10} /> Check On-Chain Health
-                  </button>
                 </div>
               </div>
 
               <div className="space-y-3">
                 <div className="flex justify-between text-xs font-bold uppercase text-yellow-500">
                   <span>Progress</span>
-                  <span>{stats.global} / {MAX_SUPPLY}</span>
+                  <span> {stats.global} / {MAX_SUPPLY}</span>
                 </div>
                 <div className="w-full h-4 bg-gray-900 rounded-full border border-white/5 p-1">
                   <div className="h-full bg-gradient-to-r from-yellow-600 to-yellow-400 rounded-full transition-all duration-1000" style={{ width: `${(stats.global / MAX_SUPPLY) * 100}%` }} />

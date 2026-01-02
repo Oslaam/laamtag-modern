@@ -16,6 +16,11 @@
   "awsConfig": null,
   "sdriveApiKey": null,
   "pinataConfig": null,
+  "collection": {
+    "address": "HhsTs4SBW77QXqE4J6mBtVsCBRoY17Hkkri9s62jcukx",
+    "name": "LAAMTAG Genesis Collection",
+    "family": "LAAMTAG"
+  },
   "hiddenSettings": {
     "name": "LAAMTAG Box #$ID+1$",
     "uri": "https://gateway.irys.xyz/kJDWPA3pMSlofgx8QuAc7ZUbLBvdczPR_B-Kpg-gLTM",
