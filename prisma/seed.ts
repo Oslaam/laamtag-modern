@@ -6,51 +6,65 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("🚀 Starting seed...");
 
-  // 1. Cleanup: Delete in order of dependency
-  console.log("Cleaning old data...");
-  await prisma.userQuest.deleteMany({});
-  await prisma.quest.deleteMany({});
-  await prisma.claimedNFT.deleteMany({});
-  // We usually don't delete Users in production, but for a fresh reset seed, it's fine:
-  // await prisma.user.deleteMany({}); 
-
-  // 2. Define your Quests
+  // 1. Define your Quests
+  // TIP: Ensure every quest has a unique 'id' string so upsert can find it easily.
   const quests = [
     {
+      id: "welcome-basic",
       title: "Welcome to LAAM",
       reward: 100,
       type: "basic"
     },
     {
-      id: "nft-mint-claim", // Static ID for your NFT quest logic
+      id: "nft-mint-claim", // This ID is critical for your code logic
       title: "The Minting Quest",
       reward: 1000,
       type: "nft"
     },
     {
+      id: "daily-checkin",
       title: "Daily Check-in",
       reward: 10,
       type: "daily"
     },
     {
+      id: "early-bird-alpha",
       title: "Early Bird Alpha (Limited)",
       reward: 500,
       type: "special",
-      limit: 10 
+      limit: 10
     },
     {
+      id: "social-x-repost",
       title: "Like & Repost latest X",
       reward: 50,
+      type: "social"
+    },
+    // --- ADD YOUR NEW QUESTS HERE ---
+    {
+      id: "follow-laamtag",
+      title: "Follow @LAAMTAG on X",
+      reward: 200,
       type: "social"
     }
   ];
 
-  console.log("Seeding new quests...");
+  console.log("🌱 Syncing quests (Upserting)...");
+
   for (const q of quests) {
-    await prisma.quest.create({ data: q });
+    await prisma.quest.upsert({
+      where: { id: q.id }, // Look for this ID
+      update: {            // If found, update the fields
+        title: q.title,
+        reward: q.reward,
+        type: q.type,
+        limit: q.limit ?? null
+      },
+      create: q,           // If NOT found, create the new quest
+    });
   }
 
-  console.log("✅ Database seeded successfully with LAAM Quests!");
+  console.log("✅ Database synced successfully without deleting user progress!");
 }
 
 main()

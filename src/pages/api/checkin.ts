@@ -1,12 +1,10 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../lib/prisma'; // Corrected Path (2 dots)
 
-const prisma = new PrismaClient();
 const REWARDS = [10, 10, 30, 40, 50, 50, 60];
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).end();
-
   const { walletAddress } = req.body;
   const now = new Date();
 
@@ -17,15 +15,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       update: {},
     });
 
-    // Check if they already checked in today
     if (user.lastCheckIn) {
       const hoursSince = (now.getTime() - user.lastCheckIn.getTime()) / (1000 * 60 * 60);
-      
-      if (hoursSince < 24) {
-        return res.status(400).json({ message: "Already checked in! Come back tomorrow." });
-      }
+      if (hoursSince < 24) return res.status(400).json({ message: "Already checked in! Come back tomorrow." });
 
-      // If they missed more than 48 hours, reset streak
       let newStreak = hoursSince < 48 ? (user.streakCount % 7) + 1 : 1;
       const reward = REWARDS[newStreak - 1];
 
@@ -37,10 +30,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           lastCheckIn: now,
         }
       });
-
       return res.status(200).json({ success: true, reward, total: updatedUser.laamPoints });
     }
-
     return res.status(200).json({ success: true, reward: REWARDS[0], total: user.laamPoints });
   } catch (e) {
     return res.status(500).json({ error: "Check-in failed" });

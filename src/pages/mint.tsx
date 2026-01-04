@@ -5,10 +5,13 @@ import { useState, useEffect } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import axios from "axios";
-import { Minus, Plus, Activity } from "lucide-react";
+import { Minus, Plus } from "lucide-react";
 import Navbar from "../components/Navbar";
 import AppFooter from "../components/AppFooter";
 import SeekerGuard from "../components/SeekerGuard";
+
+// UTILS
+import { verifyCandyMachine } from '../utils/check-cm';
 
 // METAPLEX IMPORTS
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
@@ -26,13 +29,13 @@ import {
 } from "@metaplex-foundation/umi";
 import { toWeb3JsInstruction, toWeb3JsKeypair } from "@metaplex-foundation/umi-web3js-adapters";
 
-// --- CONSTANTS RESTORED ---
-const MY_CANDY_ID = "AChnsAMBB52i3QKwf18AMYXaaJtsM7hVrhmgaGZuw32t";
+// --- CONSTANTS ---
+const MY_CANDY_ID = "7EQyVJBqdsbe6fSjg9ZLuaFsB1cppBa9QLFJE86ziKh9";
 const MY_TREASURY_ADDR = "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc";
 const RPC_URL = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
 const MAX_SUPPLY = 5000;
 const RENT_PER_NFT = 0.0;
-const MINT_PRICE = 0.27;
+const MINT_PRICE = 0.275;
 
 const Mint: NextPage = () => {
   const { connection } = useConnection();
@@ -44,8 +47,15 @@ const Mint: NextPage = () => {
   const [balance, setBalance] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [amount, setAmount] = useState(1);
+  
+  // NEW: Candy Machine Health State
+  const [cmStatus, setCmStatus] = useState("Checking...");
 
-  useEffect(() => { setIsClient(true); }, []);
+  useEffect(() => { 
+    setIsClient(true); 
+    // Run health check on load
+    verifyCandyMachine().then(status => setCmStatus(status));
+  }, []);
 
   const fetchStatus = async () => {
     try {
@@ -79,19 +89,14 @@ const Mint: NextPage = () => {
       const { Transaction, Connection, ComputeBudgetProgram } = await import("@solana/web3.js");
       const web3Conn = new Connection(RPC_URL, "confirmed");
 
-      // Use the proper Umi identity for Mobile Wallet Adapter
       const umi = createUmi(RPC_URL)
         .use(walletAdapterIdentity(wallet))
         .use(mplCandyMachine());
 
-      // 1. GENERATE SIGNER
       const nftMintSigner = generateSigner(umi);
       const nftMintKeypair = toWeb3JsKeypair(nftMintSigner);
-
-      // 2. FETCH CM WITH STRICT KEYS
       const candyMachine = await fetchCandyMachine(umi, umiPublicKey(MY_CANDY_ID));
 
-      // 3. BUILD MINT (Strictly 1 mint at a time for Mobile)
       const mintBuilder = mintV2(umi, {
         candyMachine: candyMachine.publicKey,
         candyGuard: candyMachine.mintAuthority,
@@ -100,24 +105,21 @@ const Mint: NextPage = () => {
         collectionUpdateAuthority: candyMachine.authority,
         group: none(),
         mintArgs: {
-          solPayment: some({ destination: umiPublicKey(MY_TREASURY_ADDR) })
+          solPayment: some({ destination: umiPublicKey(MY_TREASURY_ADDR) }),
+          mintLimit: some({ id: 1 })
         },
       });
 
       const transaction = new Transaction();
-
-      // FIX: Lower Compute Units for Seeker (300k-400k is the sweet spot)
       transaction.add(
         ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
         ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100000 })
       );
 
-      // Convert Umi instructions to Web3Js
       mintBuilder.getInstructions().forEach((ix) => {
         transaction.add(toWeb3JsInstruction(ix));
       });
 
-      // FIX: Blockhash management for Mobile
       const latest = await web3Conn.getLatestBlockhash("confirmed");
       transaction.recentBlockhash = latest.blockhash;
       transaction.feePayer = publicKey;
@@ -182,6 +184,15 @@ const Mint: NextPage = () => {
                 </div>
               </div>
 
+              {/* HEALTH CHECK ALERT */}
+              {cmStatus !== "Candy Machine is HEALTHY" && (
+                <div className="bg-red-500/20 border border-red-500 p-4 rounded-2xl text-center">
+                  <p className="text-red-500 font-black uppercase text-xs animate-pulse">
+                    {cmStatus === "Checking..." ? "Syncing Solana..." : "Network Maintenance: Minting Paused"}
+                  </p>
+                </div>
+              )}
+
               <div className="bg-white/5 border border-white/10 p-8 rounded-3xl space-y-6 shadow-2xl backdrop-blur-sm">
                 {stats.personal >= 3 ? (
                   <div className="py-6 text-center border-2 border-yellow-500 rounded-2xl bg-yellow-500/10">
@@ -198,10 +209,10 @@ const Mint: NextPage = () => {
                       </div>
                       <button
                         onClick={handleMint}
-                        disabled={loading || stats.soldOut || !connected}
-                        className="flex-1 w-full bg-yellow-500 hover:bg-yellow-400 text-black font-black py-4 rounded-2xl text-xl disabled:opacity-20"
+                        disabled={loading || stats.soldOut || !connected || cmStatus !== "Candy Machine is HEALTHY"}
+                        className="flex-1 w-full bg-yellow-500 hover:bg-yellow-400 text-black font-black py-4 rounded-2xl text-xl disabled:opacity-20 transition-all"
                       >
-                        {loading ? "Confirming..." : stats.soldOut ? "Sold Out" : `Mint Now (~${totalDisplay.toFixed(3)} SOL)`}
+                        {loading ? "Confirming..." : cmStatus !== "Candy Machine is HEALTHY" ? "LOCKED" : stats.soldOut ? "Sold Out" : `Mint Now (~${totalDisplay.toFixed(3)} SOL)`}
                       </button>
                     </div>
                   </>

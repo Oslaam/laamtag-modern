@@ -5,18 +5,18 @@ import toast, { Toaster } from 'react-hot-toast';
 import Sidebar from '../components/Sidebar'; 
 import AppFooter from '../components/AppFooter';
 import SeekerGuard from '../components/SeekerGuard';
+import GuessGameComponent from '../components/GuessGame';
 
 export default function QuestsPage() {
   const { publicKey } = useWallet();
   const [userPoints, setUserPoints] = useState(0);
   const [dbQuests, setDbQuests] = useState([]); 
-  // State to track the status of each quest (PENDING, APPROVED, etc.)
   const [questStatuses, setQuestStatuses] = useState<Record<string, string>>({});
   const [isClaiming, setIsClaiming] = useState<string | null>(null);
   const [proofs, setProofs] = useState<Record<string, string>>({});
   const [timeLeft, setTimeLeft] = useState("");
 
-  // 1. Countdown Logic for Daily Check-in
+  // 1. Daily Reset Countdown Logic
   useEffect(() => {
     const timer = setInterval(() => {
       const now = new Date();
@@ -31,30 +31,26 @@ export default function QuestsPage() {
     return () => clearInterval(timer);
   }, []);
 
-  // 2. Fetch all quests & User Progress
+  // 2. Fetch Data
   const fetchData = async () => {
     try {
-      // Fetch the master list of quests
       const questRes = await fetch('/api/get-quests');
       const questData = await questRes.json();
-      setDbQuests(questData);
+      // Ensure we only set unique quests by ID to prevent double-rendering
+      const uniqueQuests = Array.from(new Map(questData.map((item: any) => [item.id, item])).values());
+      setDbQuests(uniqueQuests as any);
 
       if (publicKey) {
         const address = publicKey.toString();
-        
-        // Fetch User Profile (Points/Rank)
         const userRes = await fetch(`/api/user/${address}`);
         if (userRes.ok) {
           const userData = await userRes.json();
           setUserPoints(userData.laamPoints || 0);
         }
 
-        // Fetch Quest History to determine PENDING/APPROVED status
         const historyRes = await fetch(`/api/user/history?address=${address}`);
         if (historyRes.ok) {
           const historyData = await historyRes.json();
-          
-          // Map QuestID to its Status
           const statusMap = historyData.reduce((acc: any, item: any) => {
             acc[item.questId] = item.status;
             return acc;
@@ -89,6 +85,8 @@ export default function QuestsPage() {
         }
       } else if (type === 'daily') {
         endpoint = '/api/checkin';
+      } else if (type === 'nft') {
+        endpoint = '/api/claim-nft-reward'; 
       }
 
       const response = await fetch(endpoint, {
@@ -101,10 +99,7 @@ export default function QuestsPage() {
 
       if (response.ok) {
         toast.success(data.message || `Action successful!`);
-        
-        // Refresh all data to update buttons and points
         await fetchData();
-        
         if (type === 'social') setProofs(prev => ({ ...prev, [questId]: "" }));
       } else {
         toast.error(data.message);
@@ -141,7 +136,7 @@ export default function QuestsPage() {
           </nav>
 
           <div className="max-w-2xl mx-auto">
-            {/* Balance & Tier Card */}
+            {/* VAULT STATS CARDS */}
             <div className="bg-gray-900 p-8 rounded-3xl mb-10 border border-gray-800 shadow-2xl">
               <div className="text-center">
                 <p className="text-gray-500 text-xs font-bold tracking-[0.2em] uppercase mb-2">Vault Balance</p>
@@ -153,13 +148,14 @@ export default function QuestsPage() {
                   <span className="text-gray-500 uppercase">{userPoints.toLocaleString()} / {tier.next.toLocaleString()} LAAM</span>
                 </div>
                 <div className="w-full bg-black h-3 rounded-full border border-gray-800 p-0.5">
-                  <div className="bg-yellow-500 h-full rounded-full transition-all duration-1000 shadow-[0_0_15px_rgba(234,179,8,0.4)]" style={{ width: `${progress}%` }} />
+                  <div className="bg-yellow-500 h-full rounded-full transition-all duration-1000" style={{ width: `${progress}%` }} />
                 </div>
               </div>
             </div>
 
-            {/* Quests List */}
-            <div className="space-y-4">
+            {/* QUEST LIST SECTION */}
+            <div className="space-y-4 mb-20">
+              <h2 className="text-sm font-black text-gray-500 uppercase tracking-widest ml-2">Active Quests</h2>
               {dbQuests.map((quest: any) => {
                 const status = questStatuses[quest.id];
                 const isPending = status === 'PENDING';
@@ -173,7 +169,7 @@ export default function QuestsPage() {
                         <div className="flex gap-3 items-center">
                           <p className={`${isApproved ? 'text-gray-600' : 'text-yellow-500'} font-mono font-bold`}>+{quest.reward} LAAM</p>
                           {quest.type === 'daily' && (
-                            <span className="text-[10px] bg-red-500/10 text-red-400 px-2 py-0.5 rounded border border-red-500/20 animate-pulse font-bold uppercase">
+                            <span className="text-[10px] bg-red-500/10 text-red-400 px-2 py-0.5 rounded border border-red-500/20 font-bold uppercase">
                               RESETS IN: {timeLeft}
                             </span>
                           )}
@@ -210,6 +206,13 @@ export default function QuestsPage() {
                 );
               })}
             </div>
+
+            {/* GUESS GAME INTEGRATION */}
+            <section className="mt-12">
+               <h2 className="text-sm font-black text-gray-500 uppercase tracking-widest ml-2 mb-4 text-center">Seeker Special Ops</h2>
+               <GuessGameComponent />
+            </section>
+
           </div>
         </main>
         <AppFooter />

@@ -55,3 +55,12 @@ model ClaimedNFT {
   claimedBy   String
   claimedAt   DateTime @default(now())
 }
+
+model GuessGame {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  lastAttempt   DateTime @default(now())
+  attempts      Int      @default(0)
+  isLocked      Boolean  @default(false)
+  pendingPoints Int      @default(0) // <--- Add this line
+}

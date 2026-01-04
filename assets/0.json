@@ -1,29 +1,14 @@
 {
-  "name": "LAAMTAG Genesis #0",
+  "name": "LAAMTAG Box #1",
   "symbol": "LAAM",
-  "description": "Seeker Exclusive Genesis Token",
+  "description": "LAAMTAG Genesis Mystery Box",
   "image": "0.gif",
-  "attributes": [
-    {
-      "trait_type": "Generation",
-      "value": "Genesis"
-    },
-    {
-      "trait_type": "Status",
-      "value": "Mystery Box"
-    }
-  ],
+  "attributes": [],
   "properties": {
     "files": [
       {
         "uri": "0.gif",
         "type": "image/gif"
-      }
-    ],
-    "creators": [
-      {
-        "address": "43ARBKVdGKR2a1t7gh3oAu4ZjbnRZaTvM9YDp5twzgvn",
-        "share": 100
       }
     ]
   }

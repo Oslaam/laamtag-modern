@@ -1,25 +1,25 @@
 {
   "program": {
-    "candyMachine": "AChnsAMBB52i3QKwf18AMYXaaJtsM7hVrhmgaGZuw32t",
-    "candyGuard": "CLbcdzaMMx57iCeCJAi3xtEYmm1PfxPNqYcRpPXQaYax",
-    "candyMachineCreator": "A7PBiu7ceP4b17akbvG2czJRjNhaTKCH22SkKhX6rAmy",
-    "collectionMint": "HhsTs4SBW77QXqE4J6mBtVsCBRoY17Hkkri9s62jcukx"
+    "candyMachine": "7EQyVJBqdsbe6fSjg9ZLuaFsB1cppBa9QLFJE86ziKh9",
+    "candyGuard": "7qZhPA7RLekmxtTBibPT2zUbEZkTd48HNqSJdTafBcSi",
+    "candyMachineCreator": "vrBDY5cdHhh4TsBmi16GnjPmrpZexfGNYGBpB1545ZZ",
+    "collectionMint": "Dtuj3q4a2LxqhgQa3sDeGWeRsohKk38s5XgyrkRR6FLc"
   },
   "items": {
     "-1": {
-      "name": "LAAMTAG Genesis #0",
+      "name": "LAAMTAG Genesis",
       "image_hash": "f034221a3e3d855ce0bad54a6a3b71d9c7ada1d224294c16fbba26016bb12930",
-      "image_link": "https://gateway.irys.xyz/vHcNuwZFCmdy-S6Sycn_u1uKE4kZq0hLV64TjyPoKE8?ext=gif",
-      "metadata_hash": "821e5e04d5b318578b4d54a046bf7b7abf269cf230f253bb8541545af67f0f9d",
-      "metadata_link": "https://gateway.irys.xyz/5RU76fwv2Z4GiunMOY9cVF1eIErif6cHlyRCurOLgFw",
+      "image_link": "https://gateway.irys.xyz/FITgsfHKQyzlP65NTn8sErNPAOEjTixAF-w94qX3RP0?ext=gif",
+      "metadata_hash": "b66105d0b1a37d45597ac9eb1be7fa8ce358597cc4cab403e380cca947c19382",
+      "metadata_link": "https://gateway.irys.xyz/D_eBnuMfXxoPduFTfpkZf9qeMWsKHlVDtRZ5aJGwXBE",
       "onChain": true
     },
     "0": {
-      "name": "LAAMTAG Genesis #0",
+      "name": "LAAMTAG Box #1",
       "image_hash": "f034221a3e3d855ce0bad54a6a3b71d9c7ada1d224294c16fbba26016bb12930",
-      "image_link": "https://gateway.irys.xyz/mGw_ve4nE586z02tyKrNMcdHqYJFwZ_0GQVqKT_TFQw?ext=gif",
-      "metadata_hash": "821e5e04d5b318578b4d54a046bf7b7abf269cf230f253bb8541545af67f0f9d",
-      "metadata_link": "https://gateway.irys.xyz/kJDWPA3pMSlofgx8QuAc7ZUbLBvdczPR_B-Kpg-gLTM",
+      "image_link": "https://gateway.irys.xyz/5v4T3Y2WtWmijqv_-WYW0pUEEklICezSGB-dOh9vTSE?ext=gif",
+      "metadata_hash": "9dee36caff7922a72fbf2b06d77162a60d5e6edfc5ca968949527dceb35da354",
+      "metadata_link": "https://gateway.irys.xyz/9fIWTHFr5m_toXuRcOpI-ht-dQ_FCNNSrqzLnL0NpVk",
       "onChain": false
     }
   }
