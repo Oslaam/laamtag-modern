@@ -82,59 +82,61 @@ const Mint: NextPage = () => {
   const handleIncrement = () => { if (amount < (3 - stats.personal)) setAmount(prev => prev + 1); };
   const handleDecrement = () => { if (amount > 1) setAmount(prev => prev - 1); };
 
- const handleMint = async () => {
-  if (!publicKey) return;
-  setLoading(true);
+  const handleMint = async () => {
+    if (!publicKey) return;
+    setLoading(true);
 
-  try {
-    const umi = createUmi(RPC_URL)
-      .use(walletAdapterIdentity(wallet))
-      .use(mplCandyMachine());
+    try {
+      const umi = createUmi(RPC_URL)
+        .use(walletAdapterIdentity(wallet))
+        .use(mplCandyMachine());
 
-    const candyMachine = await fetchCandyMachine(umi, umiPublicKey(MY_CANDY_ID));
+      // 1. Fetch Candy Machine
+      const candyMachine = await fetchCandyMachine(umi, umiPublicKey(MY_CANDY_ID.trim()));
 
-    // 1. Create the base mint builder
-    let mintBuilder = mintV2(umi, {
-      candyMachine: candyMachine.publicKey,
-      candyGuard: candyMachine.mintAuthority,
-      nftMint: generateSigner(umi),
-      collectionMint: candyMachine.collectionMint,
-      collectionUpdateAuthority: candyMachine.authority,
-      group: none(),
-      mintArgs: {
-        solPayment: some({ destination: umiPublicKey(MY_TREASURY_ADDR) }),
-        mintLimit: some({ id: 1 })
-      },
-    });
+      // 2. Build Mint Transaction
+      // We hardcode the Guard ID to fix the "Assertion failed" and TS errors
+      const mintBuilder = mintV2(umi, {
+        candyMachine: candyMachine.publicKey,
+        candyGuard: umiPublicKey("7qZhPA7RLekmxtTBibPT2zUbEZkTd48HNqSJdTafBcSi"), // From your cache.json
+        nftMint: generateSigner(umi),
+        collectionMint: candyMachine.collectionMint,
+        collectionUpdateAuthority: candyMachine.authority,
+        group: none(),
+        mintArgs: {
+          solPayment: some({ destination: umiPublicKey(MY_TREASURY_ADDR.trim()) }),
+          mintLimit: some({ id: 1 })
+        },
+      });
 
-    // 2. Add Compute Budget "Fuel" (MANDATORY)
-    // We use .add() to combine the builders manually
-    const transactionBuilder = setComputeUnitLimit(umi, { units: 800000 })
-      .add(mintBuilder);
+      // 3. Add Compute Budget "Fuel" 
+      // This solves the 'exceeded CUs meter' error on Seeker
+      const transactionBuilder = setComputeUnitLimit(umi, { units: 800000 })
+        .add(mintBuilder);
 
-    // 3. Send and Confirm
-    const result = await transactionBuilder.sendAndConfirm(umi);
+      // 4. Send and Confirm
+      const result = await transactionBuilder.sendAndConfirm(umi);
 
-    // Success handling
-    const signature = Buffer.from(result.signature).toString('hex');
-    console.log("Mint Signature:", signature);
-    
-    setStats(prev => ({
-      ...prev,
-      global: prev.global + amount,
-      personal: prev.personal + amount
-    }));
+      // Success handling
+      const signature = Buffer.from(result.signature).toString('hex');
+      console.log("Mint Signature:", signature);
 
-    alert("🎉 SUCCESS! Your LAAMTAG Box is being delivered.");
-    fetchStatus();
+      setStats(prev => ({
+        ...prev,
+        global: prev.global + 1,
+        personal: prev.personal + 1
+      }));
 
-  } catch (err: any) {
-    console.error("MINT ERROR:", err);
-    alert("Mint failed: " + (err.message || "Check SOL balance or try again."));
-  } finally {
-    setLoading(false);
-  }
-};
+      alert("🎉 SUCCESS! Your LAAMTAG Box is being delivered.");
+      fetchStatus();
+
+    } catch (err: any) {
+      console.error("MINT ERROR:", err);
+      alert("Mint failed: " + (err.message || "Check SOL balance or try again."));
+    } finally {
+      setLoading(false);
+    }
+  };
   if (!isClient) return null;
   const totalDisplay = (MINT_PRICE + RENT_PER_NFT) * amount;
   const displayName = publicKey ? `${publicKey.toString().slice(0, 4)}.skr` : "Seeker";
