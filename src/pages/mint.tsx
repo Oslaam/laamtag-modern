@@ -10,9 +10,6 @@ import Navbar from "../components/Navbar";
 import AppFooter from "../components/AppFooter";
 import SeekerGuard from "../components/SeekerGuard";
 
-// UTILS
-import { verifyCandyMachine } from '../utils/check-cm';
-
 // METAPLEX IMPORTS
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-adapters";
@@ -27,7 +24,13 @@ import {
   none,
   generateSigner,
 } from "@metaplex-foundation/umi";
-import { toWeb3JsInstruction, toWeb3JsKeypair } from "@metaplex-foundation/umi-web3js-adapters";
+import {
+  setComputeUnitLimit,
+  setComputeUnitPrice
+} from "@metaplex-foundation/mpl-essentials";
+
+// UTILS
+import { verifyCandyMachine } from '../utils/check-cm';
 
 // --- CONSTANTS ---
 const MY_CANDY_ID = "7EQyVJBqdsbe6fSjg9ZLuaFsB1cppBa9QLFJE86ziKh9";
@@ -35,7 +38,7 @@ const MY_TREASURY_ADDR = "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc";
 const RPC_URL = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
 const MAX_SUPPLY = 5000;
 const RENT_PER_NFT = 0.0;
-const MINT_PRICE = 0.275;
+const MINT_PRICE = 0.001; // Matches your testing guard price
 
 const Mint: NextPage = () => {
   const { connection } = useConnection();
@@ -48,12 +51,10 @@ const Mint: NextPage = () => {
   const [loading, setLoading] = useState(false);
   const [amount, setAmount] = useState(1);
 
-  // NEW: Candy Machine Health State
   const [cmStatus, setCmStatus] = useState("Checking...");
 
   useEffect(() => {
     setIsClient(true);
-    // Run health check on load
     verifyCandyMachine().then(status => setCmStatus(status));
   }, []);
 
@@ -81,72 +82,59 @@ const Mint: NextPage = () => {
   const handleIncrement = () => { if (amount < (3 - stats.personal)) setAmount(prev => prev + 1); };
   const handleDecrement = () => { if (amount > 1) setAmount(prev => prev - 1); };
 
-  const handleMint = async () => {
-    if (!publicKey) return;
-    setLoading(true);
+ const handleMint = async () => {
+  if (!publicKey) return;
+  setLoading(true);
 
-    try {
-      // 1. Initialize Umi (Mobile Safe)
-      const umi = createUmi(RPC_URL)
-        .use(walletAdapterIdentity(wallet))
-        .use(mplCandyMachine());
+  try {
+    const umi = createUmi(RPC_URL)
+      .use(walletAdapterIdentity(wallet))
+      .use(mplCandyMachine());
 
-      const candyMachine = await fetchCandyMachine(umi, umiPublicKey(MY_CANDY_ID));
+    const candyMachine = await fetchCandyMachine(umi, umiPublicKey(MY_CANDY_ID));
 
-      // 2. Build & Send in one go (This is the secret to fixing Seeker)
-      // Umi handles the 'nftMintSigner' internally so the phone doesn't see it as a conflict
-      const result = await mintV2(umi, {
-        candyMachine: candyMachine.publicKey,
-        candyGuard: candyMachine.mintAuthority,
-        nftMint: generateSigner(umi),
-        collectionMint: candyMachine.collectionMint,
-        collectionUpdateAuthority: candyMachine.authority,
-        group: none(),
-        mintArgs: {
-          solPayment: some({ destination: umiPublicKey(MY_TREASURY_ADDR) }),
-          mintLimit: some({ id: 1 })
-        },
-      }).sendAndConfirm(umi);
+    // 1. Create the base mint builder
+    let mintBuilder = mintV2(umi, {
+      candyMachine: candyMachine.publicKey,
+      candyGuard: candyMachine.mintAuthority,
+      nftMint: generateSigner(umi),
+      collectionMint: candyMachine.collectionMint,
+      collectionUpdateAuthority: candyMachine.authority,
+      group: none(),
+      mintArgs: {
+        solPayment: some({ destination: umiPublicKey(MY_TREASURY_ADDR) }),
+        mintLimit: some({ id: 1 })
+      },
+    });
 
-      // 3. Success!
-      const signature = Buffer.from(result.signature).toString('hex');
-      console.log("Mint Signature:", signature);
+    // 2. Add Compute Budget "Fuel" (MANDATORY)
+    // We use .add() to combine the builders manually
+    const transactionBuilder = setComputeUnitLimit(umi, { units: 800000 })
+      .add(mintBuilder);
 
-      // --- 🚀 INSTANT UI UPDATE ---
-      // This moves the progress bar and personal count IMMEDIATELY
-      setStats(prev => ({
-        ...prev,
-        global: prev.global + amount,
-        personal: prev.personal + amount
-      }));
+    // 3. Send and Confirm
+    const result = await transactionBuilder.sendAndConfirm(umi);
 
-      // --- 🚀 SYNC BACKEND ---
-      try {
-        await axios.post(`https://laamtag-production.up.railway.app/update-mint`, {
-          user: publicKey.toBase58(),
-          signature: signature
-        });
-      } catch (e) {
-        console.warn("Backend was slow to respond, but mint is confirmed on-chain.");
-      }
+    // Success handling
+    const signature = Buffer.from(result.signature).toString('hex');
+    console.log("Mint Signature:", signature);
+    
+    setStats(prev => ({
+      ...prev,
+      global: prev.global + amount,
+      personal: prev.personal + amount
+    }));
 
-      alert("🎉 SUCCESS! Your LAAMTAG Box is being delivered.");
+    alert("🎉 SUCCESS! Your LAAMTAG Box is being delivered.");
+    fetchStatus();
 
-      // Refresh balance and official status
-      fetchStatus();
-      const info = await connection.getAccountInfo(publicKey);
-      if (info) setBalance(info.lamports / LAMPORTS_PER_SOL);
-
-    } catch (err: any) {
-      console.error("MINT ERROR:", err);
-      // Friendly error message for users
-      const msg = err.message || "Please check your SOL balance or try again.";
-      alert("Mint failed: " + msg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  } catch (err: any) {
+    console.error("MINT ERROR:", err);
+    alert("Mint failed: " + (err.message || "Check SOL balance or try again."));
+  } finally {
+    setLoading(false);
+  }
+};
   if (!isClient) return null;
   const totalDisplay = (MINT_PRICE + RENT_PER_NFT) * amount;
   const displayName = publicKey ? `${publicKey.toString().slice(0, 4)}.skr` : "Seeker";
@@ -186,7 +174,6 @@ const Mint: NextPage = () => {
                 </div>
               </div>
 
-              {/* HEALTH CHECK ALERT */}
               {cmStatus !== "Candy Machine is HEALTHY" && (
                 <div className="bg-red-500/20 border border-red-500 p-4 rounded-2xl text-center">
                   <p className="text-red-500 font-black uppercase text-xs animate-pulse">
