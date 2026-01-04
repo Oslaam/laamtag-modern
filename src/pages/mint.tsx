@@ -47,12 +47,12 @@ const Mint: NextPage = () => {
   const [balance, setBalance] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [amount, setAmount] = useState(1);
-  
+
   // NEW: Candy Machine Health State
   const [cmStatus, setCmStatus] = useState("Checking...");
 
-  useEffect(() => { 
-    setIsClient(true); 
+  useEffect(() => {
+    setIsClient(true);
     // Run health check on load
     verifyCandyMachine().then(status => setCmStatus(status));
   }, []);
@@ -82,25 +82,23 @@ const Mint: NextPage = () => {
   const handleDecrement = () => { if (amount > 1) setAmount(prev => prev - 1); };
 
   const handleMint = async () => {
-    if (!publicKey || !wallet.sendTransaction) return;
+    if (!publicKey) return;
     setLoading(true);
 
     try {
-      const { Transaction, Connection, ComputeBudgetProgram } = await import("@solana/web3.js");
-      const web3Conn = new Connection(RPC_URL, "confirmed");
-
+      // 1. Initialize Umi (Mobile Safe)
       const umi = createUmi(RPC_URL)
         .use(walletAdapterIdentity(wallet))
         .use(mplCandyMachine());
 
-      const nftMintSigner = generateSigner(umi);
-      const nftMintKeypair = toWeb3JsKeypair(nftMintSigner);
       const candyMachine = await fetchCandyMachine(umi, umiPublicKey(MY_CANDY_ID));
 
-      const mintBuilder = mintV2(umi, {
+      // 2. Build & Send in one go (This is the secret to fixing Seeker)
+      // Umi handles the 'nftMintSigner' internally so the phone doesn't see it as a conflict
+      const result = await mintV2(umi, {
         candyMachine: candyMachine.publicKey,
         candyGuard: candyMachine.mintAuthority,
-        nftMint: nftMintSigner,
+        nftMint: generateSigner(umi),
         collectionMint: candyMachine.collectionMint,
         collectionUpdateAuthority: candyMachine.authority,
         group: none(),
@@ -108,38 +106,42 @@ const Mint: NextPage = () => {
           solPayment: some({ destination: umiPublicKey(MY_TREASURY_ADDR) }),
           mintLimit: some({ id: 1 })
         },
-      });
+      }).sendAndConfirm(umi);
 
-      const transaction = new Transaction();
-      transaction.add(
-        ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }),
-        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100000 })
-      );
+      // 3. Success!
+      const signature = Buffer.from(result.signature).toString('hex');
+      console.log("Mint Signature:", signature);
 
-      mintBuilder.getInstructions().forEach((ix) => {
-        transaction.add(toWeb3JsInstruction(ix));
-      });
+      // --- 🚀 INSTANT UI UPDATE ---
+      // This moves the progress bar and personal count IMMEDIATELY
+      setStats(prev => ({
+        ...prev,
+        global: prev.global + amount,
+        personal: prev.personal + amount
+      }));
 
-      const latest = await web3Conn.getLatestBlockhash("confirmed");
-      transaction.recentBlockhash = latest.blockhash;
-      transaction.feePayer = publicKey;
+      // --- 🚀 SYNC BACKEND ---
+      try {
+        await axios.post(`https://laamtag-production.up.railway.app/update-mint`, {
+          user: publicKey.toBase58(),
+          signature: signature
+        });
+      } catch (e) {
+        console.warn("Backend was slow to respond, but mint is confirmed on-chain.");
+      }
 
-      const signature = await wallet.sendTransaction(transaction, web3Conn, {
-        signers: [nftMintKeypair],
-        skipPreflight: false,
-      });
+      alert("🎉 SUCCESS! Your LAAMTAG Box is being delivered.");
 
-      await web3Conn.confirmTransaction({
-        signature,
-        blockhash: latest.blockhash,
-        lastValidBlockHeight: latest.lastValidBlockHeight
-      }, "confirmed");
-
-      alert("🎉 SUCCESS! Seeker Mint Verified.");
+      // Refresh balance and official status
       fetchStatus();
+      const info = await connection.getAccountInfo(publicKey);
+      if (info) setBalance(info.lamports / LAMPORTS_PER_SOL);
+
     } catch (err: any) {
       console.error("MINT ERROR:", err);
-      alert("Mint failed: " + (err.message || "Unknown Error"));
+      // Friendly error message for users
+      const msg = err.message || "Please check your SOL balance or try again.";
+      alert("Mint failed: " + msg);
     } finally {
       setLoading(false);
     }
