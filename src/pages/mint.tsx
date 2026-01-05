@@ -24,10 +24,9 @@ import {
   none,
   generateSigner,
 } from "@metaplex-foundation/umi";
-import {
-  setComputeUnitLimit,
-  setComputeUnitPrice
-} from "@metaplex-foundation/mpl-essentials";
+// Add 'setComputeUnitPrice' to this list
+import { setComputeUnitLimit, setComputeUnitPrice } from "@metaplex-foundation/mpl-toolbox";
+
 
 // UTILS
 import { verifyCandyMachine } from '../utils/check-cm';
@@ -53,11 +52,13 @@ const Mint: NextPage = () => {
 
   const [cmStatus, setCmStatus] = useState("Checking...");
 
+  // Check Candy Machine health
   useEffect(() => {
     setIsClient(true);
     verifyCandyMachine().then(status => setCmStatus(status));
   }, []);
 
+  // Fetch mint stats and balance
   const fetchStatus = async () => {
     try {
       if (!publicKey) return;
@@ -82,8 +83,11 @@ const Mint: NextPage = () => {
   const handleIncrement = () => { if (amount < (3 - stats.personal)) setAmount(prev => prev + 1); };
   const handleDecrement = () => { if (amount > 1) setAmount(prev => prev - 1); };
 
+  // -----------------------------
+  // HANDLE MINT (UPDATED VERSION)
+  // -----------------------------
   const handleMint = async () => {
-    if (!publicKey) return;
+    if (!publicKey || !wallet) return;
     setLoading(true);
 
     try {
@@ -91,48 +95,66 @@ const Mint: NextPage = () => {
         .use(walletAdapterIdentity(wallet))
         .use(mplCandyMachine());
 
-      // 1. Fetch Candy Machine
-      const candyMachine = await fetchCandyMachine(umi, umiPublicKey(MY_CANDY_ID.trim()));
+      const candyMachine = await fetchCandyMachine(
+        umi,
+        umiPublicKey(MY_CANDY_ID.trim())
+      );
 
-      // 2. Build Mint Transaction
-      // We hardcode the Guard ID to fix the "Assertion failed" and TS errors
-      const mintBuilder = mintV2(umi, {
-        candyMachine: candyMachine.publicKey,
-        candyGuard: umiPublicKey("7qZhPA7RLekmxtTBibPT2zUbEZkTd48HNqSJdTafBcSi"), // From your cache.json
-        nftMint: generateSigner(umi),
-        collectionMint: candyMachine.collectionMint,
-        collectionUpdateAuthority: candyMachine.authority,
-        group: none(),
-        mintArgs: {
-          solPayment: some({ destination: umiPublicKey(MY_TREASURY_ADDR.trim()) }),
-          mintLimit: some({ id: 1 })
-        },
-      });
+      const itemsAvailable = Number(candyMachine.data?.itemsAvailable ?? 0);
+      if (itemsAvailable <= 0) throw new Error("Candy Machine is SOLD OUT");
 
-      // 3. Add Compute Budget "Fuel" 
-      // This solves the 'exceeded CUs meter' error on Seeker
-      const transactionBuilder = setComputeUnitLimit(umi, { units: 800000 })
-        .add(mintBuilder);
+      // Calculate safe mint amount
+      const maxMintable = Math.min(amount, 3 - stats.personal, itemsAvailable);
+      const treasuryPubkey = umiPublicKey(MY_TREASURY_ADDR.trim());
 
-      // 4. Send and Confirm
-      const result = await transactionBuilder.sendAndConfirm(umi);
+      const results: { success: boolean; signature?: string; error?: string }[] = [];
 
-      // Success handling
-      const signature = Buffer.from(result.signature).toString('hex');
-      console.log("Mint Signature:", signature);
+      for (let i = 0; i < maxMintable; i++) {
+        try {
+          console.log(`Starting mint ${i + 1} of ${maxMintable}...`);
+          const nftMint = generateSigner(umi);
 
-      setStats(prev => ({
-        ...prev,
-        global: prev.global + 1,
-        personal: prev.personal + 1
-      }));
+          const mintBuilder = mintV2(umi, {
+            candyMachine: candyMachine.publicKey,
+            candyGuard: candyMachine.mintAuthority, // Auto-detects the guard from CM
+            nftMint,
+            collectionMint: candyMachine.collectionMint,
+            collectionUpdateAuthority: candyMachine.authority,
+            group: none(),
+            mintArgs: {
+              solPayment: some({ destination: treasuryPubkey }),
+              mintLimit: some({ id: 1 }), // Confirmed by your sugar output
+            },
+          });
 
-      alert("🎉 SUCCESS! Your LAAMTAG Box is being delivered.");
-      fetchStatus();
+          // Correct Compute Unit Pricing for Umi 1.0+
+          const transactionBuilder = setComputeUnitLimit(umi, { units: 800000 })
+            .prepend(setComputeUnitPrice(umi, { microLamports: 1000 })) // This is the v0.9.x standard
+            .add(mintBuilder);
+          const result = await transactionBuilder.sendAndConfirm(umi);
+          const sigHex = Buffer.from(result.signature).toString("hex");
+
+          results.push({ success: true, signature: sigHex });
+          console.log(`✅ Mint #${i + 1} Success! Signature:`, sigHex);
+
+        } catch (err: any) {
+          console.error(`❌ Mint #${i + 1} Failed:`, err);
+          results.push({ success: false, error: err.message || "Unknown error" });
+          break; // Stop loop on failure to save user gas
+        }
+      }
+
+      const successCount = results.filter(r => r.success).length;
+      if (successCount > 0) {
+        alert(`🎉 Success! Minted ${successCount} Seeker NFT(s)!`);
+        fetchStatus();
+      } else {
+        alert(`❌ Mint failed. Check console for details.`);
+      }
 
     } catch (err: any) {
-      console.error("MINT ERROR:", err);
-      alert("Mint failed: " + (err.message || "Check SOL balance or try again."));
+      console.error("GLOBAL MINT ERROR:", err);
+      alert(err.message || "Mint process failed to start");
     } finally {
       setLoading(false);
     }
