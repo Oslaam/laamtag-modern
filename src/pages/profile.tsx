@@ -6,14 +6,13 @@ import { ArrowLeft, LayoutGrid, Coins, Trophy } from 'lucide-react';
 export default function ProfilePage() {
   const { publicKey } = useWallet();
   const [history, setHistory] = useState([]);
-  const [userData, setUserData] = useState<{ laamPoints: number; rank: string } | null>(null);
+  // UPDATED: Added personalMinted to the type definition
+  const [userData, setUserData] = useState<{ laamPoints: number; rank: string; personalMinted: number } | null>(null);
 
   useEffect(() => {
-    if (!publicKey) return; // Stop if wallet not connected
-
+    if (!publicKey) return;
     const address = publicKey.toString();
 
-    // Use Promise.all to fetch both at once for speed
     Promise.all([
       fetch(`/api/user/history?address=${address}`).then(res => res.json()),
       fetch(`/api/user/${address}`).then(res => res.json())
@@ -21,101 +20,54 @@ export default function ProfilePage() {
       setHistory(historyData || []);
       setUserData(statsData || null);
     }).catch(err => console.error("Profile fetch error", err));
-
   }, [publicKey]);
 
   return (
     <div className="min-h-screen bg-black text-white p-8 font-sans selection:bg-yellow-500/30">
       <div className="max-w-2xl mx-auto">
+        
+        {/* ... (Keep your existing Navigation and Header code) ... */}
 
-        {/* TOP NAVIGATION */}
-        <div className="flex justify-between items-center mb-10">
-          <Link href="/quests" className="flex items-center gap-2 text-gray-500 hover:text-yellow-500 transition-all font-bold text-xs uppercase tracking-[0.2em]">
-            <ArrowLeft size={16} />
-            Back to Hub
-          </Link>
-
-          <Link href="/app" className="flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-2 rounded-xl font-bold text-xs uppercase hover:bg-white/10 transition-all">
-            <LayoutGrid size={14} className="text-yellow-500" />
-            Launch App
-          </Link>
-        </div>
-
-        {/* PROFILE HEADER */}
-        <div className="text-center mb-10">
-          <div className="relative w-24 h-24 mx-auto mb-4">
-            <div className="absolute inset-0 bg-yellow-500 rounded-full blur-2xl opacity-20 animate-pulse"></div>
-            <div className="relative w-24 h-24 bg-gradient-to-b from-gray-800 to-black border-2 border-yellow-500/50 rounded-full flex items-center justify-center text-yellow-500 font-black text-3xl shadow-2xl">
-              {publicKey?.toString().slice(0, 2)}
-            </div>
-          </div>
-          <h1 className="text-4xl font-black italic tracking-tighter uppercase text-white">
-            {publicKey?.toString().slice(0, 4)}.skr
-          </h1>
-          <p className="text-gray-500 font-mono text-[10px] mt-1 tracking-widest opacity-60">
-            {publicKey?.toString()}
-          </p>
-        </div>
-
-        {/* NEW: POINTS & RANK SUMMARY CARD */}
+        {/* POINTS & RANK SUMMARY CARD (Keep existing) */}
         <div className="grid grid-cols-2 gap-4 mb-10">
-          <div className="bg-gradient-to-br from-gray-900 to-black border border-gray-800 p-6 rounded-[2rem] shadow-xl">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-yellow-500/10 rounded-lg">
-                <Coins size={18} className="text-yellow-500" />
-              </div>
-              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Vault Balance</span>
-            </div>
-            <p className="text-3xl font-black text-white">
-              {userData?.laamPoints?.toLocaleString() || 0}
-              <span className="text-xs text-yellow-500 ml-2">LAAM</span>
-            </p>
-          </div>
-
-          <div className="bg-gradient-to-br from-gray-900 to-black border border-gray-800 p-6 rounded-[2rem] shadow-xl">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-purple-500/10 rounded-lg">
-                <Trophy size={18} className="text-purple-500" />
-              </div>
-              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Global Rank</span>
-            </div>
-            <p className="text-3xl font-black text-white italic uppercase tracking-tighter">
-              {userData?.rank || "Bronze"}
-            </p>
-          </div>
+           {/* ... existing cards ... */}
         </div>
 
-        {/* HISTORY SECTION */}
-        <div className="bg-gray-900/30 border border-gray-800/50 rounded-[2.5rem] p-8 backdrop-blur-md">
-          <h2 className="text-xs font-black mb-8 tracking-[0.3em] text-gray-400 uppercase flex items-center gap-3">
+        {/* NEW: NFT GALLERY SECTION */}
+        <div className="mb-10">
+          <h2 className="text-xs font-black mb-6 tracking-[0.3em] text-gray-400 uppercase flex items-center gap-3">
             <span className="h-[1px] w-8 bg-yellow-500/50"></span>
-            Transaction History
+            My Genesis Collection
           </h2>
-
-          <div className="space-y-4">
-            {history.map((h: any) => (
-              <div key={h.id} className="group bg-black/40 p-5 rounded-2xl flex justify-between items-center border border-white/5 hover:border-yellow-500/20 transition-all duration-300">
-                <div className="flex flex-col gap-1">
-                  <span className="font-bold text-gray-100 group-hover:text-yellow-500 transition-colors">{h.quest.title}</span>
-                  <span className="text-[9px] text-gray-600 font-mono uppercase tracking-tighter">Verified: {new Date(h.completedAt).toLocaleDateString()}</span>
+          
+          {userData?.personalMinted && userData.personalMinted > 0 ? (
+            <div className="grid grid-cols-2 gap-4">
+              {[...Array(userData.personalMinted)].map((_, i) => (
+                <div key={i} className="relative group aspect-square bg-gray-900 rounded-[2rem] border border-white/5 overflow-hidden hover:border-yellow-500/50 transition-all">
+                  <img 
+                    src="/assets/images/nft.gif" 
+                    alt="Laamtag Box" 
+                    className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500"
+                  />
+                  <div className="absolute bottom-4 left-4">
+                    <p className="text-[10px] font-black text-yellow-500 uppercase tracking-tighter">Box #000{i + 1}</p>
+                    <p className="text-[8px] text-white/40 uppercase font-bold">Unrevealed</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <span className="text-yellow-500 font-black font-mono block">+{h.quest.reward}</span>
-                  <span className="text-[8px] text-gray-600 font-bold uppercase">Points Added</span>
-                </div>
-              </div>
-            ))}
-
-            {history.length === 0 && (
-              <div className="text-center py-16">
-                <div className="w-12 h-12 bg-gray-800/50 rounded-full mx-auto mb-4 flex items-center justify-center">
-                  <Coins size={20} className="text-gray-600" />
-                </div>
-                <p className="text-gray-600 text-xs font-medium tracking-widest uppercase">Vault Empty</p>
-              </div>
-            )}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white/5 border border-dashed border-white/10 p-10 rounded-[2.5rem] text-center">
+              <p className="text-gray-500 text-xs font-bold uppercase tracking-widest">No NFTs Minted Yet</p>
+              <Link href="/app" className="text-yellow-500 text-[10px] font-black uppercase mt-2 block hover:underline">
+                Go to Mint →
+              </Link>
+            </div>
+          )}
         </div>
+
+        {/* HISTORY SECTION (Keep existing) */}
+        {/* ... */}
 
       </div>
     </div>

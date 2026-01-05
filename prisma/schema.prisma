@@ -23,6 +23,7 @@ model User {
   lastCheckIn   DateTime?
   streakCount   Int         @default(0)
   quests        UserQuest[] // Renamed from 'completed' for clarity
+  personalMinted Int      @default(0)
 }
 
 model Quest {

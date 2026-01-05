@@ -62,21 +62,44 @@ const Mint: NextPage = () => {
   const fetchStatus = async () => {
     try {
       if (!publicKey) return;
-      const res = await axios.get(`https://laamtag-production.up.railway.app/status/${publicKey.toBase58()}`);
-      setStats({
-        global: res.data.globalMinted || 0,
-        personal: res.data.personalMinted || 0,
-        soldOut: res.data.isSoldOut || false
-      });
-    } catch (e) { console.warn("API Error:", e); }
-  };
 
+      // 1. Get personal stats from your Railway API
+      const res = await axios.get(`https://laamtag-production.up.railway.app/status/${publicKey.toBase58()}`);
+
+      // 2. Get LIVE global progress directly from the Blockchain (Like Sugar Show)
+      const umi = createUmi(RPC_URL).use(mplCandyMachine());
+      const candyMachine = await fetchCandyMachine(
+        umi,
+        umiPublicKey(MY_CANDY_ID.trim())
+      );
+
+      const itemsRedeemed = Number(candyMachine.itemsRedeemed);
+      const isSoldOut = itemsRedeemed >= MAX_SUPPLY;
+
+      // 3. Update the UI with real-time data
+      setStats({
+        global: itemsRedeemed, // This will now show "3" instead of "0"
+        personal: res.data.personalMinted || 0,
+        soldOut: isSoldOut
+      });
+
+      console.log(`Live Sync: ${itemsRedeemed} / ${MAX_SUPPLY}`);
+    } catch (e) {
+      console.warn("Status Sync Error:", e);
+    }
+  };
   useEffect(() => {
     if (isClient && publicKey) {
       fetchStatus();
+
+      // Refresh balance
       connection.getAccountInfo(publicKey).then(info => {
         if (info) setBalance(info.lamports / LAMPORTS_PER_SOL);
       });
+
+      // ADD THIS: Refresh the progress bar every 30 seconds
+      const interval = setInterval(fetchStatus, 30000);
+      return () => clearInterval(interval);
     }
   }, [isClient, publicKey, connection]);
 
@@ -189,12 +212,36 @@ const Mint: NextPage = () => {
               </div>
 
               <div className="space-y-3">
-                <div className="flex justify-between text-xs font-bold uppercase text-yellow-500">
-                  <span>Progress</span>
-                  <span> {stats.global} / {MAX_SUPPLY}</span>
+                <div className="flex justify-between items-end">
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-2">
+                      {/* Pulsing Live Dot */}
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
+                      </span>
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-yellow-500/80">
+                        Live Blockchain Feed
+                      </span>
+                    </div>
+                    <h2 className="text-xs font-bold uppercase text-white/40 mt-1">Global Progress</h2>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-2xl font-black italic text-yellow-500 tracking-tighter">
+                      {stats.global.toLocaleString()}
+                    </span>
+                    <span className="text-xs font-bold text-white/20 uppercase ml-2">
+                      / {MAX_SUPPLY.toLocaleString()}
+                    </span>
+                  </div>
                 </div>
-                <div className="w-full h-4 bg-gray-900 rounded-full border border-white/5 p-1">
-                  <div className="h-full bg-gradient-to-r from-yellow-600 to-yellow-400 rounded-full transition-all duration-1000" style={{ width: `${(stats.global / MAX_SUPPLY) * 100}%` }} />
+
+                {/* Progress Bar Container */}
+                <div className="w-full h-3 bg-white/5 rounded-full border border-white/10 p-[2px] overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-yellow-600 via-yellow-400 to-yellow-500 rounded-full transition-all duration-1000 ease-out shadow-[0_0_15px_rgba(234,179,8,0.4)]"
+                    style={{ width: `${Math.max((stats.global / MAX_SUPPLY) * 100, 1)}%` }}
+                  />
                 </div>
               </div>
 
