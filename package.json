@@ -2,6 +2,7 @@
   "name": "laamtag-modern",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -31,7 +32,7 @@
     "bip39": "^3.1.0",
     "bs58": "^6.0.0",
     "canvas-confetti": "^1.9.4",
-    "framer-motion": "^12.23.26",
+    "framer-motion": "^12.0.0",
     "lucide-react": "^0.562.0",
     "next": "^15.1.0",
     "react": "^19.0.0",
@@ -50,7 +51,15 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   },
+  "overrides": {
+    "framer-motion": {
+      "react": "$react",
+      "react-dom": "$react-dom"
+    },
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0"
+  },
   "prisma": {
-    "seed": "npx ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+    "seed": "node --loader ts-node/esm prisma/seed.ts"
   }
 }
