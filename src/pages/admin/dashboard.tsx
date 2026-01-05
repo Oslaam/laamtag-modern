@@ -1,12 +1,18 @@
+"use client";
+
 import { useState, useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useRouter } from 'next/router';
-import Link from 'next/link'; // Added Link
+import Link from 'next/link';
 import { bs58 } from '@project-serum/anchor/dist/cjs/utils/bytes';
 import toast, { Toaster } from 'react-hot-toast';
 import confetti from 'canvas-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
+
+// --- THE FIX: Create untyped versions of motion components ---
+const MotionDiv = motion.div as any;
+const MotionSvg = motion.svg as any;
 
 const ADMIN_WALLETS = [
   "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc",
@@ -30,7 +36,7 @@ export default function AdminDashboard() {
 
     if (!ADMIN_WALLETS.includes(publicKey.toString())) {
       toast.error("UNAUTHORIZED ACCESS");
-      router.push('/'); 
+      router.push('/');
     } else {
       setCheckingAuth(false);
       fetchSubmissions();
@@ -105,29 +111,40 @@ export default function AdminDashboard() {
   return (
     <div className="p-10 bg-black min-h-screen text-white font-sans overflow-hidden pb-32">
       <Toaster position="bottom-right" />
-      
+
       <AnimatePresence>
         {showSuccessUI && (
-          <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 1.5, opacity: 0 }} className="fixed inset-0 flex items-center justify-center pointer-events-none z-50">
+          <MotionDiv
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 1.5, opacity: 0 }}
+            className="fixed inset-0 flex items-center justify-center pointer-events-none z-50"
+          >
             <div className="bg-yellow-500/10 backdrop-blur-xl p-12 rounded-full border border-yellow-500/50 shadow-[0_0_100px_rgba(234,179,8,0.3)]">
-              <motion.svg initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.5 }} className="w-24 h-24 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <MotionSvg
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: 0.5 }}
+                className="w-24 h-24 text-yellow-500"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-              </motion.svg>
+              </MotionSvg>
             </div>
-          </motion.div>
+          </MotionDiv>
         )}
       </AnimatePresence>
 
       <div className="max-w-4xl mx-auto">
-        {/* UPDATED HEADER WITH HOME BUTTON */}
         <div className="flex justify-between items-center mb-10 border-b border-white/5 pb-10">
           <div className="flex items-center gap-6">
-            {/* GO BACK HOME BUTTON */}
             <Link href="/" className="group flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-2 rounded-xl hover:bg-white hover:text-black transition-all">
-               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-               </svg>
-               <span className="text-[10px] font-black uppercase tracking-widest">Close Terminal</span>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              <span className="text-[10px] font-black uppercase tracking-widest">Close Terminal</span>
             </Link>
 
             <div className="h-8 w-[1px] bg-white/10" />
@@ -148,7 +165,13 @@ export default function AdminDashboard() {
         ) : (
           <div className="grid gap-4">
             {submissions.map((s: any) => (
-              <motion.div layout initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} key={s.id} className="p-6 border border-gray-800 rounded-3xl bg-gray-900/40 flex justify-between items-center hover:border-yellow-500/30 transition-all group">
+              <MotionDiv
+                layout
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                key={s.id}
+                className="p-6 border border-gray-800 rounded-3xl bg-gray-900/40 flex justify-between items-center hover:border-yellow-500/30 transition-all group"
+              >
                 <div>
                   <div className="flex items-center gap-3 mb-1">
                     <p className="text-white font-black text-xl italic uppercase tracking-tight">{s.quest.title}</p>
@@ -168,7 +191,7 @@ export default function AdminDashboard() {
                   <button onClick={() => handleAction(s.id, 'REJECT')} className="border border-red-500/30 text-red-500 px-6 py-3 rounded-2xl text-[10px] font-black uppercase hover:bg-red-500 hover:text-white transition-all active:scale-95">Reject</button>
                   <button onClick={() => handleAction(s.id, 'APPROVE')} className="bg-white text-black px-6 py-3 rounded-2xl text-[10px] font-black uppercase hover:bg-yellow-500 transition-all active:scale-95 shadow-lg shadow-white/5">Approve</button>
                 </div>
-              </motion.div>
+              </MotionDiv>
             ))}
             {submissions.length === 0 && (
               <div className="text-center py-20 border-2 border-dashed border-gray-900 rounded-[40px]">
