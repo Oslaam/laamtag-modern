@@ -62,7 +62,7 @@ const Mint: NextPage = () => {
       if (!publicKey) return;
 
       // 1. Get personal stats from your Railway API
-      const res = await axios.get(`https://laamtag-production.up.railway.app/status/${publicKey.toBase58()}`);
+      const res = await axios.get(`/api/status/${publicKey.toBase58()}`);
 
       // 2. Get LIVE global progress directly from the Blockchain (Like Sugar Show)
       const umi = createUmi(RPC_URL).use(mplCandyMachine());

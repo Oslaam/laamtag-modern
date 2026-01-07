@@ -15,7 +15,7 @@ export const useRankWatcher = () => {
       try {
         // Fetch latest user data from your existing API
         // Inside checkRank function
-        const res = await fetch(`https://laamtag-production.up.railway.app/user/${publicKey.toString()}`);
+        const res = await fetch(`/api/user/${publicKey.toString()}`);
         if (!res.ok) return;
 
         const data = await res.json();

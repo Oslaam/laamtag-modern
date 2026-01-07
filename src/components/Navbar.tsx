@@ -23,7 +23,7 @@ export default function Navbar() {
       if (!isAdmin) return; // Only fetch count if user is admin
       try {
         // Replace the old fetch with this:
-        const res = await fetch('https://laamtag-production.up.railway.app/admin/pending', {
+        const res = await fetch('/api/admin/pending', {
           headers: { 'x-admin-wallet': publicKey.toString() }
         });
         if (res.ok) {

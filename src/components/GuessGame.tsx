@@ -40,7 +40,7 @@ export default function GuessGameComponent() {
       setUserTickets(userData.tagTickets || 0);
 
       // Fetch existing Game State
-      const gameRes = await fetch(`/api/quests/guess-game?walletAddress=${publicKey.toString()}`);
+      const gameRes = await fetch(`/api/games/guess-game?walletAddress=${publicKey.toString()}`);
       const gameData = await gameRes.json();
       if (gameRes.ok) {
         setPendingPoints(gameData.pendingPoints || 0);
@@ -60,9 +60,9 @@ export default function GuessGameComponent() {
     }
 
     const interval = setInterval(async () => {
-      const res = await fetch(`/api/quests/guess-game?walletAddress=${publicKey.toString()}`);
+      const res = await fetch(`/api/games/guess-game?walletAddress=${publicKey.toString()}`);
       const data = await res.json();
-      
+
       if (data.lastAttempt) {
         const lastAttemptTime = new Date(data.lastAttempt).getTime();
         const lockoutEnd = lastAttemptTime + (6 * 60 * 60 * 1000); // 6 Hours
@@ -91,7 +91,7 @@ export default function GuessGameComponent() {
     if (!publicKey || pendingPoints < CLAIM_THRESHOLD) return;
     setIsClaiming(true);
 
-    const res = await fetch('/api/quests/guess-game', {
+    const res = await fetch('/api/games/guess-game', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -110,7 +110,7 @@ export default function GuessGameComponent() {
   const startLevel = async (selectedLevel: 'easy' | 'normal' | 'difficult') => {
     if (!publicKey || isLocked || hasNoTickets) return;
 
-    const res = await fetch('/api/quests/guess-game', {
+    const res = await fetch('/api/games/guess-game', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -136,7 +136,7 @@ export default function GuessGameComponent() {
   const handleGuess = async () => {
     if (!publicKey || !level || isLocked) return;
 
-    const res = await fetch('/api/quests/guess-game', {
+    const res = await fetch('/api/games/guess-game', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -290,9 +290,9 @@ export default function GuessGameComponent() {
             <XCircle className="text-red-500 mx-auto mb-3" size={48} />
             <h3 className="text-red-500 font-black text-2xl italic uppercase tracking-tighter">System Overheated</h3>
             <p className="text-gray-400 text-xs font-bold uppercase mb-4">Frequency Jammer Cooling Down</p>
-            
+
             <div className="inline-block bg-black px-6 py-2 rounded-full border border-red-500/50">
-               <span className="text-red-500 font-mono text-xl font-bold">{lockoutTimer || "00:00:00"}</span>
+              <span className="text-red-500 font-mono text-xl font-bold">{lockoutTimer || "00:00:00"}</span>
             </div>
 
             {revealedNumber && (
