@@ -9,13 +9,14 @@ import { bs58 } from '@project-serum/anchor/dist/cjs/utils/bytes';
 import toast, { Toaster } from 'react-hot-toast';
 import confetti from 'canvas-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
+import { CheckCircle2, MessageSquare, ExternalLink, ShieldAlert } from 'lucide-react';
 
 // --- THE FIX: Create untyped versions of motion components ---
 const MotionDiv = motion.div as any;
 const MotionSvg = motion.svg as any;
 
 const ADMIN_WALLETS = [
-  "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc",
+  "E4cHwRYWTznNjTvchSkZVXH8LWqdWbLekVXWjzmite6M", // Your Address
   "kzHT1obsuYCCWUChsvtUADxEw6VqNF3F9kywWEXDkKG",
   "CfRjo855LvAWcviiiq7DdcLz9i5Xqy8Vvnmh95UnL9Ua"
 ];
@@ -23,7 +24,9 @@ const ADMIN_WALLETS = [
 export default function AdminDashboard() {
   const { publicKey, signMessage } = useWallet();
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<'QUESTS' | 'SUPPORT'>('QUESTS');
   const [submissions, setSubmissions] = useState([]);
+  const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [showSuccessUI, setShowSuccessUI] = useState(false);
@@ -39,18 +42,25 @@ export default function AdminDashboard() {
       router.push('/');
     } else {
       setCheckingAuth(false);
-      fetchSubmissions();
+      fetchData();
     }
   }, [publicKey, router]);
 
-  const fetchSubmissions = async () => {
+  const fetchData = async () => {
     if (!publicKey) return;
+    setLoading(true);
     try {
-      const res = await fetch('/api/admin/pending', {
+      // Fetch Quests
+      const questRes = await fetch('/api/admin/pending', {
         headers: { 'x-admin-wallet': publicKey.toString() }
       });
-      const data = await res.json();
-      setSubmissions(data.submissions || []);
+      const questData = await questRes.json();
+      setSubmissions(questData.submissions || []);
+
+      // Fetch Support Tickets
+      const ticketRes = await fetch(`/api/admin/tickets?adminAddress=${publicKey.toString()}`);
+      const ticketData = await ticketRes.json();
+      setTickets(ticketData || []);
     } catch (err) {
       toast.error("Failed to load terminal data");
     } finally {
@@ -58,7 +68,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleAction = async (id: string, action: 'APPROVE' | 'REJECT') => {
+  const handleQuestAction = async (id: string, action: 'APPROVE' | 'REJECT') => {
     if (!publicKey || !signMessage) return toast.error("Connect Wallet!");
     try {
       const message = `Admin action: ${action} submission ${id}`;
@@ -79,13 +89,30 @@ export default function AdminDashboard() {
           setTimeout(() => setShowSuccessUI(false), 3000);
         }
         toast.success(`Quest ${action === 'APPROVE' ? 'Approved' : 'Rejected'}!`);
-        fetchSubmissions();
+        fetchData();
       } else {
         const err = await res.json();
         toast.error(err.error || "Action failed");
       }
     } catch (err) {
       toast.error("Signature rejected");
+    }
+  };
+
+  const updateTicketStatus = async (ticketId: string, newStatus: string) => {
+    if (!publicKey) return;
+    try {
+      const res = await fetch(`/api/admin/tickets?adminAddress=${publicKey.toString()}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticketId, newStatus })
+      });
+      if (res.ok) {
+        toast.success("Ticket Status Updated");
+        fetchData();
+      }
+    } catch (err) {
+      toast.error("Failed to update ticket");
     }
   };
 
@@ -138,6 +165,7 @@ export default function AdminDashboard() {
       </AnimatePresence>
 
       <div className="max-w-4xl mx-auto">
+        {/* Header */}
         <div className="flex justify-between items-center mb-10 border-b border-white/5 pb-10">
           <div className="flex items-center gap-6">
             <Link href="/" className="group flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-2 rounded-xl hover:bg-white hover:text-black transition-all">
@@ -157,6 +185,22 @@ export default function AdminDashboard() {
           <WalletMultiButton />
         </div>
 
+        {/* Tabs */}
+        <div className="flex gap-4 mb-8 bg-gray-900/30 p-2 rounded-2xl border border-white/5">
+          <button
+            onClick={() => setActiveTab('QUESTS')}
+            className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'QUESTS' ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20' : 'text-gray-500 hover:text-white'}`}
+          >
+            Pending Quests ({submissions.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('SUPPORT')}
+            className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'SUPPORT' ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20' : 'text-gray-500 hover:text-white'}`}
+          >
+            Support Tickets ({tickets.length})
+          </button>
+        </div>
+
         {loading ? (
           <div className="flex items-center gap-3 text-gray-500 font-mono text-[10px] uppercase tracking-widest">
             <div className="w-3 h-3 border border-yellow-500 border-t-transparent rounded-full animate-spin"></div>
@@ -164,38 +208,88 @@ export default function AdminDashboard() {
           </div>
         ) : (
           <div className="grid gap-4">
-            {submissions.map((s: any) => (
-              <MotionDiv
-                layout
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                key={s.id}
-                className="p-6 border border-gray-800 rounded-3xl bg-gray-900/40 flex justify-between items-center hover:border-yellow-500/30 transition-all group"
-              >
-                <div>
-                  <div className="flex items-center gap-3 mb-1">
-                    <p className="text-white font-black text-xl italic uppercase tracking-tight">{s.quest.title}</p>
-                    <span className="bg-yellow-500/10 text-yellow-500 text-[10px] font-black px-2 py-0.5 rounded-md">+{s.quest.reward} LAAM</span>
+            {activeTab === 'QUESTS' ? (
+              submissions.map((s: any) => (
+                <MotionDiv
+                  layout
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  key={s.id}
+                  className="p-6 border border-gray-800 rounded-3xl bg-gray-900/40 flex justify-between items-center hover:border-yellow-500/30 transition-all group"
+                >
+                  <div>
+                    <div className="flex items-center gap-3 mb-1">
+                      <p className="text-white font-black text-xl italic uppercase tracking-tight">{s.quest.title}</p>
+                      <span className="bg-yellow-500/10 text-yellow-500 text-[10px] font-black px-2 py-0.5 rounded-md">+{s.quest.reward} LAAM</span>
+                    </div>
+                    <div className="flex gap-2 mb-3">
+                      <p className="text-[10px] text-gray-500 font-mono bg-black/40 px-2 py-1 rounded">USER: {s.userId.slice(0, 4)}...{s.userId.slice(-4)}</p>
+                      <p className="text-[10px] text-cyan-500 font-mono bg-cyan-500/10 px-2 py-1 rounded">CURRENT: {s.user?.laamPoints || 0} PTS</p>
+                    </div>
+                    {s.proofLink && (
+                      <a href={s.proofLink} target="_blank" rel="noreferrer" className="text-cyan-400 text-[10px] font-black italic hover:text-white transition-colors flex items-center gap-1 uppercase tracking-widest">
+                        Verify Link <ExternalLink size={12} />
+                      </a>
+                    )}
                   </div>
-                  <div className="flex gap-2 mb-3">
-                    <p className="text-[10px] text-gray-500 font-mono bg-black/40 px-2 py-1 rounded">USER: {s.userId.slice(0, 4)}...{s.userId.slice(-4)}</p>
-                    <p className="text-[10px] text-cyan-500 font-mono bg-cyan-500/10 px-2 py-1 rounded">CURRENT: {s.user?.laamPoints || 0} PTS</p>
+                  <div className="flex gap-3">
+                    <button onClick={() => handleQuestAction(s.id, 'REJECT')} className="border border-red-500/30 text-red-500 px-6 py-3 rounded-2xl text-[10px] font-black uppercase hover:bg-red-500 hover:text-white transition-all active:scale-95">Reject</button>
+                    <button onClick={() => handleQuestAction(s.id, 'APPROVE')} className="bg-white text-black px-6 py-3 rounded-2xl text-[10px] font-black uppercase hover:bg-yellow-500 transition-all active:scale-95 shadow-lg shadow-white/5">Approve</button>
                   </div>
-                  {s.proofLink && (
-                    <a href={s.proofLink} target="_blank" rel="noreferrer" className="text-cyan-400 text-[10px] font-black italic hover:text-white transition-colors flex items-center gap-1 uppercase tracking-widest">
-                      Verify Link <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" strokeWidth={2.5} /></svg>
+                </MotionDiv>
+              ))
+            ) : (
+              tickets.map((t: any) => (
+                <MotionDiv
+                  layout
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  key={t.id}
+                  className="p-6 border border-gray-800 rounded-3xl bg-gray-900/40 flex flex-col md:flex-row justify-between gap-6 hover:border-yellow-500/30 transition-all"
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className={`text-[9px] font-black px-2 py-1 rounded ${t.type === 'Complaint' ? 'bg-red-500/10 text-red-500' : 'bg-blue-500/10 text-blue-500'} uppercase`}>
+                        {t.type}
+                      </span>
+                      <span className="text-gray-600 text-[10px] font-mono">{new Date(t.createdAt).toLocaleString()}</span>
+                    </div>
+                    <h3 className="text-xl font-bold mb-2 text-white italic">{t.title}</h3>
+                    <p className="text-gray-400 text-sm mb-4 bg-black/40 p-4 rounded-2xl border border-white/5">{t.description}</p>
+
+                    <div className="flex flex-wrap gap-4 text-[9px] uppercase font-black text-gray-500 tracking-widest">
+                      <p>Name: <span className="text-white">{t.name}</span></p>
+                      <p>Wallet: <span className="text-yellow-500 font-mono">{t.walletAddress.slice(0, 6)}...</span></p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col justify-center gap-2 min-w-[160px]">
+                    {t.status === 'Pending' ? (
+                      <button
+                        onClick={() => updateTicketStatus(t.id, 'Resolved')}
+                        className="bg-yellow-500 text-black py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-white transition-all flex items-center justify-center gap-2"
+                      >
+                        <CheckCircle2 size={14} /> Resolve
+                      </button>
+                    ) : (
+                      <div className="bg-green-500/10 text-green-500 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest text-center border border-green-500/20">
+                        Resolved
+                      </div>
+                    )}
+                    <a
+                      href={`mailto:${t.email}`}
+                      className="bg-white/5 text-white border border-white/10 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest text-center hover:bg-white hover:text-black transition-all flex items-center justify-center gap-2"
+                    >
+                      <MessageSquare size={14} /> Reply
                     </a>
-                  )}
-                </div>
-                <div className="flex gap-3">
-                  <button onClick={() => handleAction(s.id, 'REJECT')} className="border border-red-500/30 text-red-500 px-6 py-3 rounded-2xl text-[10px] font-black uppercase hover:bg-red-500 hover:text-white transition-all active:scale-95">Reject</button>
-                  <button onClick={() => handleAction(s.id, 'APPROVE')} className="bg-white text-black px-6 py-3 rounded-2xl text-[10px] font-black uppercase hover:bg-yellow-500 transition-all active:scale-95 shadow-lg shadow-white/5">Approve</button>
-                </div>
-              </MotionDiv>
-            ))}
-            {submissions.length === 0 && (
+                  </div>
+                </MotionDiv>
+              ))
+            )}
+
+            {(activeTab === 'QUESTS' ? submissions.length : tickets.length) === 0 && (
               <div className="text-center py-20 border-2 border-dashed border-gray-900 rounded-[40px]">
-                <p className="text-gray-600 font-black italic uppercase tracking-widest text-[10px]">All transmissions cleared</p>
+                <p className="text-gray-600 font-black italic uppercase tracking-widest text-[10px]">Terminal clear. No pending transmissions.</p>
               </div>
             )}
           </div>

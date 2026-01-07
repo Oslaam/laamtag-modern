@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '../../../lib/prisma';
+import { logActivity } from '../../../lib/activityLogger'; // Import the logger
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method !== 'POST') return res.status(405).json({ message: 'Method not allowed' });
@@ -11,7 +12,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
-        // 1. Fetch user to verify they have enough LAAM
         const user = await prisma.user.findUnique({ where: { walletAddress } });
 
         if (!user) return res.status(404).json({ message: 'User not found' });
@@ -28,6 +28,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 tagTickets: { increment: amount }
             }
         });
+
+        // --- NEW: LOG TO HISTORY ---
+        // Log the spent LAAM
+        await logActivity(walletAddress, 'SHOP_PURCHASE', -price, 'LAAM');
+        // Log the received TAGS
+        await logActivity(walletAddress, 'SHOP_PURCHASE', amount, 'TAG');
 
         return res.status(200).json({
             success: true,

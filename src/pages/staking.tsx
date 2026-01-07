@@ -3,19 +3,60 @@ import Head from 'next/head';
 import { useWallet } from '@solana/wallet-adapter-react';
 import SeekerGuard from '../components/SeekerGuard';
 import axios from 'axios';
-import { Lock, Zap, Clock, ShieldCheck } from 'lucide-react';
+import { Lock, Zap, Clock, ShieldCheck, History } from 'lucide-react';
+import { stakeNftOnChain } from '../lib/stakeNftTask';
+import { unstakeNftOnChain } from '../lib/unstakeNftTask';
+
+const RewardTicker = ({ stakedAt }: { stakedAt: string }) => {
+    const [rewards, setRewards] = useState({ laam: 0, tag: 0 });
+    const LAAM_PER_SEC = 500 / 86400;
+    const TAG_PER_SEC = 10 / 86400;
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const secondsElapsed = Math.floor((Date.now() - new Date(stakedAt).getTime()) / 1000);
+            setRewards({
+                laam: secondsElapsed * LAAM_PER_SEC,
+                tag: secondsElapsed * TAG_PER_SEC
+            });
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [stakedAt]);
+
+    return (
+        <div className="grid grid-cols-2 gap-2 mt-2">
+            <div className="bg-black/40 p-2 rounded-lg border border-yellow-500/20">
+                <p className="text-[8px] text-gray-500 uppercase font-black">LAAM</p>
+                <p className="text-yellow-500 font-black tabular-nums">{rewards.laam.toFixed(4)}</p>
+            </div>
+            <div className="bg-black/40 p-2 rounded-lg border border-white/10">
+                <p className="text-[8px] text-gray-500 uppercase font-black">TAG</p>
+                <p className="text-white font-black tabular-nums">{rewards.tag.toFixed(4)}</p>
+            </div>
+        </div>
+    );
+};
 
 export default function StakingPage() {
-    const { publicKey } = useWallet();
+    const wallet = useWallet();
+    const { publicKey } = wallet;
     const [nfts, setNfts] = useState<any[]>([]);
+    const [rawStakes, setRawStakes] = useState<any[]>([]);
+    const [history, setHistory] = useState<any[]>([]);
+    const [totalClaimed, setTotalClaimed] = useState({ laam: 0, tag: 0 });
     const [loading, setLoading] = useState(true);
 
     const loadData = async () => {
         if (!publicKey) return;
         try {
-            // This API returns all your NFTs and marks which ones are in the "StakedNFT" table
-            const res = await axios.get(`/api/staking/list?address=${publicKey.toBase58()}`);
-            setNfts(res.data.nfts);
+            const [listRes, historyRes] = await Promise.all([
+                axios.get(`/api/staking/list?address=${publicKey.toBase58()}`),
+                axios.get(`/api/staking/history?address=${publicKey.toBase58()}`)
+            ]);
+            setNfts(listRes.data.nfts);
+            setRawStakes(listRes.data.rawStakes || []);
+            setTotalClaimed(historyRes.data.totals);
+            setHistory(historyRes.data.history);
         } catch (err) {
             console.error("Staking load error", err);
         } finally {
@@ -25,17 +66,25 @@ export default function StakingPage() {
 
     useEffect(() => { loadData(); }, [publicKey]);
 
-    const handleStake = async (mintAddress: string) => {
+    const handleAction = async (nft: any) => {
+        setLoading(true);
         try {
-            setLoading(true);
-            await axios.post('/api/staking/stake', {
-                walletAddress: publicKey?.toBase58(),
-                mintAddress
-            });
-            alert("NFT Locked Successfully! Cooldown period started.");
+            if (!nft.staked) {
+                const result = await stakeNftOnChain(wallet, nft.mint);
+                if (result.success) {
+                    await axios.post('/api/staking/stake', {
+                        walletAddress: publicKey?.toBase58(),
+                        mintAddress: nft.mint,
+                        signature: result.signature
+                    });
+                }
+            } else {
+                const result = await unstakeNftOnChain(wallet, nft.mint);
+                // Unstake API handles reward calculation and DB logging
+            }
             loadData();
         } catch (err: any) {
-            alert(err.response?.data?.message || "Staking failed");
+            alert(err.response?.data?.message || "Action failed");
         } finally {
             setLoading(false);
         }
@@ -44,64 +93,87 @@ export default function StakingPage() {
     return (
         <SeekerGuard>
             <div className="min-h-screen bg-black text-white font-sans pb-20">
-                <Head><title>LAAMTAG | Secure Staking</title></Head>
-
+                <Head><title>LAAMTAG | Vault</title></Head>
                 <main className="max-w-6xl mx-auto py-12 px-6">
                     <header className="text-center mb-16 space-y-4">
                         <h1 className="text-6xl font-black italic tracking-tighter text-yellow-500 uppercase">Vault Lock</h1>
                         <p className="text-gray-400 max-w-xl mx-auto uppercase text-xs font-bold tracking-[0.3em]">
-                            Lock Genesis Tags for 500 LAAM & 10 TAG per NFT daily.
+                            Lock Genesis Tags for 500 LAAM & 10 TAG daily.
                         </p>
                     </header>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        <div className="md:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-                            <StatCard icon={<Lock className="text-yellow-500" />} label="Staked NFTs" value={nfts.filter(n => n.staked).length} />
-                            <StatCard icon={<Clock className="text-blue-500" />} label="Cooldown" value="48 Hours" />
-                            <StatCard icon={<Zap className="text-purple-500" />} label="Projected Yield" value={`${nfts.filter(n => n.staked).length * 500} LAAM`} />
-                        </div>
+                    <div className="md:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-4 mb-12">
+                        <StatCard icon={<Lock className="text-yellow-500" />} label="Staked NFTs" value={nfts.filter(n => n.staked).length} />
+                        <StatCard icon={<Clock className="text-blue-500" />} label="Cooldown" value="48 Hours" />
+                        <StatCard
+                            icon={<Zap className="text-purple-500" />}
+                            label="Total Claimed"
+                            value={`${totalClaimed.laam.toFixed(0)} LAAM / ${totalClaimed.tag.toFixed(0)} TAG`}
+                        />
+                    </div>
 
-                        {loading ? (
-                            <div className="col-span-3 text-center py-20 animate-pulse text-gray-500 font-black tracking-widest">SCANNING BLOCKCHAIN...</div>
-                        ) : nfts.length === 0 ? (
-                            <div className="col-span-3 text-center py-20 bg-gray-900/50 rounded-3xl border border-dashed border-gray-800">
-                                <p className="text-gray-500 uppercase font-bold tracking-widest">No Seeker NFTs detected.</p>
-                            </div>
-                        ) : (
-                            nfts.map((nft) => (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {nfts.map((nft) => {
+                            const stakeData = rawStakes.find(s => s.mintAddress === nft.mint);
+                            return (
                                 <div key={nft.mint} className="bg-gray-900 border border-gray-800 rounded-[32px] overflow-hidden group hover:border-yellow-500/50 transition-all shadow-2xl">
                                     <div className="relative">
-                                        <img src={nft.image} alt="NFT" className={`w-full aspect-square object-cover transition-opacity ${nft.staked ? 'opacity-40' : 'opacity-80 group-hover:opacity-100'}`} />
+                                        <img src={nft.image} className={`w-full aspect-square object-cover ${nft.staked ? 'opacity-40 grayscale' : ''}`} />
                                         {nft.staked && (
-                                            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center">
-                                                <div className="bg-black/80 p-4 rounded-2xl border border-yellow-500 flex items-center gap-2 shadow-glow">
-                                                    <ShieldCheck className="text-yellow-500" />
-                                                    <span className="font-black italic text-yellow-500">VAULT LOCKED</span>
-                                                </div>
+                                            <div className="absolute top-4 right-4 bg-yellow-500 text-black px-3 py-1 rounded-full text-[10px] font-black italic shadow-glow">
+                                                LOCKED
                                             </div>
                                         )}
                                     </div>
-
-                                    <div className="p-6 space-y-4">
-                                        <h3 className="font-black text-xl italic uppercase tracking-tight">{nft.name}</h3>
-                                        {!nft.staked ? (
-                                            <button
-                                                onClick={() => handleStake(nft.mint)}
-                                                className="w-full bg-white text-black font-black py-4 rounded-2xl hover:bg-yellow-500 transition-all transform active:scale-95 uppercase text-xs tracking-widest"
-                                            >
-                                                Lock Asset
-                                            </button>
+                                    <div className="p-6">
+                                        <h3 className="font-black text-xl italic uppercase mb-2">{nft.name}</h3>
+                                        {nft.staked && stakeData ? (
+                                            <RewardTicker stakedAt={stakeData.stakedAt} />
                                         ) : (
-                                            <div className="py-2 text-center">
-                                                <p className="text-[10px] text-yellow-500 font-bold uppercase tracking-widest animate-pulse">
-                                                    Emitting Rewards
-                                                </p>
-                                            </div>
+                                            <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Not currently earning</p>
                                         )}
+                                        <button
+                                            onClick={() => handleAction(nft)}
+                                            className={`w-full mt-6 py-4 rounded-2xl font-black uppercase text-xs tracking-widest transition-all ${nft.staked ? 'bg-white/10 text-gray-400' : 'bg-yellow-500 text-black hover:bg-yellow-400'}`}
+                                        >
+                                            {nft.staked ? "Vault Locked" : "Lock Asset"}
+                                        </button>
                                     </div>
                                 </div>
-                            ))
-                        )}
+                            );
+                        })}
+                    </div>
+
+                    {/* RECENT ACTIVITY TABLE */}
+                    <div className="mt-16 bg-gray-900/50 border border-white/10 rounded-2xl p-6">
+                        <div className="flex items-center gap-2 mb-6 text-yellow-500">
+                            <History size={20} />
+                            <h2 className="text-xl font-black italic uppercase tracking-tighter">Recent Claim Activity</h2>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead className="text-gray-500 border-b border-white/10 text-[10px] uppercase font-black">
+                                    <tr>
+                                        <th className="pb-4">Date</th>
+                                        <th className="pb-4">NFT Mint</th>
+                                        <th className="pb-4 text-right">LAAM</th>
+                                        <th className="pb-4 text-right">TAG</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5 font-bold">
+                                    {history.length > 0 ? history.map((item) => (
+                                        <tr key={item.id} className="text-sm">
+                                            <td className="py-4 text-gray-400">{new Date(item.unstakedAt).toLocaleDateString()}</td>
+                                            <td className="py-4 font-mono text-gray-600">{item.mintAddress.slice(0, 4)}...{item.mintAddress.slice(-4)}</td>
+                                            <td className="py-4 text-right text-yellow-500">+{item.laamEarned.toFixed(2)}</td>
+                                            <td className="py-4 text-right text-white">+{item.tagEarned.toFixed(2)}</td>
+                                        </tr>
+                                    )) : (
+                                        <tr><td colSpan={4} className="py-10 text-center text-gray-600 uppercase text-xs tracking-widest font-black">No claim history found.</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </main>
             </div>

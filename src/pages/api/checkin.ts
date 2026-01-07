@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import prisma from '../../lib/prisma'; // Corrected Path (2 dots)
+import prisma from '../../lib/prisma';
+import { logActivity } from '../../lib/activityLogger';
 
 const REWARDS = [10, 10, 30, 40, 50, 50, 60];
 
@@ -15,9 +16,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       update: {},
     });
 
+    // Handle initial create log
+    if (user.streakCount === 1 && !user.lastCheckIn) {
+      await logActivity(walletAddress, 'DAILY_CHECKIN' as any, REWARDS[0], 'LAAM');
+    }
+
     if (user.lastCheckIn) {
       const hoursSince = (now.getTime() - user.lastCheckIn.getTime()) / (1000 * 60 * 60);
-      if (hoursSince < 24) return res.status(400).json({ message: "Already checked in! Come back tomorrow." });
+      if (hoursSince < 24) return res.status(400).json({ message: "Already checked in!" });
 
       let newStreak = hoursSince < 48 ? (user.streakCount % 7) + 1 : 1;
       const reward = REWARDS[newStreak - 1];
@@ -30,6 +36,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           lastCheckIn: now,
         }
       });
+
+      // LOG HISTORY
+      await logActivity(walletAddress, 'DAILY_CHECKIN' as any, reward, 'LAAM');
+
       return res.status(200).json({ success: true, reward, total: updatedUser.laamPoints });
     }
     return res.status(200).json({ success: true, reward: REWARDS[0], total: user.laamPoints });

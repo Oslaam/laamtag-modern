@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '../../../lib/prisma';
+import { logActivity } from '../../../lib/activityLogger';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST' && req.method !== 'GET') return res.status(405).json({ message: 'Method not allowed' });
@@ -8,7 +9,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!walletAddress) return res.status(400).json({ message: 'Wallet address required' });
 
   try {
-    // --- GET: Fetch Game State (Persistence) ---
     if (req.method === 'GET') {
       const game = await prisma.guessGame.findUnique({ where: { userId: walletAddress as string } });
       return res.status(200).json({
@@ -21,7 +21,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { action, level, userGuess } = req.body;
     const user = await prisma.user.findUnique({ where: { walletAddress: walletAddress as string } });
 
-    // --- ACTION: START (Charge Ticket & Generate Number) ---
     if (action === 'start') {
       if (!user || (user.tagTickets || 0) <= 0) {
         return res.status(403).json({ message: "No tickets remaining." });
@@ -31,38 +30,47 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const newTarget = Math.floor(Math.random() * ranges[level as keyof typeof ranges]) + 1;
 
       await prisma.$transaction([
-        prisma.user.update({ where: { walletAddress }, data: { tagTickets: { decrement: 1 } } }),
+        prisma.user.update({ where: { walletAddress: walletAddress as string }, data: { tagTickets: { decrement: 1 } } }),
         prisma.guessGame.upsert({
-          where: { userId: walletAddress },
-          create: { userId: walletAddress, currentTarget: newTarget, attempts: 0, isLocked: false },
+          where: { userId: walletAddress as string },
+          create: { userId: walletAddress as string, currentTarget: newTarget, attempts: 0, isLocked: false },
           update: { currentTarget: newTarget, attempts: 0, isLocked: false }
         })
       ]);
+
+      // LOG HISTORY: Cost of playing
+      await logActivity(walletAddress as string, 'GAME_COST', -1, 'TAG');
+
       return res.status(200).json({ success: true });
     }
 
-    // --- ACTION: CLAIM (The 1000 LAAM Threshold) ---
     if (action === 'claim') {
-      const game = await prisma.guessGame.findUnique({ where: { userId: walletAddress } });
+      const game = await prisma.guessGame.findUnique({ where: { userId: walletAddress as string } });
       if (!game || game.pendingPoints < 1000) {
         return res.status(400).json({ message: "Threshold of 1000 LAAM not met." });
       }
 
+      const pointsToClaim = game.pendingPoints;
+
       await prisma.$transaction([
         prisma.user.update({
-          where: { walletAddress },
-          data: { laamPoints: { increment: game.pendingPoints } }
+          where: { walletAddress: walletAddress as string },
+          data: { laamPoints: { increment: pointsToClaim } }
         }),
         prisma.guessGame.update({
-          where: { userId: walletAddress },
+          where: { userId: walletAddress as string },
           data: { pendingPoints: 0 }
         })
       ]);
+
+      // LOG HISTORY: Claimed win
+      await logActivity(walletAddress as string, 'GAME_WIN', pointsToClaim, 'LAAM');
+
       return res.status(200).json({ success: true });
     }
 
-    // --- ACTION: GUESS (Secure validation) ---
-    const gameStatus = await prisma.guessGame.findUnique({ where: { userId: walletAddress } });
+    // (Remaining Guess logic remains the same...)
+    const gameStatus = await prisma.guessGame.findUnique({ where: { userId: walletAddress as string } });
     if (!gameStatus || gameStatus.isLocked || gameStatus.currentTarget === null) {
       return res.status(400).json({ message: "Start a new game first." });
     }
@@ -79,23 +87,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const pointsWon = rewards[level as string][gameStatus.attempts] || 10;
 
       const updated = await prisma.guessGame.update({
-        where: { userId: walletAddress },
+        where: { userId: walletAddress as string },
         data: { pendingPoints: { increment: pointsWon }, attempts: 0, currentTarget: null }
       });
       return res.status(200).json({ win: true, message: "JAMMED!", pendingPoints: updated.pendingPoints });
     }
 
-    // Handle Lockout after 3 tries
     if (currentAttempt >= 3) {
       await prisma.guessGame.update({
-        where: { userId: walletAddress },
+        where: { userId: walletAddress as string },
         data: { isLocked: true, attempts: 3, lastAttempt: new Date() }
       });
       return res.status(200).json({ isLocked: true, revealedNumber: gameStatus.currentTarget });
     }
 
-    // Save failed attempt count
-    await prisma.guessGame.update({ where: { userId: walletAddress }, data: { attempts: currentAttempt } });
+    await prisma.guessGame.update({ where: { userId: walletAddress as string }, data: { attempts: currentAttempt } });
     const hint = parseInt(userGuess) < gameStatus.currentTarget ? "HIGHER" : "LOWER";
     return res.status(200).json({
       win: false,

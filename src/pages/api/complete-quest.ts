@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '../../lib/prisma';
-import { getRank } from '../../utils/ranks'; // <--- FIXED PATH
+import { getRank } from '../../utils/ranks';
+import { logActivity } from '../../lib/activityLogger';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method not allowed' });
@@ -20,7 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       where: { walletAddress },
       update: {
         laamPoints: { increment: pointsReward },
-        rank: newTier // Storing the Tier here
+        rank: newTier
       },
       create: {
         walletAddress,
@@ -29,16 +30,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
     });
 
-    // Record Completion
     await prisma.userQuest.create({
       data: { userId: walletAddress, questId: questId, status: "APPROVED" },
     });
 
-    // Update Quest claimedCount
     await prisma.quest.update({
       where: { id: questId },
       data: { claimedCount: { increment: 1 } }
     });
+
+    // LOG HISTORY
+    await logActivity(walletAddress, 'QUEST_REWARD', pointsReward, 'LAAM');
 
     return res.status(200).json({ success: true, newPoints: user.laamPoints });
   } catch (error: any) {

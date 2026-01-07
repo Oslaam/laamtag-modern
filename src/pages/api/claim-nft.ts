@@ -1,8 +1,9 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { Connection, PublicKey } from '@solana/web3.js';
 import prisma from '../../lib/prisma';
+import { logActivity } from '../../lib/activityLogger';
 
-const connection = new Connection(process.env.NEXT_PUBLIC_RPC_URL || "https://api.mainnet-beta.solana.com");
+const connection = new Connection(process.env.NEXT_PUBLIC_RPC_URL || "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3");
 const LAAM_CREATOR_ADDRESS = "DhMECuyiL61unsDLhGTrqxKLrUoTPtEd9SXamr9Xbeoz";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -61,6 +62,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         data: { laamPoints: { increment: totalReward } }
       })
     ]);
+
+    // LOG HISTORY
+    await logActivity(walletAddress, 'QUEST_REWARD', totalReward, 'LAAM');
 
     return res.status(200).json({ success: true, message: `Verified! +${totalReward} LAAM added.` });
   } catch (e) {

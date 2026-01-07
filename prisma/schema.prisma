@@ -8,14 +8,38 @@ datasource db {
 }
 
 model User {
-  walletAddress  String      @id @unique
-  laamPoints     Int         @default(0)
-  rank           String      @default("Bronze")
-  lastCheckIn    DateTime?
-  streakCount    Int         @default(0)
-  personalMinted Int         @default(0)
-  tagTickets     Int         @default(0)
-  quests         UserQuest[]
+  walletAddress      String           @id @unique
+  laamPoints         Int              @default(0)
+  rank               String           @default("Bronze")
+  lastCheckIn        DateTime?
+  streakCount        Int              @default(0)
+  personalMinted     Int              @default(0)
+  tagTickets         Int              @default(0)
+  totalTagPurchased  Int              @default(0)
+  isAdmin            Boolean          @default(false)
+  quests             UserQuest[]
+  activities         Activity[]
+  pendingRewards     PendingReward[]
+}
+
+model Activity {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [walletAddress])
+  type          String   // e.g., "SPIN_COST", "SPIN_WIN", "TAG_PURCHASE"
+  asset         String   // e.g., "TAG", "LAAM", "SOL", "USDC"
+  amount        Float
+  createdAt     DateTime @default(now())
+}
+
+model PendingReward {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [walletAddress])
+  asset         String   // "SOL" or "USDC"
+  amount        Float
+  isClaimed     Boolean  @default(false)
+  createdAt     DateTime @default(now())
 }
 
 model Quest {
@@ -66,10 +90,35 @@ enum QuestStatus {
 }
 
 model StakedNFT {
+  id           String   @id @default(cuid())
+  mintAddress  String   @unique  // <--- CRITICAL: This prevents double-staking
+  ownerAddress String
+  stakedAt     DateTime @default(now())
+  lastClaimed  DateTime @default(now())
+  // signature String? // Add this if you want to store the TX proof
+}
+
+model SupportTicket {
   id            String   @id @default(cuid())
-  mintAddress   String   @unique
-  ownerAddress  String
-  stakedAt      DateTime @default(now())
-  lastClaimed   DateTime @default(now())
-  isLocked      Boolean  @default(true)
+  walletAddress String
+  type          String   // Complaint or Suggestion
+  name          String
+  email         String
+  title         String
+  description   String   @db.Text
+  status        String   @default("Pending") // Pending, Resolved
+  createdAt     DateTime @default(now())
+
+  @@index([walletAddress])
+}
+
+model RewardHistory {
+  id            String   @id @default(cuid())
+  walletAddress String
+  mintAddress   String
+  laamEarned    Float
+  tagEarned     Float
+  unstakedAt    DateTime @default(now())
+
+  @@index([walletAddress])
 }

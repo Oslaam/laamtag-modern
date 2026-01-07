@@ -6,17 +6,17 @@ import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { ContextProvider } from '../contexts/ContextProvider';
 import RankUpModal from '../components/RankUpModal';
+import HistoryModal from '../components/HistoryModal'; // Global History Modal
 import { useRankWatcher } from '../hooks/useRankWatcher';
-import dynamic from 'next/dynamic'; // Added for dynamic import
+import dynamic from 'next/dynamic';
 import {
     Hammer, Trophy, Layers, Gamepad2, ShoppingCart,
-    FileText, User, BarChart3, Mail, Plus, Minus
+    FileText, User, BarChart3, Mail, Plus, Minus, History
 } from 'lucide-react';
 
 import '@solana/wallet-adapter-react-ui/styles.css';
 import '../styles/globals.css';
 
-// --- FIX 1: DYNAMIC WALLET BUTTON ---
 const WalletMultiButtonDynamic = dynamic(
     async () => (await import('@solana/wallet-adapter-react-ui')).WalletMultiButton,
     { ssr: false }
@@ -29,17 +29,14 @@ const GlobalLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
     const { showRankModal, setShowRankModal, newRank } = useRankWatcher();
 
     const [footerExpanded, setFooterExpanded] = useState(false);
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false); // Global History State
     const [stats, setStats] = useState({ laam: 0, tag: 0, sol: 0, tier: 'BRONZE' });
 
-    // --- FIX 2: MOUNT STATE ---
     const [mounted, setMounted] = useState(false);
-    useEffect(() => {
-        setMounted(true);
-    }, []);
+    useEffect(() => { setMounted(true); }, []);
 
     useEffect(() => {
         if (!publicKey || !mounted) return;
-
         fetch(`/api/user/${publicKey.toString()}`)
             .then(res => res.json())
             .then(data => setStats(prev => ({
@@ -60,6 +57,7 @@ const GlobalLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
         { name: 'Staking', icon: <Layers size={20} />, path: '/staking' },
         { name: 'Games', icon: <Gamepad2 size={20} />, path: '/games' },
         { name: 'Shop', icon: <ShoppingCart size={20} />, path: '/shop' },
+        { name: 'History', icon: <History size={20} />, onClick: () => setIsHistoryOpen(true) },
         { name: 'Docs', icon: <FileText size={20} />, path: '/whitepaper', hidden: true },
         { name: 'Profile', icon: <User size={20} />, path: '/profile', hidden: true },
         { name: 'Rank', icon: <BarChart3 size={20} />, path: '/leaderboard', hidden: true },
@@ -72,6 +70,9 @@ const GlobalLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
         <div className="flex flex-col h-screen bg-black text-white overflow-hidden">
             <RankUpModal isOpen={showRankModal} newRank={newRank} onClose={() => setShowRankModal(false)} />
 
+            {/* Global History Modal: Accessible from anywhere */}
+            <HistoryModal isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
+
             <header className="bg-[#050505] border-b border-white/10 p-4 pt-8 shrink-0 z-50">
                 <div className="max-w-xl mx-auto flex justify-between items-center mb-4">
                     <div className="flex flex-col">
@@ -80,7 +81,6 @@ const GlobalLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
                             {mounted && publicKey ? `${publicKey.toString().slice(0, 4)}.skr` : "GUEST"}
                         </span>
                     </div>
-                    {/* Use the Dynamic Button here */}
                     <WalletMultiButtonDynamic className="!bg-white !text-black !h-8 !text-[10px] !font-black !px-4 !rounded-lg" />
                 </div>
 
@@ -98,11 +98,11 @@ const GlobalLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
 
             <footer className="fixed bottom-0 left-0 right-0 bg-[#0a0a0a]/95 border-t border-white/10 p-4 pb-8 z-50">
                 <div className="max-w-xl mx-auto">
-                    <div className={`grid ${footerExpanded ? 'grid-cols-5' : 'grid-cols-6'} gap-4 items-center justify-items-center`}>
+                    <div className="grid grid-cols-6 gap-4 items-center justify-items-center">
                         {visibleItems.map((item) => (
                             <button
                                 key={item.name}
-                                onClick={() => router.push(item.path)}
+                                onClick={item.onClick ? item.onClick : () => router.push(item.path!)}
                                 className={`flex flex-col items-center gap-1 transition-all ${router.pathname === item.path ? 'text-yellow-500 scale-110' : 'text-gray-500 hover:text-white'}`}
                             >
                                 {item.icon}
