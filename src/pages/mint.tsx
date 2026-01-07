@@ -6,8 +6,6 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import axios from "axios";
 import { Minus, Plus } from "lucide-react";
-import Navbar from "../components/Navbar";
-import AppFooter from "../components/AppFooter";
 import SeekerGuard from "../components/SeekerGuard";
 
 // METAPLEX IMPORTS
@@ -190,7 +188,6 @@ const Mint: NextPage = () => {
     <SeekerGuard>
       <div className="min-h-screen bg-black text-white font-sans pb-32">
         <Head><title>LAAMTAG | Mint</title></Head>
-        <Navbar />
         <main className="max-w-6xl mx-auto py-12 px-6">
           <div className="flex flex-col lg:flex-row gap-16 items-center">
             <div className="w-full lg:w-1/2 relative group">
@@ -219,9 +216,6 @@ const Mint: NextPage = () => {
                       <span className="relative flex h-2 w-2">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
                         <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
-                      </span>
-                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-yellow-500/80">
-                        Live Blockchain Feed
                       </span>
                     </div>
                     <h2 className="text-xs font-bold uppercase text-white/40 mt-1">Global Progress</h2>
@@ -260,7 +254,7 @@ const Mint: NextPage = () => {
                   </div>
                 ) : (
                   <>
-                    <p className="text-sm text-gray-400 italic font-medium">Mint {stats.personal}/3. You can mint {3 - stats.personal} more.</p>
+                    <p className="text-sm text-gray-400 italic font-medium">Mint and Claim. You can mint 3 - Max.</p>
                     <div className="flex flex-col sm:flex-row items-center gap-4">
                       <div className="flex items-center bg-black border border-white/20 rounded-2xl p-1 w-full sm:w-auto">
                         <button onClick={handleDecrement} className="w-12 h-12 flex items-center justify-center"><Minus size={18} /></button>
@@ -281,7 +275,6 @@ const Mint: NextPage = () => {
             </div>
           </div>
         </main>
-        <AppFooter />
       </div>
     </SeekerGuard>
   );

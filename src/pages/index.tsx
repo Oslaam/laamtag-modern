@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import SeekerGuard from '../components/SeekerGuard';
-import AppFooter from '../components/AppFooter';
 
 export default function AppHome() {
   const { publicKey, connected } = useWallet();
@@ -14,8 +13,8 @@ export default function AppHome() {
     setIsClient(true);
   }, []);
 
-  const displayName = publicKey 
-    ? `${publicKey.toString().slice(0, 4)}.skr` 
+  const displayName = publicKey
+    ? `${publicKey.toString().slice(0, 4)}.skr`
     : "SEEKER";
 
   return (
@@ -38,12 +37,6 @@ export default function AppHome() {
         </div>
       ) : (
         <SeekerGuard>
-          <nav className="w-full max-w-4xl flex justify-between items-center absolute top-8 px-6">
-            <h1 className="text-2xl font-black italic tracking-tighter text-yellow-500 uppercase">
-              {displayName}
-            </h1>
-            {isClient && <WalletMultiButton />}
-          </nav>
 
           <div className="max-w-2xl text-center space-y-12 mb-20">
             <div className="space-y-4">
@@ -74,7 +67,6 @@ export default function AppHome() {
               </Link>
             </div>
           </div>
-          <AppFooter />
         </SeekerGuard>
       )}
     </div>

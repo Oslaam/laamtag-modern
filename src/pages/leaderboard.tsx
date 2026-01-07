@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { Trophy, Medal, Crown } from 'lucide-react';
-import Navbar from '../components/Navbar';
-import AppFooter from '../components/AppFooter';
 import SeekerGuard from '../components/SeekerGuard';
 import { getRank } from '../utils/ranks';
 
@@ -51,7 +49,6 @@ export default function LeaderboardPage() {
     <SeekerGuard>
       <div className="min-h-screen bg-black text-white font-sans pb-64">
         <Head><title>LAAMTAG | Leaderboard</title></Head>
-        <Navbar />
 
         <main className="max-w-4xl mx-auto py-12 px-6">
           <div className="text-center mb-12 space-y-4">
@@ -156,7 +153,6 @@ export default function LeaderboardPage() {
           </div>
         )}
 
-        <AppFooter />
       </div>
     </SeekerGuard>
   );

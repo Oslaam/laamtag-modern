@@ -1,24 +1,37 @@
 import { useRouter } from 'next/router';
 import Link from 'next/link';
+import { Gamepad2, ScrollText, Coins } from 'lucide-react'; // Added icons
 
 export default function AppFooter() {
   const router = useRouter();
 
   return (
-    <footer className="fixed bottom-0 left-0 w-full p-6 bg-black/90 backdrop-blur-md border-t border-yellow-500/20 flex justify-around items-center z-50">
-      {/* Button 1: Mint OR App */}
-      <Link href={router.pathname === '/mint' ? '/' : '/mint'}>
-        <button className={`${router.pathname === '/mint' ? 'bg-white text-black' : 'bg-yellow-500 text-black'} px-8 py-3 rounded-2xl font-black uppercase text-sm transition-all hover:scale-105 active:scale-95`}>
-          {router.pathname === '/mint' ? 'APP' : 'MINT'}
+    <footer className="fixed bottom-0 left-0 w-full p-4 bg-black/90 backdrop-blur-md border-t border-yellow-500/20 flex justify-around items-center z-50">
+
+      {/* Button 1: MINT */}
+      <Link href="/mint">
+        <button className={`flex flex-col items-center gap-1 ${router.pathname === '/mint' ? 'text-yellow-500' : 'text-gray-500'}`}>
+          <Coins size={20} />
+          <span className="text-[9px] font-black uppercase">Mint</span>
         </button>
       </Link>
 
-      {/* Button 2: Quests OR App */}
-      <Link href={router.pathname === '/quests' ? '/' : '/quests'}>
-        <button className={`${router.pathname === '/quests' ? 'bg-white text-black' : 'bg-yellow-500 text-black'} px-8 py-3 rounded-2xl font-black uppercase text-sm transition-all hover:scale-105 active:scale-95`}>
-          {router.pathname === '/quests' ? 'APP' : 'QUESTS'}
+      {/* Button 2: QUESTS */}
+      <Link href="/quests">
+        <button className={`flex flex-col items-center gap-1 ${router.pathname === '/quests' ? 'text-yellow-500' : 'text-gray-500'}`}>
+          <ScrollText size={20} />
+          <span className="text-[9px] font-black uppercase">Quests</span>
         </button>
       </Link>
+
+      {/* Button 3: GAMES (The one we are adding) */}
+      <Link href="/games">
+        <button className={`flex flex-col items-center gap-1 ${router.pathname === '/games' ? 'text-yellow-500' : 'text-gray-500'}`}>
+          <Gamepad2 size={20} />
+          <span className="text-[9px] font-black uppercase">Games</span>
+        </button>
+      </Link>
+
     </footer>
   );
 }

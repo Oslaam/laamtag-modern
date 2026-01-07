@@ -1,5 +1,3 @@
-// prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,29 +7,23 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum QuestStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  COMPLETED
-}
-
 model User {
-  walletAddress String      @id @unique
-  laamPoints    Int         @default(0)
-  rank          String      @default("Bronze")
-  lastCheckIn   DateTime?
-  streakCount   Int         @default(0)
-  quests        UserQuest[] // Renamed from 'completed' for clarity
-  personalMinted Int      @default(0)
+  walletAddress  String      @id @unique
+  laamPoints     Int         @default(0)
+  rank           String      @default("Bronze")
+  lastCheckIn    DateTime?
+  streakCount    Int         @default(0)
+  personalMinted Int         @default(0)
+  tagTickets     Int         @default(0)
+  quests         UserQuest[]
 }
 
 model Quest {
   id           String      @id @default(uuid())
   title        String
   reward       Int
-  type         String      @default("basic") 
-  limit        Int?        
+  type         String      @default("basic")
+  limit        Int?
   claimedCount Int         @default(0)
   users        UserQuest[]
 }
@@ -43,12 +35,11 @@ model UserQuest {
   status      QuestStatus @default(PENDING)
   proofLink   String?
   completedAt DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt 
-  user        User        @relation(fields: [userId], references: [walletAddress])
+  updatedAt   DateTime    @updatedAt
   quest       Quest       @relation(fields: [questId], references: [id])
+  user        User        @relation(fields: [userId], references: [walletAddress])
 
-  // THIS IS THE FIX: This allows prisma.userQuest.findUnique({ where: { userId_questId: ... } })
-  @@unique([userId, questId]) 
+  @@unique([userId, questId])
 }
 
 model ClaimedNFT {
@@ -63,5 +54,22 @@ model GuessGame {
   lastAttempt   DateTime @default(now())
   attempts      Int      @default(0)
   isLocked      Boolean  @default(false)
-  pendingPoints Int      @default(0) // <--- Add this line
+  pendingPoints Int      @default(0)
+  currentTarget Int?
+}
+
+enum QuestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+model StakedNFT {
+  id            String   @id @default(cuid())
+  mintAddress   String   @unique
+  ownerAddress  String
+  stakedAt      DateTime @default(now())
+  lastClaimed   DateTime @default(now())
+  isLocked      Boolean  @default(true)
 }
