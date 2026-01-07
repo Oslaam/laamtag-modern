@@ -31,9 +31,9 @@ export default function AppHome() {
           <p className="text-gray-400 max-w-sm mx-auto">
             This portal is gated. Connect your Seeker Genesis wallet to enter the universe.
           </p>
-          <div className="flex justify-center">
+          {/* <div className="flex justify-center">
             {isClient && <WalletMultiButton />}
-          </div>
+          </div> */}
         </div>
       ) : (
         <SeekerGuard>
