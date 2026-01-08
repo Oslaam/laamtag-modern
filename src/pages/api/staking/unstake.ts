@@ -1,48 +1,83 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '../../../lib/prisma';
+import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
+import { keypairIdentity, createSignerFromKeypair, publicKey, base58 } from '@metaplex-foundation/umi';
+import { transferV1, TokenStandard } from '@metaplex-foundation/mpl-token-metadata';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method !== 'POST') return res.status(405).end();
     const { walletAddress, mintAddress } = req.body;
 
+    // Constants for rewards
     const LAAM_PER_SEC = 500 / 86400;
-    const TAG_PER_SEC = 10 / 86400;
+    const TAG_PER_SEC = 20 / 86400; // Updated to 20
 
     try {
-        const stake = await prisma.stakedNFT.findFirst({
-            where: { mintAddress, ownerAddress: walletAddress }
-        });
-
-        if (!stake) return res.status(404).json({ success: false, message: "Stake record not found." });
-
-        const now = Date.now();
-        const stakedAt = new Date(stake.stakedAt).getTime();
-        const secondsElapsed = Math.floor((now - stakedAt) / 1000);
-
-        // 1. Calculate Rewards
-        const calculatedLaam = secondsElapsed * LAAM_PER_SEC;
-        const calculatedTag = secondsElapsed * TAG_PER_SEC;
-
-        // 2. Cooldown check (48h)
-        if (now - stakedAt < 48 * 60 * 60 * 1000) {
-            return res.status(403).json({ success: false, message: "Cooldown active." });
+        // 1. Check DB for the stake
+        const stake = await prisma.stakedNFT.findUnique({ where: { mintAddress } });
+        if (!stake || stake.ownerAddress !== walletAddress) {
+            return res.status(404).json({ message: "Stake record not found." });
         }
 
-        // 3. Transaction: Create History & Delete Stake
+        // 2. Cooldown check (48h)
+        const now = Date.now();
+        const stakedAt = new Date(stake.stakedAt).getTime();
+        if (now - stakedAt < 48 * 60 * 60 * 1000) {
+            return res.status(403).json({ message: "48h Cooldown active." });
+        }
+
+        // 3. Setup Umi with Treasury Signer
+        const umi = createUmi("https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3");
+
+        // Use the most compatible way to load the key (Handles both Array and Base58 string)
+        let secretKey: Uint8Array;
+        const rawKey = process.env.TREASURY_PRIVATE_KEY || "";
+
+        if (rawKey.startsWith('[')) {
+            secretKey = new Uint8Array(JSON.parse(rawKey));
+        } else {
+            secretKey = base58.serialize(rawKey);
+        }
+
+        const treasuryKeypair = umi.eddsa.createKeypairFromSecretKey(secretKey);
+        const treasurySigner = createSignerFromKeypair(umi, treasuryKeypair);
+        umi.use(keypairIdentity(treasurySigner));
+
+        // 4. Build and Sign Transfer (Treasury -> User)
+        const { signature } = await transferV1(umi, {
+            mint: publicKey(mintAddress),
+            authority: treasurySigner,
+            tokenOwner: treasurySigner.publicKey,
+            destinationOwner: publicKey(walletAddress),
+            tokenStandard: TokenStandard.NonFungible,
+        }).sendAndConfirm(umi);
+
+        // 5. Calculate Final Rewards (Deducting the initial 48h lock period)
+        const secondsEarned = Math.max(0, Math.floor((now - stakedAt) / 1000) - (48 * 3600));
+        const laamEarned = secondsEarned * LAAM_PER_SEC;
+        const tagEarned = secondsEarned * TAG_PER_SEC;
+
+        // 6. DB Update: Log History and Remove Stake
         await prisma.$transaction([
             prisma.rewardHistory.create({
                 data: {
-                    walletAddress: walletAddress,
-                    mintAddress: mintAddress,
-                    laamEarned: calculatedLaam,
-                    tagEarned: calculatedTag,
+                    walletAddress,
+                    mintAddress,
+                    laamEarned,
+                    tagEarned,
+                    unstakedAt: new Date()
                 }
             }),
             prisma.stakedNFT.delete({ where: { mintAddress } })
         ]);
 
-        return res.status(200).json({ success: true, laam: calculatedLaam, tag: calculatedTag });
+        return res.status(200).json({
+            success: true,
+            signature: base58.deserialize(signature)[0]
+        });
+
     } catch (error) {
-        return res.status(500).json({ success: false, message: "Failed to process unstake." });
+        console.error("Unstake Error:", error);
+        return res.status(500).json({ message: "Failed to release NFT." });
     }
 }

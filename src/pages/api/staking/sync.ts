@@ -17,22 +17,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         let totalLaamToDeposit = 0;
         let totalTagToDeposit = 0;
 
+        // Reward Rates per NFT per 24h
+        const LAAM_DAILY = 500;
+        const TAG_DAILY = 20;
+
         for (const nft of stakedNfts) {
+            // 1. THE 48H RULE: No rewards until the NFT has been locked for 2 days (48 hours)
             const hoursSinceStaked = (now.getTime() - new Date(nft.stakedAt).getTime()) / (1000 * 60 * 60);
             if (hoursSinceStaked < 48) continue;
 
+            // 2. DAILY CALCULATION: Check full 24h cycles since lastClaimed
             const lastSync = new Date(nft.lastClaimed);
             const hoursSinceLastSync = (now.getTime() - lastSync.getTime()) / (1000 * 60 * 60);
             const daysElapsed = Math.floor(hoursSinceLastSync / 24);
 
             if (daysElapsed >= 1) {
-                const count = stakedNfts.length;
-                const laamRate = count === 1 ? 500 : count === 2 ? 1000 : 1500;
-                const tagRate = count === 1 ? 20 : count === 2 ? 40 : 60;
+                // Calculate rewards for this specific NFT based on elapsed days
+                const nftLaamReward = LAAM_DAILY * daysElapsed;
+                const nftTagReward = TAG_DAILY * daysElapsed;
 
-                totalLaamToDeposit += (laamRate / count) * daysElapsed;
-                totalTagToDeposit += (tagRate / count) * daysElapsed;
+                totalLaamToDeposit += nftLaamReward;
+                totalTagToDeposit += nftTagReward;
 
+                // Update this NFT's lastClaimed so they can't claim these days again
                 await prisma.stakedNFT.update({
                     where: { mintAddress: nft.mintAddress },
                     data: { lastClaimed: now }
@@ -40,6 +47,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             }
         }
 
+        // 3. Update User Balance if rewards were earned
         if (totalLaamToDeposit > 0 || totalTagToDeposit > 0) {
             await prisma.user.update({
                 where: { walletAddress },
@@ -49,9 +57,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 }
             });
 
-            // LOG HISTORY
-            if (totalLaamToDeposit > 0) await logActivity(walletAddress, 'STAKING_REWARD' as any, totalLaamToDeposit, 'LAAM');
-            if (totalTagToDeposit > 0) await logActivity(walletAddress, 'STAKING_REWARD' as any, totalTagToDeposit, 'TAG');
+            // Log the activity for transparency
+            if (totalLaamToDeposit > 0) {
+                await logActivity(walletAddress, 'STAKING_REWARD' as any, totalLaamToDeposit, 'LAAM');
+            }
+            if (totalTagToDeposit > 0) {
+                await logActivity(walletAddress, 'STAKING_REWARD' as any, totalTagToDeposit, 'TAG');
+            }
         }
 
         return res.status(200).json({

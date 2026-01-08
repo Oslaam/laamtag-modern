@@ -21,9 +21,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             const hoursSinceLastDrop = (now.getTime() - lastClaimed.getTime()) / (1000 * 60 * 60);
 
             if (hoursSinceLastDrop >= 24) {
-                // FIXED INFINITE REWARD: 500 LAAM and 10 TAG per NFT
+                // UPDATED REWARDS: 500 LAAM and 20 TAG per NFT
                 const laamReward = 500;
-                const tagReward = 10;
+                const tagReward = 20; // Updated from 10 to 20
 
                 await prisma.$transaction([
                     prisma.user.update({

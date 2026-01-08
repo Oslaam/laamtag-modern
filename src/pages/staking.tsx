@@ -10,11 +10,15 @@ import { unstakeNftOnChain } from '../lib/unstakeNftTask';
 const RewardTicker = ({ stakedAt }: { stakedAt: string }) => {
     const [rewards, setRewards] = useState({ laam: 0, tag: 0 });
     const LAAM_PER_SEC = 500 / 86400;
-    const TAG_PER_SEC = 10 / 86400;
+    const TAG_PER_SEC = 20 / 86400; // UPDATED
 
     useEffect(() => {
         const interval = setInterval(() => {
-            const secondsElapsed = Math.floor((Date.now() - new Date(stakedAt).getTime()) / 1000);
+            const now = Date.now();
+            const start = new Date(stakedAt).getTime();
+            // Reward calculation starts after 48h lock
+            const secondsElapsed = Math.max(0, Math.floor((now - start) / 1000) - (48 * 3600));
+
             setRewards({
                 laam: secondsElapsed * LAAM_PER_SEC,
                 tag: secondsElapsed * TAG_PER_SEC
@@ -49,6 +53,9 @@ export default function StakingPage() {
     const loadData = async () => {
         if (!publicKey) return;
         try {
+            // SYNC rewards before loading data to ensure the balance is fresh
+            await axios.post('/api/staking/sync', { walletAddress: publicKey.toBase58() });
+
             const [listRes, historyRes] = await Promise.all([
                 axios.get(`/api/staking/list?address=${publicKey.toBase58()}`),
                 axios.get(`/api/staking/history?address=${publicKey.toBase58()}`)
@@ -79,8 +86,7 @@ export default function StakingPage() {
                     });
                 }
             } else {
-                const result = await unstakeNftOnChain(wallet, nft.mint);
-                // Unstake API handles reward calculation and DB logging
+                await unstakeNftOnChain(wallet, nft.mint);
             }
             loadData();
         } catch (err: any) {
@@ -98,7 +104,7 @@ export default function StakingPage() {
                     <header className="text-center mb-16 space-y-4">
                         <h1 className="text-6xl font-black italic tracking-tighter text-yellow-500 uppercase">Vault Lock</h1>
                         <p className="text-gray-400 max-w-xl mx-auto uppercase text-xs font-bold tracking-[0.3em]">
-                            Lock Genesis Tags for 500 LAAM & 10 TAG daily.
+                            Lock Genesis Tags for 500 LAAM & 20 TAG daily.
                         </p>
                     </header>
 
@@ -144,7 +150,6 @@ export default function StakingPage() {
                         })}
                     </div>
 
-                    {/* RECENT ACTIVITY TABLE */}
                     <div className="mt-16 bg-gray-900/50 border border-white/10 rounded-2xl p-6">
                         <div className="flex items-center gap-2 mb-6 text-yellow-500">
                             <History size={20} />

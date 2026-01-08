@@ -3,34 +3,19 @@ import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-ad
 import { transferV1, TokenStandard } from '@metaplex-foundation/mpl-token-metadata';
 import { publicKey } from '@metaplex-foundation/umi';
 
+const HELIUS_RPC = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
+const VAULT_RECEIVER = publicKey("CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc");
+
 export const stakeNftOnChain = async (wallet: any, mintAddress: string) => {
-    // 1. Initialize Umi
-    const umi = createUmi('https://mainnet.helius-rpc.com/?api-key=YOUR_API_KEY')
-        .use(walletAdapterIdentity(wallet));
-
-    const nftMint = publicKey(mintAddress);
-    const userOwner = publicKey(wallet.publicKey.toString());
-
-    // Replace "staking_program" with your actual program alias or direct public key
-    const programId = publicKey("YOUR_STAKING_PROGRAM_ID");
-
-    // 2. Define your Vault PDA using findPda from eddsa
-    // 2. Define your Vault PDA
-    const [vaultPda] = umi.eddsa.findPda(programId, [
-        Buffer.from('vault'),
-        userOwner, //
-        nftMint    // 
-    ]);
+    const umi = createUmi(HELIUS_RPC).use(walletAdapterIdentity(wallet));
 
     try {
-        // 3. Build and send the Transfer Instruction
         const tx = await transferV1(umi, {
-            mint: nftMint,
+            mint: publicKey(mintAddress),
             authority: umi.identity,
-            tokenOwner: userOwner,
-            destinationOwner: vaultPda,
+            tokenOwner: publicKey(wallet.publicKey.toString()),
+            destinationOwner: VAULT_RECEIVER,
             tokenStandard: TokenStandard.NonFungible,
-            amount: 1,
         }).sendAndConfirm(umi);
 
         return { success: true, signature: tx.signature };
