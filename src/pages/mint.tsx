@@ -22,9 +22,7 @@ import {
   none,
   generateSigner,
 } from "@metaplex-foundation/umi";
-// Add 'setComputeUnitPrice' to this list
 import { setComputeUnitLimit, setComputeUnitPrice } from "@metaplex-foundation/mpl-toolbox";
-
 
 // UTILS
 import { verifyCandyMachine } from '../utils/check-cm';
@@ -35,7 +33,7 @@ const MY_TREASURY_ADDR = "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc";
 const RPC_URL = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
 const MAX_SUPPLY = 5000;
 const RENT_PER_NFT = 0.0;
-const MINT_PRICE = 0.001; // Matches your testing guard price
+const MINT_PRICE = 0.001;
 
 const Mint: NextPage = () => {
   const { connection } = useConnection();
@@ -47,55 +45,39 @@ const Mint: NextPage = () => {
   const [balance, setBalance] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [amount, setAmount] = useState(1);
-
   const [cmStatus, setCmStatus] = useState("Checking...");
 
-  // Check Candy Machine health
   useEffect(() => {
     setIsClient(true);
     verifyCandyMachine().then(status => setCmStatus(status));
   }, []);
 
-  // Fetch mint stats and balance
   const fetchStatus = async () => {
     try {
       if (!publicKey) return;
-
-      // 1. Get personal stats from your Railway API
       const res = await axios.get(`/api/status/${publicKey.toBase58()}`);
-
-      // 2. Get LIVE global progress directly from the Blockchain (Like Sugar Show)
       const umi = createUmi(RPC_URL).use(mplCandyMachine());
-      const candyMachine = await fetchCandyMachine(
-        umi,
-        umiPublicKey(MY_CANDY_ID.trim())
-      );
+      const candyMachine = await fetchCandyMachine(umi, umiPublicKey(MY_CANDY_ID.trim()));
 
       const itemsRedeemed = Number(candyMachine.itemsRedeemed);
       const isSoldOut = itemsRedeemed >= MAX_SUPPLY;
 
-      // 3. Update the UI with real-time data
       setStats({
-        global: itemsRedeemed, // This will now show "3" instead of "0"
+        global: itemsRedeemed,
         personal: res.data.personalMinted || 0,
         soldOut: isSoldOut
       });
-
-      console.log(`Live Sync: ${itemsRedeemed} / ${MAX_SUPPLY}`);
     } catch (e) {
       console.warn("Status Sync Error:", e);
     }
   };
+
   useEffect(() => {
     if (isClient && publicKey) {
       fetchStatus();
-
-      // Refresh balance
       connection.getAccountInfo(publicKey).then(info => {
         if (info) setBalance(info.lamports / LAMPORTS_PER_SOL);
       });
-
-      // ADD THIS: Refresh the progress bar every 30 seconds
       const interval = setInterval(fetchStatus, 30000);
       return () => clearInterval(interval);
     }
@@ -104,177 +86,154 @@ const Mint: NextPage = () => {
   const handleIncrement = () => { if (amount < (3 - stats.personal)) setAmount(prev => prev + 1); };
   const handleDecrement = () => { if (amount > 1) setAmount(prev => prev - 1); };
 
-  // -----------------------------
-  // HANDLE MINT (UPDATED VERSION)
-  // -----------------------------
   const handleMint = async () => {
     if (!publicKey || !wallet) return;
     setLoading(true);
-
     try {
-      const umi = createUmi(RPC_URL)
-        .use(walletAdapterIdentity(wallet))
-        .use(mplCandyMachine());
-
-      const candyMachine = await fetchCandyMachine(
-        umi,
-        umiPublicKey(MY_CANDY_ID.trim())
-      );
-
+      const umi = createUmi(RPC_URL).use(walletAdapterIdentity(wallet)).use(mplCandyMachine());
+      const candyMachine = await fetchCandyMachine(umi, umiPublicKey(MY_CANDY_ID.trim()));
       const itemsAvailable = Number(candyMachine.data?.itemsAvailable ?? 0);
       if (itemsAvailable <= 0) throw new Error("Candy Machine is SOLD OUT");
 
-      // Calculate safe mint amount
       const maxMintable = Math.min(amount, 3 - stats.personal, itemsAvailable);
       const treasuryPubkey = umiPublicKey(MY_TREASURY_ADDR.trim());
-
-      const results: { success: boolean; signature?: string; error?: string }[] = [];
+      const results = [];
 
       for (let i = 0; i < maxMintable; i++) {
         try {
-          console.log(`Starting mint ${i + 1} of ${maxMintable}...`);
           const nftMint = generateSigner(umi);
-
           const mintBuilder = mintV2(umi, {
             candyMachine: candyMachine.publicKey,
-            candyGuard: candyMachine.mintAuthority, // Auto-detects the guard from CM
+            candyGuard: candyMachine.mintAuthority,
             nftMint,
             collectionMint: candyMachine.collectionMint,
             collectionUpdateAuthority: candyMachine.authority,
             group: none(),
             mintArgs: {
               solPayment: some({ destination: treasuryPubkey }),
-              mintLimit: some({ id: 1 }), // Confirmed by your sugar output
+              mintLimit: some({ id: 1 }),
             },
           });
 
-          // Correct Compute Unit Pricing for Umi 1.0+
           const transactionBuilder = setComputeUnitLimit(umi, { units: 800000 })
-            .prepend(setComputeUnitPrice(umi, { microLamports: 1000 })) // This is the v0.9.x standard
+            .prepend(setComputeUnitPrice(umi, { microLamports: 1000 }))
             .add(mintBuilder);
+
           const result = await transactionBuilder.sendAndConfirm(umi);
-          const sigHex = Buffer.from(result.signature).toString("hex");
-
-          results.push({ success: true, signature: sigHex });
-          console.log(`✅ Mint #${i + 1} Success! Signature:`, sigHex);
-
+          results.push({ success: true });
         } catch (err: any) {
-          console.error(`❌ Mint #${i + 1} Failed:`, err);
-          results.push({ success: false, error: err.message || "Unknown error" });
-          break; // Stop loop on failure to save user gas
+          results.push({ success: false });
+          break;
         }
       }
-
+      
       const successCount = results.filter(r => r.success).length;
       if (successCount > 0) {
-        alert(`🎉 Success! Minted ${successCount} Seeker NFT(s)!`);
+        alert(`🎉 IDENTITY SECURED: ${successCount} ${successCount > 1 ? 'UNITS' : 'UNIT'} ADDED TO VAULT`);
         fetchStatus();
-      } else {
-        alert(`❌ Mint failed. Check console for details.`);
       }
-
     } catch (err: any) {
-      console.error("GLOBAL MINT ERROR:", err);
-      alert(err.message || "Mint process failed to start");
+      alert(err.message || "Mint process failed");
     } finally {
       setLoading(false);
     }
   };
+
   if (!isClient) return null;
   const totalDisplay = (MINT_PRICE + RENT_PER_NFT) * amount;
-  const displayName = publicKey ? `${publicKey.toString().slice(0, 4)}.skr` : "Seeker";
+  const displayName = stats.personal > 0 ? (publicKey?.toString().slice(0, 4) + '.skr') : "SEEKER";
 
   return (
     <SeekerGuard>
-      <div className="text-white font-sans">
+      <div className="main-content">
         <Head><title>LAAMTAG | Mint</title></Head>
-        <main className="max-w-6xl mx-auto py-12 px-6">
-          <div className="flex flex-col lg:flex-row gap-16 items-center">
-            <div className="w-full lg:w-1/2 relative group">
-              <div className="absolute -inset-1 bg-gradient-to-r from-yellow-500 to-purple-600 rounded-[40px] blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
-              <div className="relative bg-gray-900 rounded-[38px] border border-white/10 overflow-hidden shadow-2xl">
-                <img src="/assets/images/nft.gif" alt="Laamtag NFT" className="w-full aspect-square object-cover" />
-              </div>
-            </div>
 
-            <div className="w-full lg:w-1/2 space-y-8 text-left">
-              <div>
-                <h1 className="text-6xl font-black italic tracking-tighter text-yellow-500 uppercase leading-none">Laamtag Genesis</h1>
-                <p className="mt-4 text-gray-400 text-lg">Claim your position, <span className="text-white font-bold">{displayName}</span>.</p>
-                <div className="flex items-center gap-4 mt-2">
-                  <p className={`text-sm font-mono ${balance < totalDisplay ? 'text-red-500' : 'text-yellow-500'}`}>
-                    Balance: {balance.toFixed(3)} SOL
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex justify-between items-end">
-                  <div className="flex flex-col">
-                    <div className="flex items-center gap-2">
-                      {/* Pulsing Live Dot */}
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
-                      </span>
-                    </div>
-                    <h2 className="text-xs font-bold uppercase text-white/40 mt-1">Global Progress</h2>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-2xl font-black italic text-yellow-500 tracking-tighter">
-                      {stats.global.toLocaleString()}
-                    </span>
-                    <span className="text-xs font-bold text-white/20 uppercase ml-2">
-                      / {MAX_SUPPLY.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Progress Bar Container */}
-                <div className="w-full h-3 bg-white/5 rounded-full border border-white/10 p-[2px] overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-yellow-600 via-yellow-400 to-yellow-500 rounded-full transition-all duration-1000 ease-out shadow-[0_0_15px_rgba(234,179,8,0.4)]"
-                    style={{ width: `${Math.max((stats.global / MAX_SUPPLY) * 100, 1)}%` }}
-                  />
-                </div>
-              </div>
-
-              {cmStatus !== "Candy Machine is HEALTHY" && (
-                <div className="bg-red-500/20 border border-red-500 p-4 rounded-2xl text-center">
-                  <p className="text-red-500 font-black uppercase text-xs animate-pulse">
-                    {cmStatus === "Checking..." ? "Syncing Solana..." : "Network Maintenance: Minting Paused"}
-                  </p>
-                </div>
-              )}
-
-              <div className="bg-white/5 border border-white/10 p-8 rounded-3xl space-y-6 shadow-2xl backdrop-blur-sm">
-                {stats.personal >= 3 ? (
-                  <div className="py-6 text-center border-2 border-yellow-500 rounded-2xl bg-yellow-500/10">
-                    <p className="text-yellow-500 font-black">ALL POSITIONS CLAIMED</p>
-                  </div>
-                ) : (
-                  <>
-                    <p className="text-sm text-gray-400 italic font-medium">Mint and Claim. You can mint 3 - Max.</p>
-                    <div className="flex flex-col sm:flex-row items-center gap-4">
-                      <div className="flex items-center bg-black border border-white/20 rounded-2xl p-1 w-full sm:w-auto">
-                        <button onClick={handleDecrement} className="w-12 h-12 flex items-center justify-center"><Minus size={18} /></button>
-                        <span className="w-16 text-center font-black text-2xl">{amount}</span>
-                        <button onClick={handleIncrement} className="w-12 h-12 flex items-center justify-center"><Plus size={18} /></button>
-                      </div>
-                      <button
-                        onClick={handleMint}
-                        disabled={loading || stats.soldOut || !connected || cmStatus !== "Candy Machine is HEALTHY"}
-                        className="flex-1 w-full bg-yellow-500 hover:bg-yellow-400 text-black font-black py-4 rounded-2xl text-xl disabled:opacity-20 transition-all"
-                      >
-                        {loading ? "Confirming..." : cmStatus !== "Candy Machine is HEALTHY" ? "LOCKED" : stats.soldOut ? "Sold Out" : `Mint Now (~${totalDisplay.toFixed(3)} SOL)`}
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
+        <div className="content-wrapper">
+          {/* IMAGE SECTION */}
+          <div style={{ marginBottom: '2rem', position: 'relative' }}>
+            <div style={{
+              background: 'rgba(234, 179, 8, 0.1)',
+              borderRadius: '32px',
+              padding: '8px',
+              border: '1px solid rgba(255, 255, 255, 0.1)'
+            }}>
+              <img
+                src="/assets/images/nft.gif"
+                alt="Laamtag NFT"
+                style={{
+                  width: '100%',
+                  borderRadius: '24px',
+                  aspectRatio: '1/1',
+                  objectFit: 'cover' // Changed from objectCover to objectFit
+                }}
+              />
             </div>
           </div>
-        </main>
+
+          {/* TEXT SECTION */}
+          <div style={{ marginBottom: '2rem' }}>
+            <h1 className="page-title" style={{ color: '#eab308', marginBottom: '0.5rem' }}>Laamtag Genesis</h1>
+            <p className="terminal-desc">Claim your position, <span style={{ color: '#fff', fontWeight: 'bold' }}>{displayName}</span>.</p>
+            <p style={{ fontSize: '12px', fontWeight: 900, color: balance < totalDisplay ? '#ef4444' : '#eab308' }}>
+              BALANCE: {balance.toFixed(3)} SOL
+            </p>
+          </div>
+
+          {/* PROGRESS SECTION */}
+          <div className="terminal-card" style={{ marginBottom: '2rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <span style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', opacity: 0.5 }}>Global Progress</span>
+              <span style={{ fontSize: '14px', fontWeight: 900, color: '#eab308' }}>
+                {stats.global} <span style={{ opacity: 0.3, fontSize: '10px' }}>/ {MAX_SUPPLY}</span>
+              </span>
+            </div>
+            <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', overflow: 'hidden' }}>
+              <div style={{
+                width: `${(stats.global / MAX_SUPPLY) * 100}%`,
+                height: '100%',
+                background: '#eab308',
+                boxShadow: '0 0 10px #eab308'
+              }} />
+            </div>
+          </div>
+
+          {/* MINT CONTROL SECTION */}
+          <div className="terminal-card">
+            {stats.personal >= 3 ? (
+              <div style={{ textAlign: 'center', padding: '1rem', color: '#eab308', fontWeight: 900 }}>
+                ALL POSITIONS CLAIMED
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '20px', background: '#000', padding: '10px', borderRadius: '12px' }}>
+                  <button onClick={handleDecrement} style={{ background: 'none', border: 'none', color: '#fff' }}><Minus /></button>
+                  <span style={{ fontSize: '24px', fontWeight: 900, minWidth: '40px', textAlign: 'center' }}>{amount}</span>
+                  <button onClick={handleIncrement} style={{ background: 'none', border: 'none', color: '#fff' }}><Plus /></button>
+                </div>
+
+                <button
+                  onClick={handleMint}
+                  disabled={loading || stats.soldOut || !connected || cmStatus !== "Candy Machine is HEALTHY"}
+                  className="primary-btn"
+                  style={{ opacity: (loading || stats.soldOut) ? 0.3 : 1 }}
+                >
+                  {loading
+                    ? `MINTING ${amount} UNIT${amount > 1 ? 'S' : ''}...`
+                    : stats.soldOut
+                      ? "SOLD OUT"
+                      : `MINT ${amount} UNIT${amount > 1 ? 'S' : ''} (~${totalDisplay.toFixed(3)} SOL)`
+                  }
+                </button>
+
+                {cmStatus !== "Candy Machine is HEALTHY" && (
+                  <p style={{ color: '#ef4444', fontSize: '10px', fontWeight: 900, textAlign: 'center' }}>
+                    NETWORK SYNCING... PLEASE WAIT
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </SeekerGuard>
   );

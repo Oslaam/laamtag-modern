@@ -28,10 +28,8 @@ export default function LeaderboardPage() {
         const url = publicKey
           ? `/api/leaderboard?address=${publicKey.toString()}`
           : '/api/leaderboard';
-
         const res = await fetch(url);
         const data = await res.json();
-
         setLeaders(data.topUsers);
         setMyStats(data.userRank);
       } catch (err) {
@@ -40,40 +38,47 @@ export default function LeaderboardPage() {
         setLoading(false);
       }
     };
-
     fetchLeaderboard();
   }, [publicKey]);
 
   return (
     <SeekerGuard>
-      {/* Removed min-h-screen and bg-black to let global layout handle it */}
-      <div className="text-white font-sans pb-20">
+      <div className="main-content">
         <Head><title>LAAMTAG | Leaderboard</title></Head>
 
-        <main className="max-w-4xl mx-auto py-12 px-6">
-          <div className="text-center mb-12 space-y-4">
-            <h1 className="text-5xl font-black italic tracking-tighter text-yellow-500 uppercase">
+        <div className="content-wrapper">
+          {/* HEADER */}
+          <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+            <h1 className="page-title" style={{ color: '#eab308' }}>
               Hall of Seekers
             </h1>
-            <p className="text-gray-400 font-medium uppercase tracking-widest text-xs">
-              The top contributors in the Seeker Universe
+            <p className="terminal-desc" style={{ fontSize: '10px' }}>
+              TOP CONTRIBUTORS IN THE UNIVERSE
             </p>
           </div>
 
-          <div className="bg-gray-900/50 border border-gray-800 rounded-[40px] overflow-hidden shadow-2xl">
-            <div className="grid grid-cols-12 p-6 border-b border-gray-800 text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">
-              <div className="col-span-2 text-center">Rank</div>
-              <div className="col-span-5">Seeker</div>
-              <div className="col-span-2 text-center">Tier</div>
-              <div className="col-span-3 text-right">Points</div>
+          {/* LEADERBOARD TABLE CARD */}
+          <div className="terminal-card" style={{ padding: '0', overflow: 'hidden' }}>
+            {/* Table Header */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '60px 1fr 80px 100px',
+              padding: '16px 20px',
+              borderBottom: '1px solid rgba(255,255,255,0.1)',
+              background: 'rgba(255,255,255,0.02)'
+            }}>
+              <span style={{ fontSize: '9px', fontWeight: 900, color: 'rgba(255,255,255,0.3)' }}>RANK</span>
+              <span style={{ fontSize: '9px', fontWeight: 900, color: 'rgba(255,255,255,0.3)' }}>SEEKER</span>
+              <span style={{ fontSize: '9px', fontWeight: 900, color: 'rgba(255,255,255,0.3)', textAlign: 'center' }}>TIER</span>
+              <span style={{ fontSize: '9px', fontWeight: 900, color: 'rgba(255,255,255,0.3)', textAlign: 'right' }}>POINTS</span>
             </div>
 
             {loading ? (
-              <div className="p-20 text-center text-gray-600 animate-pulse uppercase font-black tracking-widest">
-                Loading Legends...
+              <div style={{ padding: '60px', textAlign: 'center' }}>
+                <p className="terminal-desc" style={{ animation: 'pulse 1.5s infinite' }}>SYNCING LEDGER...</p>
               </div>
             ) : (
-              <div className="divide-y divide-gray-800/50">
+              <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
                 {leaders.map((leader, index) => {
                   const isUser = leader.walletAddress === publicKey?.toString();
                   const rank = index + 1;
@@ -81,36 +86,50 @@ export default function LeaderboardPage() {
                   return (
                     <div
                       key={leader.walletAddress}
-                      className={`grid grid-cols-12 p-6 items-center transition-colors hover:bg-white/[0.02] ${isUser ? 'bg-yellow-500/5' : ''
-                        }`}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '60px 1fr 80px 100px',
+                        padding: '16px 20px',
+                        alignItems: 'center',
+                        background: isUser ? 'rgba(234, 179, 8, 0.05)' : 'transparent',
+                        borderBottom: '1px solid rgba(255,255,255,0.03)'
+                      }}
                     >
-                      <div className="col-span-2 flex items-center justify-center gap-2">
-                        {rank === 1 && <Crown size={18} className="text-yellow-500" />}
-                        {rank === 2 && <Medal size={18} className="text-gray-400" />}
-                        {rank === 3 && <Medal size={18} className="text-orange-400" />}
-                        <span className={`font-black ${rank <= 3 ? 'text-xl italic' : 'text-gray-500'}`}>
-                          #{rank}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        {rank === 1 ? <Crown size={14} color="#eab308" /> :
+                          rank <= 3 ? <Medal size={14} color={rank === 2 ? '#94a3b8' : '#cd7f32'} /> : null}
+                        <span style={{
+                          fontWeight: 900,
+                          color: rank <= 3 ? '#eab308' : 'rgba(255,255,255,0.4)',
+                          fontSize: rank <= 3 ? '16px' : '12px'
+                        }}>#{rank}</span>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{
+                          fontWeight: 700,
+                          fontFamily: 'monospace',
+                          fontSize: '13px',
+                          color: isUser ? '#eab308' : '#fff'
+                        }}>
+                          {leader.walletAddress.slice(0, 4)}...{leader.walletAddress.slice(-4)}
                         </span>
                       </div>
 
-                      <div className="col-span-5 flex items-center gap-2">
-                        <span className={`font-bold font-mono ${isUser ? 'text-yellow-500' : 'text-white'}`}>
-                          {leader.walletAddress.slice(0, 4)}...{leader.walletAddress.slice(-4)}.skr
-                        </span>
-                        {isUser && (
-                          <span className="text-[8px] bg-yellow-500 text-black px-1.5 py-0.5 rounded font-black uppercase">
-                            You
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="col-span-2 text-center">
-                        <span className="text-[9px] border border-gray-700 text-gray-400 px-2 py-1 rounded-full font-black uppercase tracking-tighter">
+                      <div style={{ textAlign: 'center' }}>
+                        <span style={{
+                          fontSize: '8px',
+                          fontWeight: 900,
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          color: 'rgba(255,255,255,0.5)'
+                        }}>
                           {leader.tier}
                         </span>
                       </div>
 
-                      <div className="col-span-3 text-right font-mono font-black text-yellow-500 text-lg">
+                      <div style={{ textAlign: 'right', fontWeight: 900, color: '#eab308', fontSize: '14px' }}>
                         {leader.laamPoints.toLocaleString()}
                       </div>
                     </div>
@@ -119,29 +138,43 @@ export default function LeaderboardPage() {
               </div>
             )}
           </div>
-        </main>
 
+          {/* SPACER FOR STICKY FOOTER */}
+          <div style={{ height: '140px' }}></div>
+        </div>
+
+        {/* PERSISTENT USER STANDING */}
         {publicKey && myStats && (
-          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 w-[90%] max-w-2xl rounded-[32px] p-5 shadow-2xl z-40 transition-all hover:scale-[1.01] bg-yellow-500">
-            <div className="flex justify-between items-center text-black px-2">
-              <div className="flex items-center gap-4">
-                <div className="bg-black text-white w-14 h-14 rounded-2xl flex flex-col items-center justify-center">
-                  <span className="text-[8px] font-black uppercase leading-none opacity-60">Rank</span>
-                  <span className="font-black text-2xl italic leading-none">#{myStats.rank}</span>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black opacity-60 uppercase tracking-tighter">Your Standing</p>
-                  <p className="font-black text-xl uppercase italic leading-none">
-                    {getRank(myStats.laamPoints).name} SEEKER
-                  </p>
-                </div>
+          <div style={{
+            position: 'fixed',
+            bottom: '100px', // Sits above the main footer
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '90%',
+            maxWidth: '400px',
+            background: '#eab308',
+            borderRadius: '24px',
+            padding: '16px 20px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+            zIndex: 50
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ background: '#000', color: '#fff', padding: '8px 12px', borderRadius: '12px', textAlign: 'center' }}>
+                <p style={{ fontSize: '8px', margin: 0, opacity: 0.6 }}>RANK</p>
+                <p style={{ fontSize: '18px', fontWeight: 900, margin: 0 }}>#{myStats.rank}</p>
               </div>
-              <div className="text-right">
-                <p className="text-[10px] font-black opacity-60 uppercase tracking-tighter">Current Balance</p>
-                <p className="font-black text-3xl italic leading-none">
-                  {myStats.laamPoints?.toLocaleString()} <span className="text-sm">LAAM</span>
-                </p>
+              <div>
+                <p style={{ fontSize: '8px', fontWeight: 900, color: 'rgba(0,0,0,0.5)', margin: 0 }}>YOUR STANDING</p>
+                <p style={{ fontSize: '14px', fontWeight: 900, color: '#000', margin: 0 }}>{getRank(myStats.laamPoints).name} SEEKER</p>
               </div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ fontSize: '18px', fontWeight: 900, color: '#000', margin: 0 }}>
+                {myStats.laamPoints?.toLocaleString()} <span style={{ fontSize: '10px' }}>LAAM</span>
+              </p>
             </div>
           </div>
         )}

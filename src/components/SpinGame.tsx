@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import toast from 'react-hot-toast';
@@ -14,16 +16,16 @@ export default function SpinGame() {
     useEffect(() => setMounted(true), []);
 
     const segments = [
-        { label: "1 TAG", color: "#3b82f6" },
-        { label: "5 TAG", color: "#2563eb" },
-        { label: "50 L", color: "#eab308" },
-        { label: "100 L", color: "#ca8a04" },
-        { label: "500 L", color: "#a16207" },
-        { label: "1 USDC", color: "#22c55e" },
-        { label: "0.01 SOL", color: "#a855f7" },
-        { label: "EMPTY", color: "#374151" },
-        { label: "GEN BOX", color: "#ef4444" },
-        { label: "SPEC BOX", color: "#f97316" },
+        { label: "1 TAG", color: "#1e3a8a" },
+        { label: "5 TAG", color: "#1e40af" },
+        { label: "50 L", color: "#854d0e" },
+        { label: "100 L", color: "#a16207" },
+        { label: "500 L", color: "#ca8a04" },
+        { label: "1 USDC", color: "#166534" },
+        { label: "0.01 SOL", color: "#6b21a8" },
+        { label: "EMPTY", color: "#1f2937" },
+        { label: "GEN BOX", color: "#991b1b" },
+        { label: "SPEC BOX", color: "#c2410c" },
     ];
 
     const spin = async () => {
@@ -38,41 +40,38 @@ export default function SpinGame() {
             });
 
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Transaction failed");
+            if (!res.ok) throw new Error(data.error || "REACTION FAILURE");
 
-            // 1. Calculate Precise Rotation
-            const degreesPerSegment = 360 / segments.length; // 36deg
-            const extraSpins = 3600; // 10 full circles for effect
+            const degreesPerSegment = 360 / segments.length;
+            const extraSpins = 3600;
 
-            // This logic:
-            // a) Reset previous rotation remainder to align to 0
-            // b) Subtract (index * 36) to move the target segment to the top
-            // c) Subtract (36 / 2) which is 18deg to hit the EXACT center of that slice
             const currentRotation = rotation - (rotation % 360);
             const targetOffset = (data.segmentIndex * degreesPerSegment) + (degreesPerSegment / 2);
             const newRotation = currentRotation + extraSpins + (360 - targetOffset);
 
             setRotation(newRotation);
 
-            // 2. Wait for Animation to finish
             setTimeout(() => {
                 setIsSpinning(false);
-                if (data.rewardType.includes("BOX")) {
+                if (data.rewardType?.toUpperCase().includes("BOX")) {
                     setBoxValue(data.rewardLabel);
                     setShowBox(true);
                 } else {
-                    toast.success(`WON: ${data.rewardLabel}`, {
-                        style: { background: '#000', color: '#eab308', border: '1px solid #eab308' }
+                    toast.success(`RECOVERY SUCCESS: ${data.rewardLabel}`, {
+                        style: {
+                            background: '#000',
+                            color: '#eab308',
+                            border: '1px solid #eab308',
+                            fontSize: '10px',
+                            fontWeight: 900
+                        }
                     });
                 }
-
-                // Dispatch event for _app.tsx to update header stats
                 window.dispatchEvent(new Event('balanceUpdate'));
-
             }, 4100);
 
         } catch (err: any) {
-            toast.error(err.message);
+            toast.error(err.message.toUpperCase());
             setIsSpinning(false);
         }
     };
@@ -80,18 +79,20 @@ export default function SpinGame() {
     if (!mounted) return null;
 
     return (
-        <div className="flex flex-col items-center w-full">
-            <h2 className="text-xl font-black italic text-white uppercase mb-8">The Reactor Core</h2>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+            <h2 className="terminal-title" style={{ marginBottom: '40px', fontSize: '20px' }}>
+                The <span style={{ color: '#eab308' }}>Reactor</span> Core
+            </h2>
 
             {/* Wheel Container */}
-            <div style={{ position: 'relative', width: '320px', height: '320px', marginBottom: '40px' }}>
+            <div style={{ position: 'relative', width: '320px', height: '320px', marginBottom: '48px' }}>
 
-                {/* Pointer */}
+                {/* Pointer - Stylized as a Laser/Needle */}
                 <div style={{
-                    position: 'absolute', top: '-20px', left: '50%', transform: 'translateX(-50%)', zIndex: 50,
+                    position: 'absolute', top: '-15px', left: '50%', transform: 'translateX(-50%)', zIndex: 50,
                     width: 0, height: 0,
-                    borderLeft: '15px solid transparent', borderRight: '15px solid transparent', borderTop: '30px solid #eab308',
-                    filter: 'drop-shadow(0 0 10px #eab308)'
+                    borderLeft: '12px solid transparent', borderRight: '12px solid transparent', borderTop: '24px solid #eab308',
+                    filter: 'drop-shadow(0 0 15px rgba(234, 179, 8, 0.8))'
                 }} />
 
                 {/* The Wheel */}
@@ -100,13 +101,11 @@ export default function SpinGame() {
                     height: '100%',
                     borderRadius: '50%',
                     position: 'relative',
-                    border: '8px solid rgba(255,255,255,0.1)',
-                    boxShadow: '0 0 30px rgba(0,0,0,0.5)',
+                    border: '10px solid #111',
+                    boxShadow: '0 0 0 2px rgba(255,255,255,0.05), 0 20px 50px rgba(0,0,0,0.8)',
                     transform: `rotate(${rotation}deg)`,
-                    transition: 'transform 4s cubic-bezier(0.15, 0, 0.15, 1)',
-                    // Perfect pie slices using conic-gradient
-                    background: `conic-gradient(${segments.map((seg, i) => `${seg.color} ${i * 36}deg ${(i + 1) * 36}deg`).join(', ')
-                        })`
+                    transition: 'transform 4.1s cubic-bezier(0.15, 0, 0.15, 1)',
+                    background: `conic-gradient(${segments.map((seg, i) => `${seg.color} ${i * 36}deg ${(i + 1) * 36}deg`).join(', ')})`
                 }}>
                     {segments.map((seg, i) => (
                         <div key={i} style={{
@@ -117,27 +116,25 @@ export default function SpinGame() {
                             width: '60px',
                             marginLeft: '-30px',
                             transformOrigin: 'bottom center',
-                            // +18deg offset centers the label in the 36deg slice
                             transform: `rotate(${i * 36 + 18}deg)`,
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
                             justifyContent: 'flex-start',
-                            paddingTop: '15px',
+                            paddingTop: '20px',
                             zIndex: 10
                         }}>
-                            <span style={{ fontSize: '22px', marginBottom: '2px', filter: 'drop-shadow(0 2px 2px black)' }}>
-                                {seg.label.includes('BOX') ? '📦' : seg.label === 'EMPTY' ? '💀' : '🎁'}
+                            <span style={{ fontSize: '24px', marginBottom: '4px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }}>
+                                {seg.label.includes('BOX') ? '📦' : seg.label === 'EMPTY' ? '💀' : '⚡'}
                             </span>
                             <span style={{
-                                fontSize: '11px',
+                                fontSize: '9px',
                                 fontWeight: '900',
                                 color: 'white',
                                 textTransform: 'uppercase',
                                 textAlign: 'center',
                                 lineHeight: '1',
-                                // Strong multi-directional text shadow for maximum legibility
-                                textShadow: '2px 2px 0px #000, -1px -1px 0px #000, 1px -1px 0px #000, -1px 1px 0px #000'
+                                textShadow: '1px 1px 0px #000, -1px -1px 0px #000, 2px 2px 4px #000'
                             }}>
                                 {seg.label}
                             </span>
@@ -145,22 +142,37 @@ export default function SpinGame() {
                     ))}
                 </div>
 
-                {/* Center Cap */}
+                {/* Center Cap - Mechanical Hub look */}
                 <div style={{
                     position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-                    width: '50px', height: '50px', backgroundColor: '#000', borderRadius: '50%',
-                    border: '4px solid rgba(255,255,255,0.2)', zIndex: 40,
-                    boxShadow: 'inset 0 0 10px rgba(255,255,255,0.2)'
-                }} />
+                    width: '60px', height: '60px',
+                    background: 'radial-gradient(circle, #222 0%, #000 100%)',
+                    borderRadius: '50%',
+                    border: '4px solid #333', zIndex: 40,
+                    boxShadow: '0 0 20px rgba(0,0,0,1), inset 0 0 10px rgba(255,255,255,0.1)'
+                }}>
+                    <div style={{ position: 'absolute', inset: '10px', borderRadius: '50%', border: '1px dashed rgba(234, 179, 8, 0.3)' }} />
+                </div>
             </div>
 
+            {/* Heavy Industrial Button */}
             <button
                 onClick={spin}
                 disabled={isSpinning}
-                className={`w-full py-5 rounded-full font-black uppercase italic transition-all shadow-[0_8px_0_#991b1b] active:shadow-none active:translate-y-2 ${isSpinning ? 'bg-gray-600 cursor-not-allowed' : 'bg-red-600 hover:bg-red-500 text-white'
-                    }`}
+                className="terminal-button"
+                style={{
+                    width: '100%',
+                    padding: '20px',
+                    background: isSpinning ? '#1f2937' : '#991b1b',
+                    color: isSpinning ? 'rgba(255,255,255,0.2)' : '#fff',
+                    border: 'none',
+                    boxShadow: isSpinning ? 'none' : '0 6px 0 #450a0a',
+                    transform: isSpinning ? 'translateY(4px)' : 'none',
+                    fontSize: '14px',
+                    letterSpacing: '2px'
+                }}
             >
-                {isSpinning ? "Spinning..." : "Engage Spin (5 TAG)"}
+                {isSpinning ? "CORE STABILIZING..." : "ENGAGE REACTOR (5 TAG)"}
             </button>
 
             <BoxModal

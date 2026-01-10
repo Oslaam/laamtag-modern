@@ -13,132 +13,163 @@ export default function GamesPage() {
 
     return (
         <SeekerGuard>
-            <div className="py-6 px-4 max-w-xl mx-auto">
+            <div className="main-content">
                 <Toaster position="bottom-center" />
 
-                {/* Header Section - 3 Column Layout for perfect centering */}
-                <div className="flex justify-between items-start mb-10">
-                    <div className="flex-1"></div> {/* Left Spacer */}
+                <div className="content-wrapper">
 
-                    <div className="text-center flex-[2]">
-                        <h1 className="text-4xl font-black italic text-yellow-500 uppercase tracking-tighter">
-                            Gaming Terminal
-                        </h1>
-                        <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.4em] mt-1">
-                            Select Module
-                        </p>
+                    {/* Header Section - Modern Centering */}
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: '40px'
+                    }}>
+                        <div style={{ flex: 1 }}></div> {/* Left Spacer */}
+
+                        <div style={{ textAlign: 'center', flex: 2 }}>
+                            <h1 className="page-title" style={{ color: '#eab308', margin: 0 }}>
+                                Gaming Terminal
+                            </h1>
+                            <p className="terminal-desc" style={{ fontSize: '10px', marginTop: '4px' }}>
+                                SELECT MODULE
+                            </p>
+                        </div>
+
+                        <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
+                            <button
+                                onClick={() => setIsHistoryOpen(true)}
+                                style={{
+                                    background: 'rgba(255,255,255,0.05)',
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    borderRadius: '12px',
+                                    padding: '10px',
+                                    color: '#666',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <History size={18} />
+                            </button>
+                        </div>
                     </div>
 
-                    <div className="flex-1 flex justify-end">
-                        <button
-                            onClick={() => setIsHistoryOpen(true)}
-                            className="p-3 bg-white/5 border border-white/10 rounded-2xl text-gray-400 hover:text-yellow-500 hover:border-yellow-500/50 transition-all group"
-                            title="View Master Ledger"
-                        >
-                            <History size={18} className="group-hover:rotate-[-10deg] transition-transform" />
-                        </button>
-                    </div>
-                </div>
+                    {/* Claimable Rewards - Stays inside wrapper */}
+                    <LootVault />
 
-                {/* Claimable Rewards Section */}
-                <LootVault />
+                    <div style={{ marginTop: '40px' }}>
+                        {/* Game Selector Tabs */}
+                        <div style={{
+                            display: 'flex',
+                            gap: '8px',
+                            background: 'rgba(255,255,255,0.05)',
+                            padding: '4px',
+                            borderRadius: '16px',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            marginBottom: '32px'
+                        }}>
+                            <button
+                                onClick={() => setActiveGame('GUESS')}
+                                className={activeGame === 'GUESS' ? 'primary-btn' : ''}
+                                style={{
+                                    flex: 1,
+                                    background: activeGame === 'GUESS' ? '#eab308' : 'transparent',
+                                    color: activeGame === 'GUESS' ? '#000' : '#666',
+                                    border: 'none',
+                                    padding: '12px',
+                                    borderRadius: '12px',
+                                    fontSize: '10px',
+                                    fontWeight: 900,
+                                    textTransform: 'uppercase'
+                                }}
+                            >
+                                Frequency Jammer
+                            </button>
+                            <button
+                                onClick={() => setActiveGame('SPIN')}
+                                className={activeGame === 'SPIN' ? 'primary-btn' : ''}
+                                style={{
+                                    flex: 1,
+                                    background: activeGame === 'SPIN' ? '#eab308' : 'transparent',
+                                    color: activeGame === 'SPIN' ? '#000' : '#666',
+                                    border: 'none',
+                                    padding: '12px',
+                                    borderRadius: '12px',
+                                    fontSize: '10px',
+                                    fontWeight: 900,
+                                    textTransform: 'uppercase'
+                                }}
+                            >
+                                The Reactor
+                            </button>
+                        </div>
 
-                <div className="mt-10">
-                    {/* Game Selector Tabs */}
-                    <div className="flex gap-2 p-1 bg-white/5 border border-white/10 rounded-2xl mb-8">
-                        <button
-                            onClick={() => setActiveGame('GUESS')}
-                            className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeGame === 'GUESS'
-                                ? 'bg-yellow-500 text-black shadow-[0_0_20px_rgba(234,179,8,0.2)]'
-                                : 'text-gray-500 hover:text-white hover:bg-white/5'
-                                }`}
-                        >
-                            Frequency Jammer
-                        </button>
-                        <button
-                            onClick={() => setActiveGame('SPIN')}
-                            className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeGame === 'SPIN'
-                                ? 'bg-yellow-500 text-black shadow-[0_0_20px_rgba(234,179,8,0.2)]'
-                                : 'text-gray-500 hover:text-white hover:bg-white/5'
-                                }`}
-                        >
-                            The Reactor
-                        </button>
-                    </div>
-
-                    {/* Conditional Rendering of Modules */}
-                    {activeGame === 'GUESS' ? (
-                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            <div className="text-center mb-6">
-                                <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest italic">
-                                    Cost: 1 TAG Per Attempt
+                        {/* Content Area */}
+                        <div className="terminal-card" style={{ padding: '24px' }}>
+                            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '10px', fontWeight: 900, fontStyle: 'italic' }}>
+                                    COST: {activeGame === 'GUESS' ? '1 TAG' : '5 TAG'} PER ATTEMPT
                                 </p>
                             </div>
 
-                            <GuessGameComponent />
+                            {activeGame === 'GUESS' ? <GuessGameComponent /> : <SpinGame />}
 
-                            {/* Jammer Rewards Table */}
-                            <div className="mt-8 bg-white/5 border border-white/10 rounded-2xl p-4">
-                                <h4 className="text-[10px] font-black uppercase text-gray-500 mb-3 tracking-widest">
-                                    Jammer Rewards
+                            {/* Rewards Tables */}
+                            <div style={{
+                                marginTop: '32px',
+                                background: 'rgba(0,0,0,0.3)',
+                                padding: '16px',
+                                borderRadius: '16px',
+                                border: '1px solid rgba(255,255,255,0.05)'
+                            }}>
+                                <h4 style={{ fontSize: '10px', fontWeight: 900, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: '12px' }}>
+                                    {activeGame === 'GUESS' ? 'Jammer Rewards' : 'Reactor Loot'}
                                 </h4>
-                                <div className="grid grid-cols-3 gap-2 text-center">
-                                    <div className="bg-black/40 p-3 rounded-xl border border-white/5">
-                                        <p className="text-[8px] text-yellow-500 font-bold">EASY</p>
-                                        <p className="font-black text-sm">100 L</p>
+
+                                {activeGame === 'GUESS' ? (
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                                        <RewardBox label="EASY" value="1000 LAAM" />
+                                        <RewardBox label="NORMAL" value="2000 LAAM" />
+                                        <RewardBox label="HARD" value="5000 LAAM" />
                                     </div>
-                                    <div className="bg-black/40 p-3 rounded-xl border border-white/5">
-                                        <p className="text-[8px] text-yellow-500 font-bold">NORMAL</p>
-                                        <p className="font-black text-sm">200 L</p>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <LootRow label="Jackpot" value="2,500 LAAM" highlight />
+                                        <LootRow label="Rare Find" value="200 LAAM" />
                                     </div>
-                                    <div className="bg-black/40 p-3 rounded-xl border border-white/5">
-                                        <p className="text-[8px] text-yellow-500 font-bold">HARD</p>
-                                        <p className="font-black text-sm">500 L</p>
-                                    </div>
-                                </div>
+                                )}
                             </div>
                         </div>
-                    ) : (
-                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            <div className="text-center mb-6">
-                                <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest italic">
-                                    Cost: 5 TAG Per Spin
-                                </p>
-                            </div>
+                    </div>
 
-                            <SpinGame />
-
-                            {/* Reactor Loot Table */}
-                            <div className="mt-8 bg-white/5 border border-white/10 rounded-2xl p-4">
-                                <h4 className="text-[10px] font-black uppercase text-gray-500 mb-3 tracking-widest">
-                                    Reactor Loot
-                                </h4>
-                                <div className="space-y-2">
-                                    <div className="flex justify-between items-center px-4 py-3 bg-black/40 rounded-xl border border-white/5">
-                                        <p className="text-[10px] font-black uppercase tracking-tighter">Jackpot</p>
-                                        <p className="text-yellow-500 font-black italic">2,500 LAAM</p>
-                                    </div>
-                                    <div className="flex justify-between items-center px-4 py-3 bg-black/40 rounded-xl border border-white/5">
-                                        <p className="text-[10px] font-black uppercase tracking-tighter text-gray-400">Rare Find</p>
-                                        <p className="text-white font-black italic">200 LAAM</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                    <p style={{ marginTop: '48px', textAlign: 'center', fontSize: '8px', color: 'rgba(255,255,255,0.2)', fontWeight: 900, letterSpacing: '0.2em' }}>
+                        AUTHORIZED GAMING MODULE // LAAM TERMINAL V.01
+                    </p>
                 </div>
 
-                {/* Ledger Modal Integration */}
-                <HistoryModal
-                    isOpen={isHistoryOpen}
-                    onClose={() => setIsHistoryOpen(false)}
-                />
-
-                {/* Footer Disclaimer */}
-                <p className="mt-12 text-center text-[8px] text-gray-600 uppercase font-bold tracking-[0.2em]">
-                    Authorized Gaming Module // LAAM Terminal v.01
-                </p>
+                <HistoryModal isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
             </div>
         </SeekerGuard>
     );
 }
+
+// Helper Components for clean code
+const RewardBox = ({ label, value }: any) => (
+    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: '12px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.05)' }}>
+        <p style={{ color: '#eab308', fontSize: '8px', fontWeight: 900, margin: 0 }}>{label}</p>
+        <p style={{ fontSize: '12px', fontWeight: 900, margin: '4px 0 0 0' }}>{value}</p>
+    </div>
+);
+
+const LootRow = ({ label, value, highlight }: any) => (
+    <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        padding: '12px 16px',
+        background: 'rgba(255,255,255,0.03)',
+        borderRadius: '12px',
+        border: '1px solid rgba(255,255,255,0.05)'
+    }}>
+        <p style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', margin: 0, color: highlight ? '#fff' : 'rgba(255,255,255,0.4)' }}>{label}</p>
+        <p style={{ fontSize: '10px', fontWeight: 900, fontStyle: 'italic', margin: 0, color: highlight ? '#eab308' : '#fff' }}>{value}</p>
+    </div>
+);

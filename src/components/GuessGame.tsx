@@ -1,13 +1,15 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { useRouter } from 'next/router';
-import { Target, AlertCircle, Radio, XCircle, Ticket, CheckCircle2, Coins } from 'lucide-react';
+import { useRouter } from 'next/navigation'; // Updated for Next.js 13+ App Router if applicable, else 'next/router'
+import { Target, AlertCircle, Radio, XCircle, Ticket, CheckCircle2, Coins, Loader2, Zap } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 const LEVELS = {
-  easy: { range: 20, rewards: [100, 50, 20] },
-  normal: { range: 50, rewards: [200, 100, 50] },
-  difficult: { range: 100, rewards: [500, 200, 100] }
+  easy: { range: 20, rewards: [1000, 500, 200] },
+  normal: { range: 50, rewards: [2000, 1000, 500] },
+  difficult: { range: 100, rewards: [5000, 2000, 1000] }
 };
 
 export default function GuessGameComponent() {
@@ -17,7 +19,7 @@ export default function GuessGameComponent() {
   const [level, setLevel] = useState<'easy' | 'normal' | 'difficult' | null>(null);
   const [guess, setGuess] = useState('');
   const [attempts, setAttempts] = useState(0);
-  const [message, setMessage] = useState('Select a level to begin.');
+  const [message, setMessage] = useState('INITIATE SIGNAL SCAN...');
   const [isLocked, setIsLocked] = useState(false);
   const [lockoutTimer, setLockoutTimer] = useState<string | null>(null);
   const [revealedNumber, setRevealedNumber] = useState<number | null>(null);
@@ -27,42 +29,49 @@ export default function GuessGameComponent() {
   const [pendingPoints, setPendingPoints] = useState(0);
   const [userTickets, setUserTickets] = useState(0);
   const [isClaiming, setIsClaiming] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
   const CLAIM_THRESHOLD = 1000;
 
-  // 1. IMPROVED FETCH DATA
   useEffect(() => {
-    if (!publicKey) return;
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!publicKey || !mounted) return;
     const fetchData = async () => {
-      const userRes = await fetch(`/api/user/${publicKey.toString()}`);
-      const userData = await userRes.json();
-      setUserTickets(userData.tagTickets || 0);
+      try {
+        const userRes = await fetch(`/api/user/${publicKey.toString()}`);
+        const userData = await userRes.json();
+        setUserTickets(userData.tagTickets || 0);
 
-      const gameRes = await fetch(`/api/games/guess-game?walletAddress=${publicKey.toString()}`);
-      const gameData = await gameRes.json();
-      if (gameRes.ok) {
-        setPendingPoints(gameData.pendingPoints || 0);
-        setAttempts(gameData.attempts || 0);
-        if (gameData.revealedNumber) setRevealedNumber(gameData.revealedNumber);
+        const gameRes = await fetch(`/api/games/guess-game?walletAddress=${publicKey.toString()}`);
+        const gameData = await gameRes.json();
+        if (gameRes.ok) {
+          setPendingPoints(gameData.pendingPoints || 0);
+          setAttempts(gameData.attempts || 0);
+          if (gameData.revealedNumber) setRevealedNumber(gameData.revealedNumber);
 
-        if (gameData.lastAttempt) {
-          const timestamp = new Date(gameData.lastAttempt).getTime();
-          setLastAttemptTimestamp(timestamp);
-          const lockoutEnd = timestamp + (6 * 60 * 60 * 1000);
-          setIsLocked(new Date().getTime() < lockoutEnd);
+          if (gameData.lastAttempt) {
+            const timestamp = new Date(gameData.lastAttempt).getTime();
+            setLastAttemptTimestamp(timestamp);
+            const lockoutEnd = timestamp + (6 * 60 * 60 * 1000);
+            setIsLocked(Date.now() < lockoutEnd);
+          }
         }
+      } catch (e) {
+        console.error("Fetch error:", e);
       }
     };
     fetchData();
-  }, [publicKey, isClaiming]);
+  }, [publicKey, isClaiming, mounted]);
 
-  // 2. CLEARER LOCKOUT TIMER
   useEffect(() => {
     if (!isLocked || !lastAttemptTimestamp) return;
 
     const interval = setInterval(() => {
       const lockoutEnd = lastAttemptTimestamp + (6 * 60 * 60 * 1000);
-      const now = new Date().getTime();
-      const diff = lockoutEnd - now;
+      const diff = lockoutEnd - Date.now();
 
       if (diff <= 0) {
         setIsLocked(false);
@@ -72,7 +81,7 @@ export default function GuessGameComponent() {
         const hours = Math.floor(diff / (1000 * 60 * 60));
         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-        setLockoutTimer(`${hours}h ${minutes}m ${seconds}s`);
+        setLockoutTimer(`${hours}H ${minutes}M ${seconds}S`);
       }
     }, 1000);
 
@@ -89,7 +98,7 @@ export default function GuessGameComponent() {
     });
     if (res.ok) {
       setPendingPoints(0);
-      router.reload();
+      window.location.reload();
     }
     setIsClaiming(false);
   };
@@ -107,110 +116,175 @@ export default function GuessGameComponent() {
       setRevealedNumber(null);
       setIsSuccess(false);
       setUserTickets(prev => prev - 1);
-      setMessage(`Frequency Range: 1-${LEVELS[selectedLevel].range}. Find the signal...`);
+      setMessage(`FREQ RANGE: 1-${LEVELS[selectedLevel].range}. FIND SIGNAL...`);
     }
   };
 
   const handleGuess = async () => {
-    if (!publicKey || !level || isLocked) return;
-    const res = await fetch('/api/games/guess-game', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ walletAddress: publicKey.toString(), level, userGuess: guess })
-    });
-    const data = await res.json();
+    if (!publicKey || !level || isLocked || !guess) return;
+    try {
+      const res = await fetch('/api/games/guess-game', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress: publicKey.toString(), level, userGuess: guess })
+      });
+      const data = await res.json();
 
-    if (data.win) {
-      setIsSuccess(true);
-      confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#EAB308', '#A855F7', '#FFFFFF'] });
-      setPendingPoints(data.pendingPoints);
-      setTimeout(() => { setIsSuccess(false); setLevel(null); }, 3000);
-    } else {
-      setAttempts(data.attempts);
-      setMessage(data.message);
-      if (data.isLocked) {
-        setIsLocked(true);
-        setLastAttemptTimestamp(new Date().getTime());
-        setRevealedNumber(data.revealedNumber);
+      if (data.win) {
+        setIsSuccess(true);
+        setRevealedNumber(data.revealedNumber); // Store the number on win
+        confetti({
+          particleCount: 150,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#EAB308', '#FFFFFF', '#000000']
+        });
+        setPendingPoints(data.pendingPoints);
+        // Wait 3 seconds so they can see the success screen before resetting
+        setTimeout(() => {
+          setIsSuccess(false);
+          setLevel(null);
+          setRevealedNumber(null);
+        }, 3000);
+      } else {
+        setAttempts(data.attempts);
+        setMessage((data.message || "SIGNAL LOST").toUpperCase());
+        if (data.isLocked) {
+          setIsLocked(true);
+          setLastAttemptTimestamp(Date.now());
+          setRevealedNumber(data.revealedNumber); // Store the number on 3rd fail
+        }
       }
+      setGuess('');
+    } catch (e) {
+      setMessage("COMMUNICATION ERROR");
     }
-    setGuess('');
   };
 
+  if (!mounted || !publicKey) return null;
+
   return (
-    <div className={`relative transition-all duration-500 ${isSuccess ? 'scale-105' : ''}`}>
+    <div style={{ position: 'relative', width: '100%', maxWidth: '600px', margin: '0 auto' }}>
+
+      {/* SUCCESS OVERLAY */}
       {isSuccess && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-purple-600/20 backdrop-blur-md animate-in fade-in duration-500">
-          <div className="text-center animate-bounce">
-            <CheckCircle2 size={100} className="text-yellow-500 mx-auto drop-shadow-[0_0_20px_rgba(234,179,8,0.5)]" />
-            <h2 className="text-5xl font-black italic text-white uppercase mt-4 tracking-tighter">Frequency Jammed!</h2>
-            <p className="text-yellow-500 font-black text-2xl mt-2">+{pendingPoints} LAAM PENDING</p>
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(10px)'
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <CheckCircle2 size={80} style={{ color: '#eab308', margin: '0 auto' }} />
+            <h2 style={{ fontSize: '40px', fontWeight: 900, color: '#fff', fontStyle: 'italic', textTransform: 'uppercase' }}>Signal Locked</h2>
+            <p style={{ color: '#eab308', fontWeight: 900, fontSize: '20px' }}>+{pendingPoints} LAAM SECURED</p>
           </div>
         </div>
       )}
 
+      {/* REWARD PROGRESS BAR */}
       {!level && pendingPoints > 0 && (
-        <div className="max-w-2xl mx-auto mb-6 p-6 bg-purple-900/20 border border-purple-500/30 rounded-[32px] backdrop-blur-sm">
-          <div className="flex justify-between items-end mb-4">
+        <div className="terminal-card" style={{ marginBottom: '24px', padding: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '12px' }}>
             <div>
-              <div className="flex items-center gap-2 mb-1">
-                <Coins size={14} className="text-purple-400" />
-                <p className="text-[10px] text-purple-400 font-black uppercase tracking-[0.2em]">Pending Rewards</p>
-              </div>
-              <p className="text-3xl font-black text-white leading-none">{pendingPoints} <span className="text-yellow-500 text-xs">LAAM</span></p>
+              <p style={{ fontSize: '8px', color: '#eab308', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px' }}>Pending Extraction</p>
+              <p style={{ fontSize: '24px', fontWeight: 900, color: '#fff', margin: 0 }}>{pendingPoints} <span style={{ fontSize: '10px' }}>LAAM</span></p>
             </div>
-            <div className="text-right">
-              <p className="text-[10px] text-gray-500 font-bold uppercase">Threshold</p>
-              <p className="text-sm font-black text-gray-400">{pendingPoints}/{CLAIM_THRESHOLD}</p>
-            </div>
+            <p style={{ fontSize: '10px', fontWeight: 900, color: 'rgba(255,255,255,0.3)' }}>{pendingPoints} / {CLAIM_THRESHOLD}</p>
           </div>
-          <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden mb-6">
-            <div className="h-full bg-gradient-to-r from-purple-600 to-purple-400 transition-all duration-1000" style={{ width: `${Math.min((pendingPoints / CLAIM_THRESHOLD) * 100, 100)}%` }} />
+          <div style={{ height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden', marginBottom: '16px' }}>
+            <div style={{
+              height: '100%', background: '#eab308', width: `${Math.min((pendingPoints / CLAIM_THRESHOLD) * 100, 100)}%`,
+              transition: 'width 1s ease'
+            }} />
           </div>
-          <button onClick={handleClaim} disabled={pendingPoints < CLAIM_THRESHOLD || isClaiming} className={`relative w-full py-4 rounded-2xl font-black uppercase transition-all overflow-hidden group ${pendingPoints >= CLAIM_THRESHOLD ? 'bg-purple-600 text-white shadow-[0_0_20px_rgba(147,51,234,0.3)] hover:scale-[1.02]' : 'bg-gray-800/50 text-gray-500 cursor-not-allowed opacity-50'}`}>
-            <span className="relative z-10 flex items-center justify-center gap-2">{pendingPoints >= CLAIM_THRESHOLD ? "Claim All Rewards" : `Collect ${CLAIM_THRESHOLD - pendingPoints} more LAAM to Claim`}</span>
+          <button
+            onClick={handleClaim}
+            disabled={pendingPoints < CLAIM_THRESHOLD || isClaiming}
+            className="terminal-button"
+            style={{
+              width: '100%',
+              background: pendingPoints >= CLAIM_THRESHOLD ? '#eab308' : 'rgba(255,255,255,0.05)',
+              color: pendingPoints >= CLAIM_THRESHOLD ? '#000' : 'rgba(255,255,255,0.2)'
+            }}
+          >
+            {isClaiming ? "EXTRACTING..." : pendingPoints >= CLAIM_THRESHOLD ? "CLAIM REWARDS" : `NEED ${CLAIM_THRESHOLD - pendingPoints} MORE LAAM`}
           </button>
         </div>
       )}
 
-      <div className={`bg-gray-900/50 border rounded-[32px] p-8 max-w-2xl mx-auto border-yellow-500/30`}>
-        {level && (
-          <div className="space-y-6">
-            <div className="bg-black/50 p-4 rounded-xl border border-white/5 text-center">
-              <p className="text-yellow-500 font-mono text-sm uppercase">{message}</p>
+      {/* MAIN GAME INTERFACE */}
+      <div className="terminal-card" style={{ padding: '32px' }}>
+        {level ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div style={{ background: '#000', padding: '12px', borderRadius: '8px', border: '1px solid rgba(234,179,8,0.2)', textAlign: 'center' }}>
+              <p style={{ color: '#eab308', fontFamily: 'monospace', fontSize: '11px', margin: 0 }}>{message}</p>
             </div>
-            <div className="flex gap-4">
-              <input type="number" value={guess} disabled={isLocked || isSuccess} onChange={(e) => setGuess(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleGuess()} className="flex-1 bg-black border border-white/10 rounded-xl px-4 py-3 font-bold text-xl text-yellow-500 outline-none" placeholder="000" />
-              <button onClick={userTickets <= 0 ? () => router.push('/shop') : handleGuess} disabled={isSuccess || isLocked} className={`px-8 rounded-xl font-black uppercase transition-all ${userTickets <= 0 ? 'bg-purple-600 text-white animate-pulse' : 'bg-yellow-500 text-black'}`}>{userTickets <= 0 ? "Get Tickets" : "Guess"}</button>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <input
+                type="number"
+                value={guess}
+                disabled={isLocked || isSuccess}
+                onChange={(e) => setGuess(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleGuess()}
+                style={{
+                  flex: 1, background: '#000', border: '1px solid rgba(255,255,255,0.1)',
+                  padding: '12px', borderRadius: '12px', color: '#eab308', fontWeight: 900, fontSize: '18px'
+                }}
+                placeholder="000"
+              />
+              <button
+                onClick={userTickets <= 0 ? () => router.push('/shop') : handleGuess}
+                disabled={isSuccess || isLocked}
+                className="terminal-button"
+                style={{ background: '#eab308', color: '#000', padding: '0 24px' }}
+              >
+                {userTickets <= 0 ? "GET TICKET" : "SEND"}
+              </button>
             </div>
-            <div className="flex justify-between items-center text-[10px] text-gray-500 font-bold uppercase">
-              <div className="flex gap-2">{[1, 2, 3].map(s => <div key={s} className={`w-3 h-3 rounded-full ${attempts >= s ? 'bg-red-500 shadow-[0_0_5px_red]' : 'bg-gray-800'}`} />)}</div>
-              <span>Attempts {attempts}/3</span>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {[1, 2, 3].map(s => (
+                  <div key={s} style={{
+                    width: '8px', height: '8px', borderRadius: '50%',
+                    background: attempts >= s ? '#ef4444' : '#111',
+                    boxShadow: attempts >= s ? '0 0 10px #ef4444' : 'none',
+                    border: '1px solid rgba(255,255,255,0.1)'
+                  }} />
+                ))}
+              </div>
+              <p style={{ fontSize: '8px', fontWeight: 900, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase' }}>Attempts {attempts}/3</p>
             </div>
           </div>
-        )}
-
-        {!level && !isLocked && (
-          <div className="grid grid-cols-3 gap-4">
+        ) : !isLocked ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
             {(['easy', 'normal', 'difficult'] as const).map(l => (
-              <button key={l} onClick={() => startLevel(l)} className="group relative bg-black border border-white/10 p-4 rounded-2xl hover:border-yellow-500 transition-all flex flex-col items-center justify-center overflow-hidden">
-                <div className="absolute top-2 right-2 flex items-center gap-1 bg-purple-500/20 border border-purple-500/30 px-1.5 py-0.5 rounded-md"><Ticket size={8} className="text-purple-400" /><span className="text-[7px] font-black text-purple-400 uppercase">-1</span></div>
-                <p className="text-yellow-500 font-black text-[10px] uppercase mb-1">{l}</p>
-                <p className="text-white font-bold text-lg tracking-tighter leading-none">1-{LEVELS[l].range}</p>
-                <p className="text-[7px] text-gray-500 font-bold uppercase mt-2 tracking-widest">Up to {LEVELS[l].rewards[0]} LAAM</p>
+              <button
+                key={l}
+                onClick={() => startLevel(l)}
+                style={{
+                  background: '#000', border: '1px solid rgba(255,255,255,0.05)', padding: '20px 10px',
+                  borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px' }}>
+                  <Ticket size={10} style={{ color: '#eab308' }} />
+                  <span style={{ fontSize: '8px', fontWeight: 900, color: '#eab308' }}>-1</span>
+                </div>
+                <p style={{ fontSize: '9px', fontWeight: 900, color: '#fff', textTransform: 'uppercase', marginBottom: '4px' }}>{l}</p>
+                <p style={{ fontSize: '16px', fontWeight: 900, color: '#fff' }}>1-{LEVELS[l].range}</p>
+                <p style={{ fontSize: '7px', fontWeight: 900, color: 'rgba(255,255,255,0.3)', marginTop: '8px' }}>UP TO {LEVELS[l].rewards[0]} LAAM</p>
               </button>
             ))}
           </div>
-        )}
-
-        {isLocked && !level && (
-          <div className="text-center py-8 bg-red-950/20 border border-red-500/30 rounded-2xl">
-            <XCircle className="text-red-500 mx-auto mb-3" size={48} />
-            <h3 className="text-red-500 font-black text-2xl italic uppercase tracking-tighter">System Overheated</h3>
-            <div className="inline-block bg-black px-6 py-2 rounded-full border border-red-500/50 my-4">
-              <span className="text-red-500 font-mono text-xl font-bold">{lockoutTimer || "00:00:00"}</span>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '20px' }}>
+            <XCircle style={{ color: '#ef4444', margin: '0 auto 16px' }} size={48} />
+            <h3 style={{ color: '#ef4444', fontWeight: 900, fontSize: '20px', textTransform: 'uppercase', fontStyle: 'italic' }}>System Lockout</h3>
+            <div style={{ background: '#000', border: '1px solid #ef4444', padding: '10px 20px', borderRadius: '50px', display: 'inline-block', margin: '16px 0' }}>
+              <span style={{ color: '#ef4444', fontFamily: 'monospace', fontWeight: 900, fontSize: '18px' }}>{lockoutTimer || "00:00:00"}</span>
             </div>
-            {revealedNumber && <p className="text-gray-500 text-[10px] uppercase">Last target was: <span className="text-white">{revealedNumber}</span></p>}
+            {revealedNumber && <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase' }}>Intercepted Frequency: <span style={{ color: '#fff' }}>{revealedNumber}</span></p>}
           </div>
         )}
       </div>

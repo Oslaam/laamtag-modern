@@ -4,6 +4,8 @@ import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { TOKEN_2022_PROGRAM_ID, getMint } from '@solana/spl-token';
 import { PublicKey } from '@solana/web3.js';
 import { useEffect, useState } from 'react';
+import { Lock, ShieldAlert, Zap, ArrowLeft } from 'lucide-react';
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 
 const SEEKER_MINT_AUTHORITY = new PublicKey("GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4");
 const ADMIN_WALLET = "E4cHwRYWTznNjTvchSkZVXH8LWqdWbLekVXWjzmite6M";
@@ -16,7 +18,10 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
 
     useEffect(() => {
         const verifyToken = async () => {
-            if (!publicKey) return;
+            if (!publicKey) {
+                setHasAccess(null);
+                return;
+            }
             if (publicKey.toBase58() === ADMIN_WALLET) {
                 setHasAccess(true);
                 return;
@@ -51,42 +56,78 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
         verifyToken();
     }, [publicKey, connection]);
 
-    // UI RENDERING - Removed min-h-screen so it fits INSIDE the GlobalLayout <main>
+    // 1. STATE: WALLET NOT CONNECTED
     if (!publicKey) {
         return (
-            <div className="py-20 text-center">
-                <div className="glass-card p-10 inline-block border-white/10">
-                    <p className="text-yellow-500 font-bold text-lg">CONNECTION REQUIRED</p>
-                    <p className="text-gray-400 text-sm mt-2">Initialize wallet to access this terminal.</p>
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 20px' }}>
+                <div className="terminal-card" style={{ maxWidth: '400px', width: '100%', textAlign: 'center' }}>
+                    <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'center' }}>
+                        <div style={{ padding: '15px', background: 'rgba(234, 179, 8, 0.1)', borderRadius: '20px', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
+                            <Lock size={32} color="#eab308" />
+                        </div>
+                    </div>
+                    <h2 style={{ color: '#eab308', fontWeight: 900, fontSize: '18px', textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 10px 0' }}>
+                        Connection Required
+                    </h2>
+                    <p className="terminal-desc" style={{ marginBottom: '25px', fontSize: '10px' }}>
+                        INITIALIZE SEEKER MODULE TO ACCESS SECURE HUB TERMINALS.
+                    </p>
+                    <div className="flex justify-center">
+                        <WalletMultiButton className="terminal-button" style={{ width: '100%', background: '#eab308', color: '#000', fontWeight: 900, borderRadius: '12px' }} />
+                    </div>
                 </div>
             </div>
         );
     }
 
+    // 2. STATE: VERIFYING ON-CHAIN DATA
     if (loading) {
         return (
-            <div className="py-20 text-center">
-                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-yellow-500 mx-auto mb-4"></div>
-                <p className="text-yellow-500 font-mono text-[10px] tracking-[0.3em] animate-pulse">
-                    VERIFYING GENESIS STANDING...
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '100px 20px' }}>
+                <div className="animate-spin" style={{ width: '40px', height: '40px', border: '3px solid rgba(234, 179, 8, 0.1)', borderTopColor: '#eab308', borderRadius: '50%', marginBottom: '20px' }}></div>
+                <p className="terminal-desc animate-pulse" style={{ letterSpacing: '4px', fontSize: '9px' }}>
+                    DECRYPTING GENESIS STANDING...
                 </p>
             </div>
         );
     }
 
+    // 3. STATE: TOKEN NOT FOUND (ACCESS DENIED)
     if (hasAccess === false) {
         return (
-            <div className="py-20 text-center px-4">
-                <div className="max-w-md mx-auto p-10 bg-red-500/5 border border-red-500/20 rounded-[32px]">
-                    <h2 className="text-2xl font-black italic text-red-500 uppercase mb-2">Access Denied</h2>
-                    <p className="text-gray-400 text-sm leading-relaxed">
-                        This sector is restricted. Genesis Seeker credentials not found in this wallet.
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 20px' }}>
+                <div className="terminal-card" style={{ maxWidth: '420px', width: '100%', textAlign: 'center', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                    <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'center' }}>
+                        <div style={{ padding: '15px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '20px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                            <ShieldAlert size={32} color="#ef4444" />
+                        </div>
+                    </div>
+                    <h2 style={{ color: '#ef4444', fontWeight: 900, fontSize: '18px', textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 10px 0' }}>
+                        Access Denied
+                    </h2>
+                    <p className="terminal-desc" style={{ marginBottom: '25px', fontSize: '11px', lineHeight: '1.6' }}>
+                        RESTRICTED SECTOR. GENESIS SEEKER CREDENTIALS NOT DETECTED IN THE CONNECTED MODULE.
                     </p>
                     <button
                         onClick={() => window.location.href = '/'}
-                        className="mt-8 px-8 py-3 bg-white text-black text-[10px] font-black uppercase rounded-xl hover:bg-yellow-500 transition-colors"
+                        style={{
+                            width: '100%',
+                            padding: '14px',
+                            background: 'rgba(255,255,255,0.05)',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            borderRadius: '12px',
+                            color: '#fff',
+                            fontSize: '10px',
+                            fontWeight: 900,
+                            textTransform: 'uppercase',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px'
+                        }}
                     >
-                        Return to Surface
+                        <ArrowLeft size={14} /> Return to Surface
                     </button>
                 </div>
             </div>

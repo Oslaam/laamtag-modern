@@ -1,6 +1,6 @@
 import type { AppProps } from 'next/app';
 import Head from 'next/head';
-import { FC, useState, useEffect, useCallback } from 'react';
+import { FC, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
@@ -12,7 +12,8 @@ import { useRankWatcher } from '../hooks/useRankWatcher';
 import dynamic from 'next/dynamic';
 import {
     Hammer, Trophy, Layers, Gamepad2, ShoppingCart,
-    FileText, User, BarChart3, Mail, History, Coins, ScrollText, Plus, Minus
+    FileText, User, BarChart3, Mail, History, Coins, ScrollText, Plus, X,
+    DoorClosed
 } from 'lucide-react';
 
 import '@solana/wallet-adapter-react-ui/styles.css';
@@ -27,6 +28,15 @@ const ADMIN_WALLETS = [
     "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc",
     "CfRjo855LvAWcviiiq7DdcLz9i5Xqy8Vvnmh95UnL9Ua"
 ];
+
+interface FooterItem {
+    name: string;
+    icon: ReactNode;
+    type: 'link' | 'action';
+    path?: string;
+    action?: 'history' | 'toggle';
+    highlight?: boolean;
+}
 
 const GlobalLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
     const [mounted, setMounted] = useState(false);
@@ -48,12 +58,9 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
 
     const isAdmin = publicKey && ADMIN_WALLETS.includes(publicKey.toString());
 
-    // Memoized fetch function to update balances
     const fetchStats = useCallback(async () => {
         if (!publicKey) return;
-
         try {
-            // Fetch User DB Stats (LAAM, TAG, Rank)
             const res = await fetch(`/api/user/${publicKey.toString()}`);
             const data = await res.json();
             if (res.ok) {
@@ -65,12 +72,9 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
                     username: data.username || ''
                 }));
             }
-
-            // Fetch SOL Balance
             const bal = await connection.getBalance(publicKey);
             setStats(prev => ({ ...prev, sol: bal / LAMPORTS_PER_SOL }));
 
-            // Fetch Admin Pending Count if applicable
             if (isAdmin) {
                 const adminRes = await fetch('/api/admin/pending', {
                     headers: { 'x-admin-wallet': publicKey.toString() }
@@ -79,52 +83,61 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
                 setPendingCount(adminData.count || 0);
             }
         } catch (err) {
-            console.error("Failed to fetch user stats:", err);
+            console.error("Fetch stats error:", err);
         }
     }, [publicKey, connection, isAdmin]);
 
     useEffect(() => {
         fetchStats();
-
-        // Listen for the custom 'balanceUpdate' event (triggered by SpinGame)
         window.addEventListener('balanceUpdate', fetchStats);
-
-        // Polling backup (every 30 seconds)
         const interval = setInterval(fetchStats, 30000);
-
         return () => {
             window.removeEventListener('balanceUpdate', fetchStats);
             clearInterval(interval);
         };
     }, [fetchStats]);
 
-    const navItems = [
-        { name: 'Mint', icon: <Coins size={20} />, path: '/mint' },
-        { name: 'Quests', icon: <ScrollText size={20} />, path: '/quests' },
-        { name: 'Vault', icon: <Layers size={20} />, path: '/staking' },
-        { name: 'Games', icon: <Gamepad2 size={20} />, path: '/games' },
-        { name: 'Shop', icon: <ShoppingCart size={20} />, path: '/shop' },
-        { name: 'Bank', icon: <FileText size={20} />, path: '/bank' },
-        { name: 'Profile', icon: <User size={20} />, path: '/profile' },
-        { name: 'Rank', icon: <BarChart3 size={20} />, path: '/leaderboard' },
-        { name: 'Contact', icon: <Mail size={20} />, path: '/contact' },
+    const allContentItems: FooterItem[] = [
+        { name: 'Mint', icon: <Coins size={20} />, path: '/mint', type: 'link' },
+        { name: 'Quests', icon: <ScrollText size={20} />, path: '/quests', type: 'link' },
+        { name: 'Vault', icon: <Layers size={20} />, path: '/vault', type: 'link' },
+        { name: 'Games', icon: <Gamepad2 size={20} />, path: '/games', type: 'link' },
+        { name: 'Shop', icon: <ShoppingCart size={20} />, path: '/shop', type: 'link' },
+        { name: 'Staking', icon: <DoorClosed size={20} />, path: '/staking', type: 'link' },
+        { name: 'Bank', icon: <FileText size={20} />, path: '/bank', type: 'link' },
+        { name: 'Profile', icon: <User size={20} />, path: '/profile', type: 'link' },
+        { name: 'Rank', icon: <BarChart3 size={20} />, path: '/leaderboard', type: 'link' },
+        { name: 'History', icon: <History size={20} />, type: 'action', action: 'history' },
+        { name: 'Contact', icon: <Mail size={20} />, path: '/contact', type: 'link' },
     ];
 
-    const visibleItems = expanded ? navItems : navItems.slice(0, 3);
+    const topRow = allContentItems.slice(0, 4);
+    const bottomRows = allContentItems.slice(4);
+
+    const toggleButton: FooterItem = {
+        name: expanded ? 'Less' : 'More',
+        icon: expanded ? <X size={20} /> : <Plus size={20} />,
+        type: 'action',
+        action: 'toggle',
+        highlight: true
+    };
+
+    const finalGridItems = expanded
+        ? [...topRow, toggleButton, ...bottomRows]
+        : [...topRow, toggleButton];
 
     return (
-        <div className="flex flex-col h-screen w-full bg-black text-white font-sans overflow-hidden">
+        <div className="app-container">
             <RankUpModal isOpen={showRankModal} newRank={newRank} onClose={() => setShowRankModal(false)} />
             <HistoryModal isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
 
-            {/* HEADER */}
-            <header className="sticky top-0 shrink-0 z-[110] bg-black/80 backdrop-blur-xl border-b border-white/10 p-4 pt-6">
-                <nav className="flex flex-col gap-4 max-w-6xl mx-auto w-full">
-                    <div className="flex justify-between items-center">
-                        <Link href="/" className="font-black italic text-yellow-500 text-2xl tracking-tighter">LAAM</Link>
-                        <div className="flex items-center gap-3">
+            <header className="main-header">
+                <nav className="header-nav">
+                    <div className="header-top">
+                        <Link href="/" className="logo">LAAMTAG HUB</Link>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             {isAdmin && (
-                                <Link href="/admin/dashboard" className="text-[10px] font-black text-yellow-500 uppercase animate-pulse">
+                                <Link href="/admin/dashboard" style={{ fontSize: '10px', color: '#eab308', textDecoration: 'none', fontWeight: 900 }}>
                                     T ({pendingCount})
                                 </Link>
                             )}
@@ -132,59 +145,57 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
                         </div>
                     </div>
 
-                    <div className="flex items-center justify-between bg-white/5 rounded-xl p-2 border border-white/10">
-                        <div className="px-2">
-                            <p className="text-[7px] uppercase opacity-60 font-black">Seeker</p>
-                            <p className="font-black text-xs text-yellow-500 truncate w-24">
-                                {stats.username ? `${stats.username}.skr` : 'anonymous.skr'}
+                    <div className="stats-bar">
+                        <div style={{ padding: '0 12px' }}>
+                            <p className="stat-label">OPERATOR</p> {/* Changed label from ID to OPERATOR */}
+                            <p className="stat-value" style={{ color: '#eab308', textTransform: 'uppercase' }}>
+                                {/* If username exists, show it. Otherwise show 'SEEKER' */}
+                                {stats.username ? stats.username : 'SEEKER'}
                             </p>
                         </div>
-                        <div className="flex gap-1 overflow-x-auto no-scrollbar">
-                            <StatBox label="LAAM" value={stats.laam.toLocaleString()} color="text-yellow-500" />
-                            <StatBox label="TAG" value={stats.tag.toLocaleString()} color="text-white" />
-                            <StatBox label="SOL" value={stats.sol.toFixed(2)} color="text-cyan-400" />
-                            <StatBox label="TIER" value={stats.tier} color="text-purple-400" />
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <StatBox label="LAAM" value={stats.laam.toLocaleString()} color="#eab308" />
+                            <StatBox label="TAG" value={stats.tag.toLocaleString()} color="#fff" />
+                            <StatBox label="SOL" value={stats.sol.toFixed(2)} color="#22d3ee" />
+                            <StatBox label="TIER" value={stats.tier} color="#c084fc" />
                         </div>
                     </div>
                 </nav>
             </header>
 
-            {/* MAIN CONTENT */}
-            <main className="flex-1 overflow-y-auto overflow-x-hidden p-4">
-                <div className="max-w-xl mx-auto w-full pb-48">
+            <main className="main-content">
+                <div className="content-wrapper">
                     {children}
                 </div>
             </main>
 
-            {/* EXPANDABLE GRID FOOTER */}
-            <footer className="fixed bottom-0 left-0 right-0 z-[120] bg-black/95 backdrop-blur-2xl border-t border-yellow-500/20 px-4 pt-4 pb-8 transition-all duration-300">
-                <div className={`grid grid-cols-5 gap-y-6 gap-x-2 max-w-xl mx-auto w-full ${expanded ? 'grid-rows-2' : 'grid-rows-1'}`}>
+            <footer className="main-footer">
+                <div className="footer-grid">
+                    {finalGridItems.map((item: FooterItem, idx: number) => {
+                        // Check if path exists before comparing
+                        const isUrlActive = item.path ? router.pathname === item.path : false;
+                        const itemClass = `footer-item ${item.highlight ? 'highlight' : ''} ${isUrlActive ? 'active' : ''}`;
 
-                    {visibleItems.map((item) => (
-                        <FooterBtn
-                            key={item.name}
-                            href={item.path}
-                            icon={item.icon}
-                            label={item.name}
-                            active={router.pathname === item.path}
-                        />
-                    ))}
+                        if (item.type === 'link' && item.path) {
+                            return (
+                                <Link key={`${item.name}-${idx}`} href={item.path} className={itemClass}>
+                                    <div className="icon-container">{item.icon}</div>
+                                    <span>{item.name}</span>
+                                </Link>
+                            );
+                        }
 
-                    <button
-                        onClick={() => setIsHistoryOpen(true)}
-                        className="flex flex-col items-center justify-center gap-1 text-gray-500 hover:text-white transition-colors"
-                    >
-                        <History size={20} />
-                        <span className="text-[8px] font-black uppercase">History</span>
-                    </button>
-
-                    <button
-                        onClick={() => setExpanded(!expanded)}
-                        className="flex flex-col items-center justify-center gap-1 text-yellow-500 transition-all active:scale-90"
-                    >
-                        {expanded ? <Minus size={20} className="animate-pulse" /> : <Plus size={20} className="animate-pulse" />}
-                        <span className="text-[8px] font-black uppercase">{expanded ? 'Less' : 'More'}</span>
-                    </button>
+                        return (
+                            <button
+                                key={`${item.name}-${idx}`}
+                                onClick={item.action === 'history' ? () => setIsHistoryOpen(true) : () => setExpanded(!expanded)}
+                                className={itemClass}
+                            >
+                                <div className="icon-container">{item.icon}</div>
+                                <span>{item.name}</span>
+                            </button>
+                        );
+                    })}
                 </div>
             </footer>
         </div>
@@ -192,21 +203,10 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 const StatBox = ({ label, value, color }: any) => (
-    <div className="px-2 border-r border-white/5 last:border-0 text-center min-w-[50px]">
-        <p className={`text-[7px] font-black uppercase opacity-60 mb-0.5 ${color}`}>{label}</p>
-        <p className="text-[10px] font-black text-white leading-none">{value}</p>
+    <div className="stat-box">
+        <p className="stat-label" style={{ color }}>{label}</p>
+        <p className="stat-value">{value}</p>
     </div>
-);
-
-const FooterBtn = ({ href, icon, label, active }: any) => (
-    <Link href={href} className="flex flex-col items-center justify-center gap-1 group">
-        <div className={`transition-all ${active ? 'text-yellow-500 scale-110' : 'text-gray-500 group-hover:text-white'}`}>
-            {icon}
-        </div>
-        <span className={`text-[8px] font-black uppercase ${active ? 'text-yellow-500' : 'text-gray-500 group-hover:text-white'}`}>
-            {label}
-        </span>
-    </Link>
 );
 
 const App: FC<AppProps> = ({ Component, pageProps }) => (

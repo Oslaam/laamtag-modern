@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import axios from 'axios';
-import { Coins, Wallet, Loader2 } from 'lucide-react';
+import { Coins, Loader2, Database, ShieldCheck } from 'lucide-react';
 
 export default function LootVault() {
     const { publicKey } = useWallet();
     const [pending, setPending] = useState({ sol: 0, usdc: 0 });
-    const [loading, setLoading] = useState(false);
-    const [claiming, setClaiming] = useState<string | null>(null);
+    const [claiming, setClaiming] = useState<'SOL' | 'USDC' | null>(null);
 
     const fetchLoot = async () => {
         if (!publicKey) return;
@@ -15,7 +14,6 @@ export default function LootVault() {
             const res = await axios.get(`/api/user/pending-loot?address=${publicKey.toBase58()}`);
             const rewards = res.data.rewards;
 
-            // Calculate totals
             const solTotal = rewards.filter((r: any) => r.asset === 'SOL').reduce((a: number, b: any) => a + b.amount, 0);
             const usdcTotal = rewards.filter((r: any) => r.asset === 'USDC').reduce((a: number, b: any) => a + b.amount, 0);
 
@@ -35,8 +33,9 @@ export default function LootVault() {
                 walletAddress: publicKey.toBase58(),
                 assetType: assetType
             });
+            // Using a simple alert for now to match your previous logic, but styled for the future
             alert(res.data.message);
-            fetchLoot(); // Refresh the numbers
+            fetchLoot();
         } catch (err: any) {
             alert(err.response?.data?.message || "Claim failed");
         } finally {
@@ -47,35 +46,62 @@ export default function LootVault() {
     if (!publicKey) return null;
 
     return (
-        <div className="bg-gray-900 border border-yellow-500/20 rounded-3xl p-6 mt-8">
-            <h2 className="text-xl font-black italic uppercase text-yellow-500 mb-6 flex items-center gap-2">
-                <Coins /> Unclaimed Loot
-            </h2>
+        <div className="terminal-card" style={{ marginTop: '32px', padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+                <div>
+                    <h2 style={{ color: '#eab308', fontSize: '16px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                        <Database size={18} /> Loot Vault
+                    </h2>
+                    <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', fontWeight: 900, marginTop: '4px', textTransform: 'uppercase' }}>
+                        Secure Asset Retrieval Protocol
+                    </p>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(34, 197, 94, 0.1)', padding: '4px 10px', borderRadius: '8px', border: '1px solid rgba(34, 197, 94, 0.2)' }}>
+                    <ShieldCheck size={10} color="#22c55e" />
+                    <span style={{ fontSize: '8px', fontWeight: 900, color: '#22c55e', textTransform: 'uppercase' }}>Vault Online</span>
+                </div>
+            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* SOL CARD */}
-                <div className="bg-black/40 p-4 rounded-2xl border border-white/5">
-                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Pending SOL</p>
-                    <p className="text-2xl font-black text-white mb-4">{pending.sol.toFixed(3)} SOL</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
+                {/* SOL ASSET */}
+                <div style={{ background: 'rgba(0,0,0,0.3)', padding: '20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Available SOL</p>
+                    <p style={{ fontSize: '24px', fontWeight: 900, color: '#fff', margin: '0 0 20px 0', fontStyle: 'italic' }}>
+                        {pending.sol.toFixed(3)} <span style={{ fontSize: '10px', fontStyle: 'normal', color: 'rgba(255,255,255,0.3)' }}>SOL</span>
+                    </p>
                     <button
                         disabled={pending.sol <= 0 || claiming !== null}
                         onClick={() => handleClaim('SOL')}
-                        className="w-full py-2 bg-yellow-500 text-black text-xs font-black uppercase rounded-xl disabled:opacity-20"
+                        className="terminal-button"
+                        style={{
+                            width: '100%',
+                            background: pending.sol > 0 ? '#eab308' : 'rgba(255,255,255,0.05)',
+                            color: pending.sol > 0 ? '#000' : 'rgba(255,255,255,0.2)',
+                            opacity: (pending.sol <= 0 || claiming !== null) ? 0.5 : 1
+                        }}
                     >
-                        {claiming === 'SOL' ? <Loader2 className="animate-spin mx-auto" size={16} /> : "Claim SOL"}
+                        {claiming === 'SOL' ? <Loader2 className="animate-spin" size={14} /> : "EXECUTE CLAIM"}
                     </button>
                 </div>
 
-                {/* USDC CARD */}
-                <div className="bg-black/40 p-4 rounded-2xl border border-white/5">
-                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Pending USDC</p>
-                    <p className="text-2xl font-black text-blue-400 mb-4">${pending.usdc.toFixed(2)}</p>
+                {/* USDC ASSET */}
+                <div style={{ background: 'rgba(0,0,0,0.3)', padding: '20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Available USDC</p>
+                    <p style={{ fontSize: '24px', fontWeight: 900, color: '#3b82f6', margin: '0 0 20px 0', fontStyle: 'italic' }}>
+                        ${pending.usdc.toFixed(2)}
+                    </p>
                     <button
                         disabled={pending.usdc <= 0 || claiming !== null}
                         onClick={() => handleClaim('USDC')}
-                        className="w-full py-2 bg-blue-500 text-white text-xs font-black uppercase rounded-xl disabled:opacity-20"
+                        className="terminal-button"
+                        style={{
+                            width: '100%',
+                            background: pending.usdc > 0 ? '#3b82f6' : 'rgba(255,255,255,0.05)',
+                            color: pending.usdc > 0 ? '#fff' : 'rgba(255,255,255,0.2)',
+                            opacity: (pending.usdc <= 0 || claiming !== null) ? 0.5 : 1
+                        }}
                     >
-                        {claiming === 'USDC' ? <Loader2 className="animate-spin mx-auto" size={16} /> : "Claim USDC"}
+                        {claiming === 'USDC' ? <Loader2 className="animate-spin" size={14} /> : "EXECUTE CLAIM"}
                     </button>
                 </div>
             </div>

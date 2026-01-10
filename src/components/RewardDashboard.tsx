@@ -1,24 +1,40 @@
-import { useEffect, useState } from 'react';
+'use client';
+
+import { useEffect, useState, useCallback } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import toast from 'react-hot-toast';
 import confetti from 'canvas-confetti';
+import { ShieldCheck, History, Clock, ArrowUpRight, Loader2 } from 'lucide-react';
 
 export default function RewardDashboard() {
     const { publicKey } = useWallet();
+    const [loading, setLoading] = useState(true);
     const [data, setData] = useState({ history: [], pending: [] });
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         if (!publicKey) return;
-        const res = await fetch(`/api/user/rewards?walletAddress=${publicKey.toBase58()}`);
-        const json = await res.json();
-        setData(json);
-    };
+        try {
+            const res = await fetch(`/api/user/rewards?walletAddress=${publicKey.toBase58()}`);
+            const json = await res.json();
+            setData(json);
+        } catch (error) {
+            console.error("Ledger fetch error:", error);
+        } finally {
+            setLoading(false);
+        }
+    }, [publicKey]);
 
     const handleClaim = async (id: string) => {
+        if (!publicKey) return;
+
         const res = await fetch('/api/user/rewards', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ walletAddress: publicKey?.toBase58(), action: 'claim', rewardId: id })
+            body: JSON.stringify({
+                walletAddress: publicKey.toBase58(),
+                action: 'claim',
+                rewardId: id
+            })
         });
 
         if (res.ok) {
@@ -26,45 +42,110 @@ export default function RewardDashboard() {
                 particleCount: 150,
                 spread: 70,
                 origin: { y: 0.6 },
-                colors: ['#eab308', '#ffffff', '#ef4444']
+                colors: ['#eab308', '#ffffff', '#111111']
             });
-            toast.success("REWARD SECURED IN VAULT");
+            toast.success("ASSET SECURED IN VAULT", {
+                style: { background: '#000', color: '#eab308', border: '1px solid #eab308', fontSize: '10px', fontWeight: 900 }
+            });
             fetchData();
+        } else {
+            toast.error("EXTRACTION FAILED");
         }
     };
 
-    useEffect(() => { fetchData(); }, [publicKey]);
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    if (!publicKey) return null;
 
     return (
-        <div className="w-full max-w-md mt-10 space-y-4">
-            {/* Pending SOL/USDC Claims */}
+        <div style={{ width: '100%', maxWidth: '450px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+            {/* 1. PENDING CLAIMS SECTION */}
             {data.pending.length > 0 && (
-                <div className="bg-gradient-to-r from-yellow-500/20 to-transparent border-l-4 border-yellow-500 p-4 rounded-r-xl">
-                    <h3 className="text-yellow-500 font-black text-[10px] uppercase tracking-widest mb-2">Claimable Assets</h3>
-                    {data.pending.map((r: any) => (
-                        <div key={r.id} className="flex justify-between items-center bg-black/40 p-3 rounded-lg border border-white/5 mb-2">
-                            <span className="text-white font-black italic">{r.amount} {r.asset}</span>
-                            <button onClick={() => handleClaim(r.id)} className="bg-white text-black px-4 py-1 rounded font-black text-[10px] hover:bg-yellow-400 transition-colors">CLAIM</button>
-                        </div>
-                    ))}
+                <div className="terminal-card" style={{
+                    borderLeft: '4px solid #eab308',
+                    background: 'linear-gradient(90deg, rgba(234,179,8,0.05) 0%, rgba(0,0,0,0) 100%)',
+                    padding: '20px'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                        <Clock size={14} className="text-yellow-500" />
+                        <h3 style={{ color: '#eab308', fontWeight: 900, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '2px', margin: 0 }}>
+                            Pending Extraction
+                        </h3>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {data.pending.map((r: any) => (
+                            <div key={r.id} style={{
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                background: '#000', padding: '12px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)'
+                            }}>
+                                <span style={{ color: '#fff', fontWeight: 900, fontStyle: 'italic', fontSize: '14px' }}>
+                                    {r.amount} <span style={{ color: '#eab308', fontSize: '10px' }}>{r.asset}</span>
+                                </span>
+                                <button
+                                    onClick={() => handleClaim(r.id)}
+                                    className="terminal-button"
+                                    style={{ padding: '6px 16px', fontSize: '10px', background: '#fff', color: '#000' }}
+                                >
+                                    CLAIM
+                                </button>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
 
-            {/* General History Table */}
-            <div className="bg-[#0a0a0a] rounded-3xl border border-white/5 p-6 shadow-2xl">
-                <h3 className="text-gray-500 font-black uppercase text-[10px] mb-4 tracking-tighter italic">Ledger / History</h3>
-                <div className="space-y-4 overflow-y-auto max-h-60 pr-2 custom-scrollbar">
-                    {data.history.map((h: any) => (
-                        <div key={h.id} className="flex justify-between items-center text-[11px] border-b border-white/5 pb-2">
-                            <div>
-                                <p className="text-white font-bold tracking-tight uppercase">{h.type.replace('_', ' ')}</p>
-                                <p className="text-gray-600 text-[9px]">{new Date(h.createdAt).toLocaleDateString()}</p>
+            {/* 2. TRANSACTION HISTORY LEDGER */}
+            <div className="terminal-card" style={{ padding: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <History size={14} className="text-white/30" />
+                        <h3 style={{ color: 'rgba(255,255,255,0.3)', fontWeight: 900, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>
+                            Extraction Ledger
+                        </h3>
+                    </div>
+                    {loading && <Loader2 size={12} className="animate-spin text-white/20" />}
+                </div>
+
+                <div className="custom-scrollbar" style={{
+                    maxHeight: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px',
+                    paddingRight: '8px'
+                }}>
+                    {data.history.length === 0 && !loading ? (
+                        <p style={{ color: 'rgba(255,255,255,0.1)', fontSize: '10px', textAlign: 'center', padding: '20px' }}>
+                            NO RECORDED ACTIVITY
+                        </p>
+                    ) : (
+                        data.history.map((h: any) => (
+                            <div key={h.id} style={{
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '12px'
+                            }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                    <p style={{ color: '#fff', fontWeight: 900, fontSize: '11px', textTransform: 'uppercase', margin: 0 }}>
+                                        {h.type.replace('_', ' ')}
+                                    </p>
+                                    <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: '9px', fontWeight: 700, margin: 0 }}>
+                                        {new Date(h.createdAt).toLocaleDateString()}
+                                    </p>
+                                </div>
+                                <div style={{ textAlign: 'right' }}>
+                                    <span style={{
+                                        color: h.amount >= 0 ? '#eab308' : '#ef4444',
+                                        fontWeight: 900, fontSize: '12px'
+                                    }}>
+                                        {h.amount >= 0 ? '+' : ''}{h.amount}
+                                    </span>
+                                    <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '8px', fontWeight: 900, marginLeft: '4px' }}>
+                                        {h.asset}
+                                    </span>
+                                </div>
                             </div>
-                            <span className={h.amount >= 0 ? "text-yellow-500 font-black" : "text-red-500 font-black"}>
-                                {h.amount >= 0 ? '+' : ''}{h.amount} {h.asset}
-                            </span>
-                        </div>
-                    ))}
+                        ))
+                    )}
                 </div>
             </div>
         </div>

@@ -3,6 +3,7 @@ import prisma from '../../lib/prisma';
 import { getRank } from '../../utils/ranks';
 import { logActivity } from '../../lib/activityLogger';
 
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method not allowed' });
   const { walletAddress, questId, pointsReward } = req.body;
@@ -13,36 +14,52 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ message: "This special task is full!" });
     }
 
+    const isTagQuest = questId === 'tag-daily-checkin';
     const currentUser = await prisma.user.findUnique({ where: { walletAddress } });
-    const newTotalPoints = (currentUser?.laamPoints || 0) + pointsReward;
-    const newTier = getRank(newTotalPoints).name;
+    
+    let updateData: any = {};
+    let createData: any = { walletAddress };
 
-    const user = await prisma.user.upsert({
-      where: { walletAddress },
-      update: {
-        laamPoints: { increment: pointsReward },
-        rank: newTier
-      },
-      create: {
-        walletAddress,
-        laamPoints: pointsReward,
-        rank: newTier
-      },
+    if (isTagQuest) {
+      // Use tagTickets based on your schema
+      updateData = { tagTickets: { increment: pointsReward } };
+      createData = { ...createData, tagTickets: pointsReward };
+    } else {
+      const newTotalPoints = (currentUser?.laamPoints || 0) + pointsReward;
+      const newTier = getRank(newTotalPoints).name;
+      
+      updateData = { 
+        laamPoints: { increment: pointsReward }, 
+        rank: newTier 
+      };
+      createData = { ...createData, laamPoints: pointsReward, rank: newTier };
+    }
+
+    const [user] = await prisma.$transaction([
+      prisma.user.upsert({
+        where: { walletAddress },
+        update: updateData,
+        create: createData,
+      }),
+      prisma.userQuest.create({
+        data: { userId: walletAddress, questId: questId, status: "APPROVED" },
+      }),
+      prisma.quest.update({
+        where: { id: questId },
+        data: { claimedCount: { increment: 1 } }
+      })
+    ]);
+
+    const currencyLabel = isTagQuest ? 'TAG' : 'LAAM';
+    await logActivity(walletAddress, 'QUEST_REWARD', pointsReward, currencyLabel);
+
+    return res.status(200).json({ 
+      success: true, 
+      message: `Reward claimed: ${pointsReward} ${currencyLabel}`,
+      newPoints: user.laamPoints,
+      newTag: user.tagTickets // Match your representation
     });
 
-    await prisma.userQuest.create({
-      data: { userId: walletAddress, questId: questId, status: "APPROVED" },
-    });
-
-    await prisma.quest.update({
-      where: { id: questId },
-      data: { claimedCount: { increment: 1 } }
-    });
-
-    // LOG HISTORY
-    await logActivity(walletAddress, 'QUEST_REWARD', pointsReward, 'LAAM');
-
-    return res.status(200).json({ success: true, newPoints: user.laamPoints });
   } catch (error: any) {
     if (error.code === 'P2002') return res.status(400).json({ message: 'Quest already completed' });
     return res.status(500).json({ error: error.message });

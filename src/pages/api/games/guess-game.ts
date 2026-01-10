@@ -9,7 +9,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!walletAddress) return res.status(400).json({ message: 'Wallet address required' });
 
   try {
-    // UPDATED GET HANDLER
     if (req.method === 'GET') {
       const game = await prisma.guessGame.findUnique({ where: { userId: walletAddress as string } });
       return res.status(200).json({
@@ -71,17 +70,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (isWin) {
       const rewards: Record<string, number[]> = {
-        easy: [100, 50, 20],
-        normal: [200, 100, 50],
-        difficult: [500, 200, 100]
+        easy: [1000, 500, 200],
+        normal: [2000, 1000, 500],
+        difficult: [5000, 2000, 1000]
       };
+      // Award points based on which attempt this was
       const pointsWon = rewards[level as string][gameStatus.attempts] || 10;
 
       const updated = await prisma.guessGame.update({
         where: { userId: walletAddress as string },
         data: { pendingPoints: { increment: pointsWon }, attempts: 0, currentTarget: null }
       });
-      return res.status(200).json({ win: true, message: "JAMMED!", pendingPoints: updated.pendingPoints });
+      // WE NOW RETURN THE REVEALED NUMBER EVEN ON WIN
+      return res.status(200).json({ win: true, message: "JAMMED!", pendingPoints: updated.pendingPoints, revealedNumber: gameStatus.currentTarget });
     }
 
     if (currentAttempt >= 3) {
@@ -89,7 +90,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         where: { userId: walletAddress as string },
         data: { isLocked: true, attempts: 3, lastAttempt: new Date() }
       });
-      return res.status(200).json({ isLocked: true, revealedNumber: gameStatus.currentTarget });
+      return res.status(200).json({ isLocked: true, win: false, revealedNumber: gameStatus.currentTarget });
     }
 
     await prisma.guessGame.update({ where: { userId: walletAddress as string }, data: { attempts: currentAttempt } });

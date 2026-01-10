@@ -49,43 +49,67 @@ export default function VaultPage() {
 
   return (
     <SeekerGuard>
-      <div className="pb-20">
+      {/* main-content is handled by _app.tsx layout, so we just need content-wrapper here */}
+      <div className="content-wrapper">
         <Head><title>LAAMTAG | The Vault</title></Head>
         <Toaster />
 
-        <div className="text-center mb-16 pt-10">
-          <h1 className="text-5xl md:text-7xl font-black italic tracking-tighter uppercase">
-            The <span className="text-yellow-500">Vault</span>
-          </h1>
-          <p className="text-gray-500 font-bold tracking-widest mt-2 text-[10px]">EXCLUSIVE FOR {displayName}</p>
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <h1 className="page-title">The <span style={{ color: '#eab308' }}>Vault</span></h1>
+          <p className="terminal-desc" style={{ fontSize: '10px' }}>SYSTEM STATUS: LOCKED</p>
         </div>
 
-        <div className="bg-gray-900 border border-gray-800 rounded-[40px] p-8 md:p-12 text-center shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-yellow-500/10 blur-[100px] rounded-full"></div>
+        {/* VAULT CARD - This keeps everything contained */}
+        <div className="terminal-card" style={{ padding: '1.5rem' }}>
 
-          <div className="relative z-10">
-            <div className="text-6xl mb-6">🔒</div>
-            <h2 className="text-2xl font-black italic uppercase mb-4">Genesis Holder Reward</h2>
-            <p className="text-gray-400 max-w-md mx-auto mb-8 text-sm">
-              Your LaamTag NFT is your key. Genesis members can claim a one-time bonus of 1,000 LAAM.
+          {/* IMAGE CONTAINER - Prevents "Giant Image" issue */}
+          <div style={{
+            width: '100%',
+            aspectRatio: '1/1',
+            borderRadius: '24px',
+            overflow: 'hidden',
+            marginBottom: '1.5rem',
+            border: '1px solid rgba(255,255,255,0.1)',
+            background: '#000'
+          }}>
+            <img
+              src="/assets/images/vault-box.gif" // Or your specific NFT image path
+              alt="Vault Box"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          </div>
+
+          <div style={{ textAlign: 'center' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 900, fontStyle: 'italic', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+              Vault Lock
+            </h2>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px', marginBottom: '1.5rem' }}>
+              Lock Genesis Tags for <span style={{ color: '#eab308' }}>500 LAAM</span> & <span style={{ color: '#fff' }}>20 TAG</span> daily.
             </p>
 
-            <div className="flex flex-col items-center gap-4">
-              <div className="bg-black/50 border border-gray-800 px-6 py-3 rounded-2xl">
-                <span className="text-yellow-500 font-black text-xl">+1,000 LAAM</span>
+            {/* STATS GRID INSIDE CARD */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '1.5rem' }}>
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>STAKED</p>
+                <p style={{ fontSize: '16px', fontWeight: 900, margin: 0 }}>5 NFTs</p>
               </div>
-
-              <button
-                onClick={handleClaim}
-                disabled={hasClaimed || isClaiming}
-                className={`mt-4 w-full max-w-xs py-4 rounded-2xl font-black uppercase transition-all ${hasClaimed
-                    ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'
-                    : 'bg-yellow-500 text-black hover:bg-yellow-400'
-                  }`}
-              >
-                {hasClaimed ? "REWARD CLAIMED ✓" : isClaiming ? "VERIFYING..." : "CLAIM 1,000 LAAM"}
-              </button>
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>COOLDOWN</p>
+                <p style={{ fontSize: '16px', fontWeight: 900, margin: 0 }}>48 Hours</p>
+              </div>
             </div>
+
+            <button
+              onClick={handleClaim}
+              disabled={hasClaimed || isClaiming}
+              className="primary-btn"
+              style={{
+                backgroundColor: hasClaimed ? 'rgba(255,255,255,0.1)' : '#eab308',
+                color: hasClaimed ? 'rgba(255,255,255,0.3)' : '#000',
+              }}
+            >
+              {hasClaimed ? "REWARD SECURED ✓" : isClaiming ? "PROCESSING..." : "CLAIM DAILY REWARD"}
+            </button>
           </div>
         </div>
       </div>

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { stakeNftOnChain } from '../lib/stakeNftTask';
-import { unstakeNftOnChain } from '../lib/unstakeNftTask'; // New Import
+import { unstakeNftOnChain } from '../lib/unstakeNftTask';
 import axios from 'axios';
+import { Lock, Unlock, ShieldCheck, RefreshCw } from 'lucide-react';
 
 const NftCard = ({ nft, stakedData, wallet, onDataRefresh }: any) => {
     const [timeLeft, setTimeLeft] = useState<string>("");
@@ -25,7 +26,7 @@ const NftCard = ({ nft, stakedData, wallet, onDataRefresh }: any) => {
             const h = Math.floor(diff / (1000 * 60 * 60));
             const m = Math.floor((diff / (1000 * 60)) % 60);
             const s = Math.floor((diff / 1000) % 60);
-            return `${h}h ${m}m ${s}s`;
+            return `${h}H ${m}M ${s}S`;
         };
 
         const timer = setInterval(() => setTimeLeft(calculateTime()), 1000);
@@ -48,7 +49,7 @@ const NftCard = ({ nft, stakedData, wallet, onDataRefresh }: any) => {
             onDataRefresh();
         } catch (e) {
             console.error(e);
-            alert("Staking failed. Check console.");
+            alert("STAKING FAILED. VERIFY CREDENTIALS.");
         } finally {
             setIsProcessing(false);
         }
@@ -56,62 +57,96 @@ const NftCard = ({ nft, stakedData, wallet, onDataRefresh }: any) => {
 
     const handleUnstakeAction = async () => {
         if (timeLeft !== "READY TO UNSTAKE") return;
-
         setIsProcessing(true);
         try {
-            // This calls the lib function we created earlier
             const result = await unstakeNftOnChain(wallet, nft.mint);
-            if (result.success) {
-                onDataRefresh(); // Refresh gallery to show NFT back in wallet
-            }
+            if (result.success) onDataRefresh();
         } catch (e) {
             console.error(e);
-            alert("Unstaking failed. Check console.");
+            alert("UNSTAKE FAILED. COOLDOWN ACTIVE.");
         } finally {
             setIsProcessing(false);
         }
     };
 
     return (
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-2 group hover:border-yellow-500/30 transition-all relative">
+        <div className="terminal-card" style={{ padding: '12px', position: 'relative', transition: 'all 0.3s' }}>
+            {/* STAKED BADGE */}
             {isStaked && (
-                <div className="absolute top-3 left-3 z-10">
-                    <div className="bg-black/80 backdrop-blur-md border border-yellow-500/50 text-yellow-500 text-[9px] font-bold px-2 py-1 rounded flex items-center gap-1">
-                        <span>🔒</span> {timeLeft}
+                <div style={{ position: 'absolute', top: '20px', left: '20px', zIndex: 10 }}>
+                    <div style={{
+                        background: 'rgba(0,0,0,0.8)',
+                        backdropFilter: 'blur(4px)',
+                        border: '1px solid #eab308',
+                        color: '#eab308',
+                        fontSize: '8px',
+                        fontWeight: 900,
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                    }}>
+                        <Lock size={10} /> {timeLeft}
                     </div>
                 </div>
             )}
 
-            <div className="relative aspect-square bg-gray-900 rounded-xl overflow-hidden mb-3">
+            {/* NFT IMAGE CONTAINER */}
+            <div style={{
+                aspectRatio: '1/1',
+                background: '#000',
+                borderRadius: '12px',
+                overflow: 'hidden',
+                marginBottom: '12px',
+                border: '1px solid rgba(255,255,255,0.05)',
+                position: 'relative'
+            }}>
                 <img
                     src={nft.image}
                     alt=""
-                    className={`w-full h-full object-cover transition-all ${isStaked ? 'opacity-40 grayscale' : 'group-hover:scale-105'}`}
+                    style={{
+                        width: '100%',
+                        height: '100%',
+                        // FIXED: 'objectCover' is not a valid CSS property. Use 'objectFit'.
+                        objectFit: 'cover',
+                        opacity: isStaked ? 0.4 : 1,
+                        filter: isStaked ? 'grayscale(100%)' : 'none',
+                        transition: 'transform 0.5s ease'
+                    }}
                 />
+                {isStaked && (
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(45deg, rgba(234,179,8,0.05) 0%, transparent 100%)' }} />
+                )}
             </div>
 
-            <p className="text-[10px] font-black uppercase text-yellow-500 truncate px-1">{nft.name}</p>
+            {/* INFO SECTION */}
+            <p style={{ fontSize: '10px', fontWeight: 900, color: '#eab308', textTransform: 'uppercase', margin: '0 0 12px 0', letterSpacing: '1px' }}>
+                {nft.name}
+            </p>
 
             {isStaked ? (
-                /* UNSTAKE BUTTON LOGIC */
                 <button
                     onClick={handleUnstakeAction}
                     disabled={timeLeft !== "READY TO UNSTAKE" || isProcessing}
-                    className={`w-full mt-2 py-2 rounded text-[10px] font-bold transition-all ${timeLeft === "READY TO UNSTAKE"
-                            ? "bg-green-600 text-white hover:bg-green-500"
-                            : "bg-white/10 text-gray-500 cursor-not-allowed"
-                        }`}
+                    className="terminal-button"
+                    style={{
+                        width: '100%',
+                        background: timeLeft === "READY TO UNSTAKE" ? '#22c55e' : 'rgba(255,255,255,0.05)',
+                        color: timeLeft === "READY TO UNSTAKE" ? '#000' : 'rgba(255,255,255,0.2)',
+                        border: 'none'
+                    }}
                 >
-                    {isProcessing ? "PROCESSING..." : timeLeft === "READY TO UNSTAKE" ? "UNSTAKE" : "VAULT LOCKED"}
+                    {isProcessing ? "PROCESSING..." : timeLeft === "READY TO UNSTAKE" ? "RELEASE ASSET" : "VAULT LOCKED"}
                 </button>
             ) : (
-                /* STAKE BUTTON LOGIC */
                 <button
                     onClick={handleStakeAction}
                     disabled={isProcessing}
-                    className="w-full mt-2 bg-yellow-500 text-black py-2 rounded text-[10px] font-bold hover:bg-yellow-400 disabled:opacity-50"
+                    className="terminal-button"
+                    style={{ width: '100%', background: '#eab308', color: '#000' }}
                 >
-                    {isProcessing ? "STAKING..." : "STAKE NFT"}
+                    {isProcessing ? "INITIALIZING..." : "SECURE IN VAULT"}
                 </button>
             )}
         </div>
@@ -144,14 +179,37 @@ export default function NftGallery() {
     if (!publicKey) return null;
 
     return (
-        <div className="mt-12 max-w-6xl mx-auto px-4">
-            <h3 className="text-xl font-black italic text-white uppercase mb-6">
-                Your Assets <span className="text-yellow-500">({nfts.length})</span>
-            </h3>
+        <div style={{ marginTop: '48px', maxWidth: '1200px', marginLeft: 'auto', marginRight: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px', padding: '0 10px' }}>
+                <div>
+                    <h3 style={{ fontSize: '18px', fontWeight: 900, fontStyle: 'italic', color: '#fff', textTransform: 'uppercase', margin: 0, letterSpacing: '2px' }}>
+                        Asset <span style={{ color: '#eab308' }}>Inventory</span>
+                    </h3>
+                    <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', fontWeight: 900, textTransform: 'uppercase', marginTop: '4px' }}>
+                        Detected Items: {nfts.length}
+                    </p>
+                </div>
+                <button
+                    onClick={loadData}
+                    style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.2)', cursor: 'pointer', padding: '5px' }}
+                >
+                    <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                </button>
+            </div>
+
             {loading ? (
-                <div className="text-white/20 font-black animate-pulse text-center py-10 uppercase tracking-widest">Accessing Secure Vault...</div>
+                <div style={{ padding: '80px 0', textAlign: 'center' }}>
+                    {/* FIXED: Removed animatePulse from the style object. It should be in className. */}
+                    <p className="terminal-desc animate-pulse" style={{ letterSpacing: '4px', fontSize: '10px' }}>
+                        SYNCHRONIZING SECURE SECTOR...
+                    </p>
+                </div>
             ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                    gap: '20px'
+                }}>
                     {nfts.map((nft) => (
                         <NftCard
                             key={nft.mint}

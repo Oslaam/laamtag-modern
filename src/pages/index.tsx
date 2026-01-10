@@ -7,51 +7,57 @@ export default function AppHome() {
   const { connected } = useWallet();
 
   return (
-    <div className="flex flex-col items-center justify-center p-4">
+    <div className="main-content">
       <Head>
         <title>LaamTag App | Hub</title>
       </Head>
 
       {!connected ? (
-        <div className="text-center space-y-6 py-20">
-          <h1 className="text-6xl font-black italic text-yellow-500 uppercase tracking-tighter brand-text-glow">
+        <div style={{ textAlign: 'center', padding: '80px 0' }}>
+          <h1 className="page-title" style={{ color: '#eab308', fontSize: '3.5rem' }}>
             LAAMTAG<br />HUB
           </h1>
-          <p className="text-gray-400 max-w-xs mx-auto text-sm font-bold uppercase tracking-widest opacity-60">
+          <p className="terminal-desc" style={{ textTransform: 'uppercase', fontWeight: 'bold' }}>
             System Locked. Connect Seeker Wallet to Initialize.
           </p>
         </div>
       ) : (
         <SeekerGuard>
-          <div className="w-full max-w-xl text-center space-y-8 py-10">
-            <div className="space-y-2 py-6">
-              <h2 className="text-4xl font-black tracking-tighter uppercase italic leading-none">
+          <div className="content-wrapper">
+            <div style={{ padding: '24px 0' }}>
+              <h2 className="page-title">
                 Welcome <br />
-                <span className="text-yellow-500 brand-text-glow">Seeker Universe</span>
+                <span style={{ color: '#eab308' }}>Seeker Universe</span>
               </h2>
             </div>
 
-            <div className="grid grid-cols-1 gap-4">
-              <Link href="/mint">
-                <div className="glass-card p-6 text-left hover:border-yellow-500 transition-all cursor-pointer group">
-                  <div className="flex justify-between items-start">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* MINT CARD */}
+              <Link href="/mint" style={{ textDecoration: 'none' }}>
+                <div className="terminal-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
-                      <h3 className="text-xl font-black uppercase italic group-hover:text-yellow-500 transition-colors">Mint Genesis</h3>
-                      <p className="text-xs text-gray-500 font-bold uppercase mt-1">Claim Tag & Unlock Multipliers</p>
+                      <h3 className="terminal-link">Mint Genesis</h3>
+                      <p className="terminal-desc">Claim Tag & Unlock Multipliers</p>
                     </div>
-                    <div className="bg-yellow-500 text-black px-3 py-1 rounded-md font-black text-[10px]">01</div>
+                    <div style={{ background: '#eab308', color: '#000', padding: '4px 12px', borderRadius: '6px', fontWeight: 900, fontSize: '10px' }}>
+                      01
+                    </div>
                   </div>
                 </div>
               </Link>
 
-              <Link href="/quests">
-                <div className="glass-card p-6 text-left hover:border-yellow-500 transition-all cursor-pointer group">
-                  <div className="flex justify-between items-start">
+              {/* QUESTS CARD */}
+              <Link href="/quests" style={{ textDecoration: 'none' }}>
+                <div className="terminal-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
-                      <h3 className="text-xl font-black uppercase italic group-hover:text-yellow-500 transition-colors">Quest Hub</h3>
-                      <p className="text-xs text-gray-500 font-bold uppercase mt-1">Complete Missions to earn LAAM</p>
+                      <h3 className="terminal-link">Quest Hub</h3>
+                      <p className="terminal-desc">Complete Missions to earn LAAM</p>
                     </div>
-                    <div className="bg-white text-black px-3 py-1 rounded-md font-black text-[10px]">02</div>
+                    <div style={{ background: '#fff', color: '#000', padding: '4px 12px', borderRadius: '6px', fontWeight: 900, fontSize: '10px' }}>
+                      02
+                    </div>
                   </div>
                 </div>
               </Link>

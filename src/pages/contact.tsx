@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { ArrowLeft, Send, CheckCircle, XCircle, Clock } from 'lucide-react';
 import Link from 'next/link';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { Send, Clock, CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
 import axios from 'axios';
 
 export default function ContactPage() {
@@ -12,18 +12,14 @@ export default function ContactPage() {
     const [showModal, setShowModal] = useState<'success' | 'error' | null>(null);
     const [history, setHistory] = useState<any[]>([]);
     const [formData, setFormData] = useState({
-        type: 'Complaint',
-        name: '',
-        email: '',
-        title: '',
-        description: ''
+        type: 'Complaint', name: '', email: '', title: '', description: ''
     });
 
     useEffect(() => {
         if (publicKey && view === 'history') {
             axios.get(`/api/user/messages?address=${publicKey.toBase58()}`)
                 .then(res => setHistory(res.data))
-                .catch(err => console.error("History fetch error:", err));
+                .catch(err => console.error("History error", err));
         }
     }, [publicKey, view]);
 
@@ -33,7 +29,7 @@ export default function ContactPage() {
         try {
             await axios.post('/api/user/contact', {
                 ...formData,
-                walletAddress: publicKey?.toBase58() || 'Not Connected'
+                walletAddress: publicKey?.toBase58() || 'Anonymous'
             });
             setShowModal('success');
             setFormData({ type: 'Complaint', name: '', email: '', title: '', description: '' });
@@ -45,108 +41,204 @@ export default function ContactPage() {
     };
 
     return (
-        <div className="pb-20">
-            <Head><title>LAAMTAG | Contact Support</title></Head>
+        <div className="main-content">
+            <Head><title>LAAMTAG | The Bridge</title></Head>
 
+            {/* TRANSMISSION MODAL */}
             {showModal && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                    <div className="bg-gray-900 border border-gray-800 p-8 rounded-[2rem] max-w-sm w-full text-center shadow-2xl animate-in fade-in zoom-in duration-300">
+                <div className="overlay">
+                    <div className="terminal-modal" style={{ border: '1px solid rgba(234, 179, 8, 0.3)' }}>
                         {showModal === 'success' ? (
-                            <>
-                                <CheckCircle size={60} className="text-yellow-500 mx-auto mb-4" />
-                                <h3 className="text-2xl font-black uppercase italic text-yellow-500">Transmitted</h3>
-                                <p className="text-gray-400 text-sm mt-2 mb-6">Your message has reached the Vault.</p>
-                            </>
+                            <CheckCircle size={50} color="#eab308" style={{ margin: '0 auto' }} />
                         ) : (
-                            <>
-                                <XCircle size={60} className="text-red-500 mx-auto mb-4" />
-                                <h3 className="text-2xl font-black uppercase italic text-red-500">Failed</h3>
-                                <p className="text-gray-400 text-sm mt-2 mb-6">Transmission interrupted.</p>
-                            </>
+                            <XCircle size={50} color="#ef4444" style={{ margin: '0 auto' }} />
                         )}
-                        <button onClick={() => setShowModal(null)} className="w-full bg-white text-black font-black py-3 rounded-xl uppercase text-xs tracking-widest hover:bg-yellow-500 transition-colors">
-                            Close
+                        <h2 className="page-title" style={{ fontSize: '1.5rem', marginTop: '1rem' }}>
+                            {showModal === 'success' ? 'TRANSMITTED' : 'FAILED'}
+                        </h2>
+                        <p className="terminal-desc">
+                            {showModal === 'success' ? 'Your message has reached the Vault.' : 'Transmission interrupted.'}
+                        </p>
+                        <button onClick={() => setShowModal(null)} className="primary-btn" style={{ marginTop: '1rem' }}>
+                            CLOSE
                         </button>
                     </div>
                 </div>
             )}
 
-            <div className="max-w-2xl mx-auto py-8">
-                <Link href="/" className="inline-flex items-center gap-2 text-gray-500 hover:text-yellow-500 transition-colors mb-8 uppercase text-[10px] font-bold tracking-widest">
-                    <ArrowLeft size={14} /> Back to Dashboard
-                </Link>
+            <div className="content-wrapper">
 
-                <div className="text-center mb-10">
-                    <h1 className="text-5xl font-black italic tracking-tighter text-yellow-500 uppercase">The Bridge</h1>
-                    <p className="text-gray-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-2">Secure Communications Channel</p>
+                {/* HEADER SECTION - Pattern from Profile/Games */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
+                    <Link href="/" style={{
+                        background: 'rgba(255,255,255,0.05)',
+                        padding: '12px',
+                        borderRadius: '12px',
+                        color: '#fff',
+                        border: '1px solid rgba(255,255,255,0.1)'
+                    }}>
+                        <ArrowLeft size={20} />
+                    </Link>
+                    <div style={{ textAlign: 'right' }}>
+                        <h1 className="page-title" style={{ color: '#eab308', margin: 0, fontSize: '1.5rem' }}>THE BRIDGE</h1>
+                        <p className="terminal-desc" style={{ fontSize: '9px', margin: 0, letterSpacing: '1px' }}>
+                            SECURE COMMS CHANNEL
+                        </p>
+                    </div>
                 </div>
 
-                <div className="flex gap-4 mb-8 bg-gray-900/50 p-2 rounded-2xl border border-gray-800">
-                    <button onClick={() => setView('form')} className={`flex-1 py-3 rounded-xl font-bold uppercase text-[10px] tracking-widest transition-all ${view === 'form' ? 'bg-yellow-500 text-black' : 'text-gray-500 hover:text-white'}`}>
-                        <Send size={14} className="inline mr-2" /> New Message
+                {/* TAB SELECTOR - Pattern from GamesPage */}
+                <div style={{
+                    display: 'flex',
+                    gap: '8px',
+                    background: 'rgba(255,255,255,0.05)',
+                    padding: '4px',
+                    borderRadius: '16px',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    marginBottom: '32px'
+                }}>
+                    <button
+                        onClick={() => setView('form')}
+                        style={{
+                            flex: 1,
+                            background: view === 'form' ? '#eab308' : 'transparent',
+                            color: view === 'form' ? '#000' : '#666',
+                            border: 'none',
+                            padding: '12px',
+                            borderRadius: '12px',
+                            fontSize: '10px',
+                            fontWeight: 900,
+                            textTransform: 'uppercase',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px'
+                        }}
+                    >
+                        <Send size={14} /> NEW MESSAGE
                     </button>
-                    <button onClick={() => setView('history')} className={`flex-1 py-3 rounded-xl font-bold uppercase text-[10px] tracking-widest transition-all ${view === 'history' ? 'bg-yellow-500 text-black' : 'text-gray-500 hover:text-white'}`}>
-                        <Clock size={14} className="inline mr-2" /> History
+                    <button
+                        onClick={() => setView('history')}
+                        style={{
+                            flex: 1,
+                            background: view === 'history' ? '#eab308' : 'transparent',
+                            color: view === 'history' ? '#000' : '#666',
+                            border: 'none',
+                            padding: '12px',
+                            borderRadius: '12px',
+                            fontSize: '10px',
+                            fontWeight: 900,
+                            textTransform: 'uppercase',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px'
+                        }}
+                    >
+                        <Clock size={14} /> HISTORY
                     </button>
                 </div>
 
+                {/* CONTENT AREA */}
                 {view === 'form' ? (
-                    <form onSubmit={handleSubmit} className="space-y-6 bg-gray-900/40 p-6 md:p-8 rounded-[2.5rem] border border-gray-800/50 backdrop-blur-md">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-bold uppercase text-gray-500 ml-2">Type</label>
-                                <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} className="w-full bg-black border border-gray-800 rounded-2xl px-4 py-4 text-sm focus:border-yellow-500 outline-none appearance-none cursor-pointer">
-                                    <option value="Complaint">Complaint</option>
-                                    <option value="Suggestion">Suggestion</option>
-                                </select>
+                    <div className="terminal-card" style={{ padding: '24px' }}>
+                        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                <div className="input-field" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <label style={{ fontSize: '10px', fontWeight: 900, color: 'rgba(255,255,255,0.4)' }}>TYPE</label>
+                                    <select
+                                        value={formData.type}
+                                        onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                                        style={{ background: '#000', border: '1px solid rgba(255,255,255,0.1)', padding: '12px', borderRadius: '8px', color: '#fff' }}
+                                    >
+                                        <option value="Complaint">COMPLAINT</option>
+                                        <option value="Suggestion">SUGGESTION</option>
+                                    </select>
+                                </div>
+                                <div className="input-field" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <label style={{ fontSize: '10px', fontWeight: 900, color: 'rgba(255,255,255,0.4)' }}>OPERATOR NAME</label>
+                                    <input
+                                        required type="text"
+                                        value={formData.name}
+                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                        style={{ background: '#000', border: '1px solid rgba(255,255,255,0.1)', padding: '12px', borderRadius: '8px', color: '#fff' }}
+                                    />
+                                </div>
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-bold uppercase text-gray-500 ml-2">Your Name</label>
-                                <input required type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full bg-black border border-gray-800 rounded-2xl px-4 py-4 text-sm focus:border-yellow-500 outline-none" />
+
+                            <div className="input-field" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <label style={{ fontSize: '10px', fontWeight: 900, color: 'rgba(255,255,255,0.4)' }}>REPLY EMAIL</label>
+                                <input
+                                    required type="email"
+                                    value={formData.email}
+                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                    style={{ background: '#000', border: '1px solid rgba(255,255,255,0.1)', padding: '12px', borderRadius: '8px', color: '#fff' }}
+                                />
                             </div>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-bold uppercase text-gray-500 ml-2">Email for Reply</label>
-                            <input required type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full bg-black border border-gray-800 rounded-2xl px-4 py-4 text-sm focus:border-yellow-500 outline-none" />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-bold uppercase text-gray-500 ml-2">Subject</label>
-                            <input required type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className="w-full bg-black border border-gray-800 rounded-2xl px-4 py-4 text-sm focus:border-yellow-500 outline-none" />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-bold uppercase text-gray-500 ml-2">Description</label>
-                            <textarea required rows={4} value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full bg-black border border-gray-800 rounded-2xl px-4 py-4 text-sm focus:border-yellow-500 outline-none resize-none"></textarea>
-                        </div>
-                        <button disabled={loading} className="w-full bg-yellow-500 text-black font-black py-5 rounded-2xl hover:bg-white transition-all uppercase text-xs tracking-widest flex items-center justify-center gap-2">
-                            {loading ? "TRANSMITTING..." : "SEND MESSAGE"}
-                        </button>
-                    </form>
+
+                            <div className="input-field" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <label style={{ fontSize: '10px', fontWeight: 900, color: 'rgba(255,255,255,0.4)' }}>SUBJECT</label>
+                                <input
+                                    required type="text"
+                                    value={formData.title}
+                                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                    style={{ background: '#000', border: '1px solid rgba(255,255,255,0.1)', padding: '12px', borderRadius: '8px', color: '#fff' }}
+                                />
+                            </div>
+
+                            <div className="input-field" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <label style={{ fontSize: '10px', fontWeight: 900, color: 'rgba(255,255,255,0.4)' }}>DESCRIPTION</label>
+                                <textarea
+                                    required rows={5}
+                                    value={formData.description}
+                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                    style={{ background: '#000', border: '1px solid rgba(255,255,255,0.1)', padding: '12px', borderRadius: '8px', color: '#fff', resize: 'none' }}
+                                />
+                            </div>
+
+                            <button disabled={loading} className="primary-btn">
+                                {loading ? "UPLOADING..." : "EXECUTE TRANSMISSION"}
+                            </button>
+                        </form>
+                    </div>
                 ) : (
-                    <div className="space-y-4">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         {history.length === 0 ? (
-                            <div className="text-center py-20 bg-gray-900/20 border border-gray-800 border-dashed rounded-[2.5rem]">
-                                <p className="text-gray-600 uppercase text-[10px] font-black tracking-widest">No history found.</p>
+                            <div className="terminal-card" style={{ textAlign: 'center', padding: '40px', color: 'rgba(255,255,255,0.2)' }}>
+                                NO ARCHIVED MESSAGES
                             </div>
                         ) : (
                             history.map((ticket) => (
-                                <div key={ticket.id} className="bg-gray-900/40 border border-gray-800 p-6 rounded-3xl">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div>
-                                            <span className="text-[9px] bg-yellow-500/10 text-yellow-500 px-2 py-1 rounded-md font-black uppercase">{ticket.type}</span>
-                                            <h4 className="font-bold mt-2 text-white">{ticket.title}</h4>
-                                        </div>
-                                        <span className="text-[9px] text-gray-500 font-mono">{new Date(ticket.createdAt).toLocaleDateString()}</span>
+                                <div key={ticket.id} className="terminal-card" style={{ padding: '20px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                                        <span style={{ fontSize: '8px', fontWeight: 900, background: 'rgba(234, 179, 8, 0.1)', color: '#eab308', padding: '4px 8px', borderRadius: '4px' }}>
+                                            {ticket.type.toUpperCase()}
+                                        </span>
+                                        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>
+                                            {new Date(ticket.createdAt).toLocaleDateString()}
+                                        </span>
                                     </div>
-                                    <p className="text-sm text-gray-400 line-clamp-2">{ticket.description}</p>
-                                    <div className="mt-4 pt-4 border-t border-gray-800 flex items-center gap-2 text-[9px] font-black uppercase tracking-widest">
-                                        <div className={`w-1.5 h-1.5 rounded-full ${ticket.status === 'Pending' ? 'bg-blue-500 animate-pulse' : 'bg-green-500'}`} />
-                                        <span className={ticket.status === 'Pending' ? 'text-blue-500' : 'text-green-500'}>Status: {ticket.status}</span>
+                                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: '0 0 8px 0' }}>{ticket.title}</h3>
+                                    <p className="terminal-desc" style={{ marginBottom: '16px' }}>{ticket.description}</p>
+                                    <div style={{
+                                        fontSize: '9px',
+                                        fontWeight: 900,
+                                        color: ticket.status === 'Pending' ? '#3b82f6' : '#22c55e',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px'
+                                    }}>
+                                        STATUS: {ticket.status.toUpperCase()}
                                     </div>
                                 </div>
                             ))
                         )}
                     </div>
                 )}
+
+                <p style={{ marginTop: '48px', textAlign: 'center', fontSize: '8px', color: 'rgba(255,255,255,0.2)', fontWeight: 900, letterSpacing: '0.2em' }}>
+                    AUTHORIZED COMMS MODULE // LAAM TERMINAL V.01
+                </p>
             </div>
         </div>
     );

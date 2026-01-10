@@ -9,6 +9,7 @@ datasource db {
 
 model User {
   walletAddress      String           @id @unique
+  username      String?
   laamPoints         Int              @default(0)
   rank               String           @default("Bronze")
   lastCheckIn        DateTime?

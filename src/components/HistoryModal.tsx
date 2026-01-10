@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
+import { X, TrendingUp, Zap, History } from 'lucide-react';
 
 type FilterType = 'ALL' | 'WINS' | 'COSTS' | 'STAKING';
 
@@ -48,49 +49,68 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
-            <div className="bg-[#0a0a0a] border border-white/10 w-full max-w-md rounded-[2.5rem] overflow-hidden flex flex-col max-h-[85vh] shadow-[0_0_50px_rgba(0,0,0,1)]">
+        <div className="overlay" style={{ backdropFilter: 'blur(10px)', zIndex: 1000 }}>
+            <div className="terminal-card" style={{
+                width: '100%',
+                maxWidth: '450px',
+                maxHeight: '85vh',
+                display: 'flex',
+                flexDirection: 'column',
+                padding: 0,
+                overflow: 'hidden',
+                border: '1px solid rgba(255,255,255,0.1)'
+            }}>
 
-                {/* Header & Stats Section */}
-                <div className="p-6 border-b border-white/5 bg-white/5 space-y-4">
-                    <div className="flex justify-between items-center">
+                {/* HEADER SECTION */}
+                <div style={{ padding: '24px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                         <div>
-                            <h2 className="text-white font-black uppercase italic tracking-widest text-lg">Master Ledger</h2>
-                            <p className="text-[8px] text-gray-500 uppercase font-bold tracking-widest">Live Sector Data</p>
+                            <h2 style={{ color: '#eab308', margin: 0, fontSize: '14px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '2px' }}>
+                                Master Ledger
+                            </h2>
+                            <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', margin: 0, fontWeight: 900 }}>LIVE SECTOR DATA</p>
                         </div>
-                        <button onClick={onClose} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors">
-                            <span className="text-white text-xs font-black px-2">X</span>
+                        <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '8px', padding: '8px', color: '#fff', cursor: 'pointer' }}>
+                            <X size={18} />
                         </button>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                        {/* Daily Earnings Card */}
-                        <div className="bg-gradient-to-br from-yellow-500/20 to-transparent border border-yellow-500/20 rounded-2xl p-3">
-                            <p className="text-[7px] font-black text-yellow-500 uppercase tracking-widest mb-1">Today's Earnings</p>
-                            <p className="text-xl font-black text-white italic">
-                                +{stats.todayEarned.toLocaleString()} <span className="text-[10px] not-italic text-gray-400">LAAM</span>
-                            </p>
+                    {/* MINI STATS GRID */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+                        <div style={{ background: 'rgba(234, 179, 8, 0.05)', border: '1px solid rgba(234, 179, 8, 0.1)', padding: '12px', borderRadius: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                                <TrendingUp size={10} color="#eab308" />
+                                <span style={{ fontSize: '8px', fontWeight: 900, color: '#eab308', textTransform: 'uppercase' }}>Today</span>
+                            </div>
+                            <p style={{ fontSize: '18px', fontWeight: 900, margin: 0 }}>+{stats.todayEarned.toLocaleString()}</p>
                         </div>
-
-                        {/* Streak Card */}
-                        <div className="bg-gradient-to-br from-orange-500/20 to-transparent border border-orange-500/20 rounded-2xl p-3">
-                            <p className="text-[7px] font-black text-orange-500 uppercase tracking-widest mb-1">Earning Streak</p>
-                            <p className="text-xl font-black text-white italic">
-                                {stats.streak} <span className="text-[10px] not-italic text-gray-400">DAYS</span>
-                            </p>
+                        <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.05)', padding: '12px', borderRadius: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                                <Zap size={10} color="#fff" />
+                                <span style={{ fontSize: '8px', fontWeight: 900, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>Streak</span>
+                            </div>
+                            <p style={{ fontSize: '18px', fontWeight: 900, margin: 0 }}>{stats.streak}D</p>
                         </div>
                     </div>
 
-                    {/* Filter Tabs */}
-                    <div className="flex gap-2 bg-black/40 p-1 rounded-xl border border-white/5">
+                    {/* FILTER TABS - Matching Games Selector Pattern */}
+                    <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
                         {(['ALL', 'WINS', 'COSTS', 'STAKING'] as FilterType[]).map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveFilter(tab)}
-                                className={`flex-1 text-[8px] font-black py-2 rounded-lg transition-all tracking-tighter ${activeFilter === tab
-                                        ? 'bg-yellow-500 text-black shadow-[0_0_15px_rgba(234,179,8,0.3)]'
-                                        : 'text-gray-500 hover:text-white'
-                                    }`}
+                                style={{
+                                    flex: 1,
+                                    background: activeFilter === tab ? '#eab308' : 'transparent',
+                                    color: activeFilter === tab ? '#000' : 'rgba(255,255,255,0.4)',
+                                    border: 'none',
+                                    padding: '8px 0',
+                                    borderRadius: '8px',
+                                    fontSize: '8px',
+                                    fontWeight: 900,
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
                             >
                                 {tab}
                             </button>
@@ -98,44 +118,64 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
                     </div>
                 </div>
 
-                {/* History List */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
+                {/* SCROLLABLE LIST */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
                     {loading ? (
-                        <div className="text-center py-20 space-y-4">
-                            <div className="w-8 h-8 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                            <p className="text-gray-600 text-[10px] uppercase font-black animate-pulse">Decrypting Records...</p>
+                        <div style={{ textAlign: 'center', padding: '40px' }}>
+                            <p className="terminal-desc animate-pulse">DECRYPTING RECORDS...</p>
                         </div>
                     ) : Object.keys(groupedHistory).length === 0 ? (
-                        <div className="text-center py-20">
-                            <p className="text-gray-600 text-[10px] uppercase font-black italic">No records in this sector</p>
+                        <div style={{ textAlign: 'center', padding: '40px' }}>
+                            <p className="terminal-desc" style={{ fontSize: '10px' }}>NO RECORDS IN THIS SECTOR</p>
                         </div>
                     ) : (
                         Object.keys(groupedHistory).map((date) => (
-                            <div key={date} className="space-y-2">
-                                <h3 className="text-[9px] font-black text-yellow-500/50 uppercase tracking-[0.2em] pl-2 border-l border-yellow-500/20">{date}</h3>
-                                {groupedHistory[date].map((item: any) => (
-                                    <div key={item.id} className="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all">
-                                        <div className="flex flex-col gap-1">
-                                            <span className={`text-[7px] font-black px-2 py-0.5 rounded-full w-fit ${item.type.includes('WIN') || item.type.includes('REWARD') ? 'bg-green-500/20 text-green-500' :
-                                                    item.type.includes('COST') ? 'bg-red-500/20 text-red-500' :
-                                                        'bg-blue-500/20 text-blue-500'
-                                                }`}>
-                                                {item.type.replace('_', ' ')}
-                                            </span>
-                                            <p className="text-[10px] font-black text-white uppercase tracking-tighter">
-                                                {item.asset} {item.type.includes('COST') ? 'EXPENSE' : 'INCOME'}
-                                            </p>
-                                            <p className="text-[8px] text-gray-500 font-bold uppercase">
-                                                {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </p>
+                            <div key={date} style={{ marginBottom: '24px' }}>
+                                <h3 style={{ fontSize: '9px', fontWeight: 900, color: 'rgba(234,179,8,0.5)', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px', borderLeft: '2px solid #eab308', paddingLeft: '8px' }}>
+                                    {date}
+                                </h3>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {groupedHistory[date].map((item: any) => (
+                                        <div key={item.id} style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            padding: '12px 16px',
+                                            background: 'rgba(255,255,255,0.02)',
+                                            borderRadius: '12px',
+                                            border: '1px solid rgba(255,255,255,0.05)'
+                                        }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                <span style={{
+                                                    fontSize: '7px',
+                                                    fontWeight: 900,
+                                                    padding: '2px 6px',
+                                                    borderRadius: '4px',
+                                                    width: 'fit-content',
+                                                    background: item.type.includes('WIN') ? 'rgba(34, 197, 94, 0.1)' : item.type.includes('COST') ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                                                    color: item.type.includes('WIN') ? '#22c55e' : item.type.includes('COST') ? '#ef4444' : '#3b82f6'
+                                                }}>
+                                                    {item.type.replace('_', ' ')}
+                                                </span>
+                                                <p style={{ fontSize: '10px', fontWeight: 900, color: '#fff', margin: 0 }}>
+                                                    {item.asset} {item.type.includes('COST') ? 'EXPENSE' : 'INCOME'}
+                                                </p>
+                                            </div>
+                                            <div style={{ textAlign: 'right' }}>
+                                                <p style={{
+                                                    fontSize: '13px',
+                                                    fontWeight: 900,
+                                                    fontStyle: 'italic',
+                                                    margin: 0,
+                                                    color: item.amount >= 0 ? '#22c55e' : '#ef4444'
+                                                }}>
+                                                    {item.amount >= 0 ? '+' : ''}{item.amount}
+                                                </p>
+                                                <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', margin: 0 }}>{item.asset}</p>
+                                            </div>
                                         </div>
-                                        <div className="text-right">
-                                            <p className={`text-sm font-black italic ${item.amount >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                                {item.amount >= 0 ? '+' : ''}{item.amount} <span className="text-[10px]">{item.asset}</span>
-                                            </p>
-                                        </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
                         ))
                     )}
