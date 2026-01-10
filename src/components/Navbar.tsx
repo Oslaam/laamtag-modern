@@ -41,7 +41,7 @@ export default function Navbar() {
   }, [publicKey, isAdmin]);
 
   return (
-    <nav className="flex justify-between items-center max-w-6xl mx-auto p-6 bg-black/50 backdrop-blur-md sticky top-0 z-50">
+    <nav className="flex justify-between items-center max-w-6xl mx-auto p-6 bg-black/50 backdrop-blur-md">
       <div className="flex gap-8 items-center">
         <Link href="/" className="font-black italic text-yellow-500 text-2xl tracking-tighter hover:scale-105 transition-transform">
           LAAM

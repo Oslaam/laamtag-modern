@@ -3,14 +3,13 @@ import Head from 'next/head';
 import { useWallet } from '@solana/wallet-adapter-react';
 import SeekerGuard from '../components/SeekerGuard';
 import axios from 'axios';
-import { Lock, Zap, Clock, ShieldCheck, History } from 'lucide-react';
+import { Lock, Zap, Clock, History } from 'lucide-react';
 import { stakeNftOnChain } from '../lib/stakeNftTask';
-import { unstakeNftOnChain } from '../lib/unstakeNftTask';
 
 const RewardTicker = ({ stakedAt }: { stakedAt: string }) => {
     const [rewards, setRewards] = useState({ laam: 0, tag: 0 });
     const LAAM_PER_SEC = 500 / 86400;
-    const TAG_PER_SEC = 20 / 86400; // UPDATED
+    const TAG_PER_SEC = 20 / 86400;
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -53,9 +52,7 @@ export default function StakingPage() {
     const loadData = async () => {
         if (!publicKey) return;
         try {
-            // SYNC rewards before loading data to ensure the balance is fresh
             await axios.post('/api/staking/sync', { walletAddress: publicKey.toBase58() });
-
             const [listRes, historyRes] = await Promise.all([
                 axios.get(`/api/staking/list?address=${publicKey.toBase58()}`),
                 axios.get(`/api/staking/history?address=${publicKey.toBase58()}`)
@@ -86,11 +83,18 @@ export default function StakingPage() {
                     });
                 }
             } else {
-                await unstakeNftOnChain(wallet, nft.mint);
+                const response = await axios.post('/api/staking/unstake', {
+                    walletAddress: publicKey?.toBase58(),
+                    mintAddress: nft.mint
+                });
+                if (response.data.success) {
+                    console.log("Unstake successful");
+                }
             }
-            loadData();
+            await loadData();
         } catch (err: any) {
-            alert(err.response?.data?.message || "Action failed");
+            console.error("Action Error:", err);
+            alert(err.response?.data?.message || "Action failed.");
         } finally {
             setLoading(false);
         }
@@ -98,7 +102,7 @@ export default function StakingPage() {
 
     return (
         <SeekerGuard>
-            <div className="min-h-screen bg-black text-white font-sans pb-20">
+            <div className="text-white font-sans pb-20">
                 <Head><title>LAAMTAG | Vault</title></Head>
                 <main className="max-w-6xl mx-auto py-12 px-6">
                     <header className="text-center mb-16 space-y-4">
@@ -124,7 +128,7 @@ export default function StakingPage() {
                             return (
                                 <div key={nft.mint} className="bg-gray-900 border border-gray-800 rounded-[32px] overflow-hidden group hover:border-yellow-500/50 transition-all shadow-2xl">
                                     <div className="relative">
-                                        <img src={nft.image} className={`w-full aspect-square object-cover ${nft.staked ? 'opacity-40 grayscale' : ''}`} />
+                                        <img src={nft.image} alt={nft.name} className={`w-full aspect-square object-cover ${nft.staked ? 'opacity-40 grayscale' : ''}`} />
                                         {nft.staked && (
                                             <div className="absolute top-4 right-4 bg-yellow-500 text-black px-3 py-1 rounded-full text-[10px] font-black italic shadow-glow">
                                                 LOCKED
@@ -139,10 +143,11 @@ export default function StakingPage() {
                                             <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Not currently earning</p>
                                         )}
                                         <button
+                                            disabled={loading}
                                             onClick={() => handleAction(nft)}
-                                            className={`w-full mt-6 py-4 rounded-2xl font-black uppercase text-xs tracking-widest transition-all ${nft.staked ? 'bg-white/10 text-gray-400' : 'bg-yellow-500 text-black hover:bg-yellow-400'}`}
+                                            className={`w-full mt-6 py-4 rounded-2xl font-black uppercase text-xs tracking-widest transition-all ${nft.staked ? 'bg-white/10 text-gray-400' : 'bg-yellow-500 text-black hover:bg-yellow-400'} disabled:opacity-50`}
                                         >
-                                            {nft.staked ? "Vault Locked" : "Lock Asset"}
+                                            {loading ? "Processing..." : nft.staked ? "Vault Locked" : "Lock Asset"}
                                         </button>
                                     </div>
                                 </div>

@@ -9,12 +9,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!walletAddress) return res.status(400).json({ message: 'Wallet address required' });
 
   try {
+    // UPDATED GET HANDLER
     if (req.method === 'GET') {
       const game = await prisma.guessGame.findUnique({ where: { userId: walletAddress as string } });
       return res.status(200).json({
         pendingPoints: game?.pendingPoints || 0,
         isLocked: game?.isLocked || false,
-        attempts: game?.attempts || 0
+        attempts: game?.attempts || 0,
+        lastAttempt: game?.lastAttempt || null,
+        revealedNumber: game?.isLocked ? game.currentTarget : null
       });
     }
 
@@ -38,9 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         })
       ]);
 
-      // LOG HISTORY: Cost of playing
       await logActivity(walletAddress as string, 'GAME_COST', -1, 'TAG');
-
       return res.status(200).json({ success: true });
     }
 
@@ -51,25 +52,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const pointsToClaim = game.pendingPoints;
-
       await prisma.$transaction([
-        prisma.user.update({
-          where: { walletAddress: walletAddress as string },
-          data: { laamPoints: { increment: pointsToClaim } }
-        }),
-        prisma.guessGame.update({
-          where: { userId: walletAddress as string },
-          data: { pendingPoints: 0 }
-        })
+        prisma.user.update({ where: { walletAddress: walletAddress as string }, data: { laamPoints: { increment: pointsToClaim } } }),
+        prisma.guessGame.update({ where: { userId: walletAddress as string }, data: { pendingPoints: 0 } })
       ]);
 
-      // LOG HISTORY: Claimed win
       await logActivity(walletAddress as string, 'GAME_WIN', pointsToClaim, 'LAAM');
-
       return res.status(200).json({ success: true });
     }
 
-    // (Remaining Guess logic remains the same...)
     const gameStatus = await prisma.guessGame.findUnique({ where: { userId: walletAddress as string } });
     if (!gameStatus || gameStatus.isLocked || gameStatus.currentTarget === null) {
       return res.status(400).json({ message: "Start a new game first." });
@@ -103,11 +94,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     await prisma.guessGame.update({ where: { userId: walletAddress as string }, data: { attempts: currentAttempt } });
     const hint = parseInt(userGuess) < gameStatus.currentTarget ? "HIGHER" : "LOWER";
-    return res.status(200).json({
-      win: false,
-      message: `Frequency is ${hint} than ${userGuess}`,
-      attempts: currentAttempt
-    });
+    return res.status(200).json({ win: false, message: `Frequency is ${hint} than ${userGuess}`, attempts: currentAttempt });
 
   } catch (error) {
     console.error(error);

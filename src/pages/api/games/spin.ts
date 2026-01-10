@@ -51,6 +51,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         let updateUserData: any = { tagTickets: { decrement: 5 } };
         let pendingRewardData: any = null;
 
+        // --- REWARD LOGIC ---
         if (win.type === "GEN_BOX" || win.type === "SPEC_BOX") {
             const items = win.type === "GEN_BOX"
                 ? [{ l: "200 LAAM", v: 200, t: "L" }, { l: "1 USDC", v: 1, t: "U" }, { l: "0.01 SOL", v: 0.01, t: "S" }, { l: "10 TAG", v: 10, t: "T" }]
@@ -79,17 +80,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             pendingRewardData = { asset: win.type, amount: win.value };
         }
 
+        // --- DATABASE TRANSACTION ---
         await prisma.$transaction(async (tx) => {
+            // Deduct spin cost and add instant rewards (TAG/LAAM)
             await tx.user.update({ where: { walletAddress }, data: updateUserData });
 
+            // Create claimable entry for SOL/USDC
             if (pendingRewardData) {
                 await tx.pendingReward.create({
-                    data: { userId: walletAddress, asset: pendingRewardData.asset, amount: pendingRewardData.amount }
+                    data: {
+                        userId: walletAddress,
+                        asset: pendingRewardData.asset,
+                        amount: pendingRewardData.amount
+                    }
                 });
             }
         });
 
-        // LOG HISTORY (After successful transaction)
+        // LOG HISTORY
         await logActivity(walletAddress, 'SPIN_COST', -5, 'TAG');
         if (finalValue > 0) {
             await logActivity(walletAddress, 'SPIN_WIN', finalValue, finalAssetType as any);

@@ -2,37 +2,33 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '../../../lib/prisma';
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
 import { keypairIdentity, createSignerFromKeypair, publicKey, base58 } from '@metaplex-foundation/umi';
-import { transferV1, TokenStandard } from '@metaplex-foundation/mpl-token-metadata';
+import { mplTokenMetadata, transferV1, TokenStandard } from '@metaplex-foundation/mpl-token-metadata';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method !== 'POST') return res.status(405).end();
     const { walletAddress, mintAddress } = req.body;
 
-    // Constants for rewards
     const LAAM_PER_SEC = 500 / 86400;
-    const TAG_PER_SEC = 20 / 86400; // Updated to 20
+    const TAG_PER_SEC = 20 / 86400;
 
     try {
-        // 1. Check DB for the stake
         const stake = await prisma.stakedNFT.findUnique({ where: { mintAddress } });
         if (!stake || stake.ownerAddress !== walletAddress) {
             return res.status(404).json({ message: "Stake record not found." });
         }
 
-        // 2. Cooldown check (48h)
         const now = Date.now();
         const stakedAt = new Date(stake.stakedAt).getTime();
         if (now - stakedAt < 48 * 60 * 60 * 1000) {
             return res.status(403).json({ message: "48h Cooldown active." });
         }
 
-        // 3. Setup Umi with Treasury Signer
-        const umi = createUmi("https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3");
+        // FIX: Added .use(mplTokenMetadata())
+        const umi = createUmi("https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3")
+            .use(mplTokenMetadata());
 
-        // Use the most compatible way to load the key (Handles both Array and Base58 string)
         let secretKey: Uint8Array;
         const rawKey = process.env.TREASURY_PRIVATE_KEY || "";
-
         if (rawKey.startsWith('[')) {
             secretKey = new Uint8Array(JSON.parse(rawKey));
         } else {
@@ -43,7 +39,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const treasurySigner = createSignerFromKeypair(umi, treasuryKeypair);
         umi.use(keypairIdentity(treasurySigner));
 
-        // 4. Build and Sign Transfer (Treasury -> User)
         const { signature } = await transferV1(umi, {
             mint: publicKey(mintAddress),
             authority: treasurySigner,
@@ -52,12 +47,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             tokenStandard: TokenStandard.NonFungible,
         }).sendAndConfirm(umi);
 
-        // 5. Calculate Final Rewards (Deducting the initial 48h lock period)
         const secondsEarned = Math.max(0, Math.floor((now - stakedAt) / 1000) - (48 * 3600));
         const laamEarned = secondsEarned * LAAM_PER_SEC;
         const tagEarned = secondsEarned * TAG_PER_SEC;
 
-        // 6. DB Update: Log History and Remove Stake
         await prisma.$transaction([
             prisma.rewardHistory.create({
                 data: {

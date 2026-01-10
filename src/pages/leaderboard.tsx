@@ -5,7 +5,6 @@ import { Trophy, Medal, Crown } from 'lucide-react';
 import SeekerGuard from '../components/SeekerGuard';
 import { getRank } from '../utils/ranks';
 
-// Types for better development
 interface LeaderboardUser {
   walletAddress: string;
   laamPoints: number;
@@ -32,9 +31,9 @@ export default function LeaderboardPage() {
 
         const res = await fetch(url);
         const data = await res.json();
-        
+
         setLeaders(data.topUsers);
-        setMyStats(data.userRank); 
+        setMyStats(data.userRank);
       } catch (err) {
         console.error("Leaderboard fetch error", err);
       } finally {
@@ -47,7 +46,8 @@ export default function LeaderboardPage() {
 
   return (
     <SeekerGuard>
-      <div className="min-h-screen bg-black text-white font-sans pb-64">
+      {/* Removed min-h-screen and bg-black to let global layout handle it */}
+      <div className="text-white font-sans pb-20">
         <Head><title>LAAMTAG | Leaderboard</title></Head>
 
         <main className="max-w-4xl mx-auto py-12 px-6">
@@ -61,7 +61,6 @@ export default function LeaderboardPage() {
           </div>
 
           <div className="bg-gray-900/50 border border-gray-800 rounded-[40px] overflow-hidden shadow-2xl">
-            {/* Table Header */}
             <div className="grid grid-cols-12 p-6 border-b border-gray-800 text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">
               <div className="col-span-2 text-center">Rank</div>
               <div className="col-span-5">Seeker</div>
@@ -82,11 +81,9 @@ export default function LeaderboardPage() {
                   return (
                     <div
                       key={leader.walletAddress}
-                      className={`grid grid-cols-12 p-6 items-center transition-colors hover:bg-white/[0.02] ${
-                        isUser ? 'bg-yellow-500/5' : ''
-                      }`}
+                      className={`grid grid-cols-12 p-6 items-center transition-colors hover:bg-white/[0.02] ${isUser ? 'bg-yellow-500/5' : ''
+                        }`}
                     >
-                      {/* Rank Column */}
                       <div className="col-span-2 flex items-center justify-center gap-2">
                         {rank === 1 && <Crown size={18} className="text-yellow-500" />}
                         {rank === 2 && <Medal size={18} className="text-gray-400" />}
@@ -96,7 +93,6 @@ export default function LeaderboardPage() {
                         </span>
                       </div>
 
-                      {/* Address Column */}
                       <div className="col-span-5 flex items-center gap-2">
                         <span className={`font-bold font-mono ${isUser ? 'text-yellow-500' : 'text-white'}`}>
                           {leader.walletAddress.slice(0, 4)}...{leader.walletAddress.slice(-4)}.skr
@@ -108,14 +104,12 @@ export default function LeaderboardPage() {
                         )}
                       </div>
 
-                      {/* Tier Column */}
                       <div className="col-span-2 text-center">
                         <span className="text-[9px] border border-gray-700 text-gray-400 px-2 py-1 rounded-full font-black uppercase tracking-tighter">
                           {leader.tier}
                         </span>
                       </div>
 
-                      {/* Points Column */}
                       <div className="col-span-3 text-right font-mono font-black text-yellow-500 text-lg">
                         {leader.laamPoints.toLocaleString()}
                       </div>
@@ -127,7 +121,6 @@ export default function LeaderboardPage() {
           </div>
         </main>
 
-        {/* --- DYNAMIC HIGHLIGHT BAR (User Standing) --- */}
         {publicKey && myStats && (
           <div className="fixed bottom-24 left-1/2 -translate-x-1/2 w-[90%] max-w-2xl rounded-[32px] p-5 shadow-2xl z-40 transition-all hover:scale-[1.01] bg-yellow-500">
             <div className="flex justify-between items-center text-black px-2">
@@ -152,7 +145,6 @@ export default function LeaderboardPage() {
             </div>
           </div>
         )}
-
       </div>
     </SeekerGuard>
   );

@@ -1,68 +1,58 @@
 import Head from 'next/head';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import SeekerGuard from '../components/SeekerGuard';
 
 export default function AppHome() {
-  const { publicKey, connected } = useWallet();
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  const displayName = publicKey
-    ? `${publicKey.toString().slice(0, 4)}.skr`
-    : "SEEKER";
+  const { connected } = useWallet();
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans flex flex-col items-center justify-center p-6">
+    <div className="flex flex-col items-center justify-center p-4">
       <Head>
         <title>LaamTag App | Hub</title>
       </Head>
 
       {!connected ? (
-        <div className="text-center space-y-6">
-          <h1 className="text-5xl font-black italic text-yellow-500 uppercase tracking-tighter">
-            LAAMTAG HUB
+        <div className="text-center space-y-6 py-20">
+          <h1 className="text-6xl font-black italic text-yellow-500 uppercase tracking-tighter brand-text-glow">
+            LAAMTAG<br />HUB
           </h1>
-          <p className="text-gray-400 max-w-sm mx-auto">
-            This portal is gated. Connect your Seeker Genesis wallet to enter the universe.
+          <p className="text-gray-400 max-w-xs mx-auto text-sm font-bold uppercase tracking-widest opacity-60">
+            System Locked. Connect Seeker Wallet to Initialize.
           </p>
-          {/* <div className="flex justify-center">
-            {isClient && <WalletMultiButton />}
-          </div> */}
         </div>
       ) : (
         <SeekerGuard>
-
-          <div className="max-w-2xl text-center space-y-12 mb-20">
-            <div className="space-y-4">
-              <h2 className="text-5xl font-black tracking-tighter uppercase italic leading-none">
-                Welcome to the <br />
-                <span className="text-yellow-500">Seeker Universe</span>
+          <div className="w-full max-w-xl text-center space-y-8 py-10">
+            <div className="space-y-2 py-6">
+              <h2 className="text-4xl font-black tracking-tighter uppercase italic leading-none">
+                Welcome <br />
+                <span className="text-yellow-500 brand-text-glow">Seeker Universe</span>
               </h2>
-              <p className="text-gray-400 text-lg max-w-md mx-auto">
-                Your wallet is verified. Access the minting portal or head to the Quests hub to earn LAAM.
-              </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Link href="/mint" className="group">
-                <div className="bg-gray-900 border border-gray-800 p-8 rounded-3xl hover:border-yellow-500 transition-all text-left space-y-4 shadow-2xl">
-                  <div className="bg-yellow-500 text-black w-10 h-10 rounded-full flex items-center justify-center font-bold">1</div>
-                  <h3 className="text-2xl font-bold">Mint Genesis</h3>
-                  <p className="text-sm text-gray-500">Claim your Tag and unlock multipliers.</p>
+            <div className="grid grid-cols-1 gap-4">
+              <Link href="/mint">
+                <div className="glass-card p-6 text-left hover:border-yellow-500 transition-all cursor-pointer group">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="text-xl font-black uppercase italic group-hover:text-yellow-500 transition-colors">Mint Genesis</h3>
+                      <p className="text-xs text-gray-500 font-bold uppercase mt-1">Claim Tag & Unlock Multipliers</p>
+                    </div>
+                    <div className="bg-yellow-500 text-black px-3 py-1 rounded-md font-black text-[10px]">01</div>
+                  </div>
                 </div>
               </Link>
 
-              <Link href="/quests" className="group">
-                <div className="bg-gray-900 border border-gray-800 p-8 rounded-3xl hover:border-yellow-500 transition-all text-left space-y-4 shadow-2xl">
-                  <div className="bg-white text-black w-10 h-10 rounded-full flex items-center justify-center font-bold">2</div>
-                  <h3 className="text-2xl font-bold">Quest Hub</h3>
-                  <p className="text-sm text-gray-500">Earn LAAM by completing missions.</p>
+              <Link href="/quests">
+                <div className="glass-card p-6 text-left hover:border-yellow-500 transition-all cursor-pointer group">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="text-xl font-black uppercase italic group-hover:text-yellow-500 transition-colors">Quest Hub</h3>
+                      <p className="text-xs text-gray-500 font-bold uppercase mt-1">Complete Missions to earn LAAM</p>
+                    </div>
+                    <div className="bg-white text-black px-3 py-1 rounded-md font-black text-[10px]">02</div>
+                  </div>
                 </div>
               </Link>
             </div>

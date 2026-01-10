@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import toast from 'react-hot-toast';
 import BoxModal from './BoxModal';
@@ -9,22 +9,25 @@ export default function SpinGame() {
     const [rotation, setRotation] = useState(0);
     const [showBox, setShowBox] = useState(false);
     const [boxValue, setBoxValue] = useState("");
+    const [mounted, setMounted] = useState(false);
 
-    // Wheel segments mapped to the 8 visual slices
+    useEffect(() => setMounted(true), []);
+
     const segments = [
-        { label: "500 L", icon: "/assets/images/laamtag-logo.jpg", color: "bg-yellow-500/20" },
-        { label: "1 TAG", icon: null, color: "bg-blue-500/10" },
-        { label: "EMPTY", icon: null, color: "bg-gray-800" }, // Represents 'Open Box'
-        { label: "0.01 SOL", icon: null, color: "bg-purple-500/10" },
-        { label: "1 USDC", icon: null, color: "bg-green-500/10" },
-        { label: "GENERAL BOX", icon: null, color: "bg-red-500/10" },
-        { label: "100 L", icon: "/assets/images/laamtag-logo.jpg", color: "bg-yellow-600/10" },
-        { label: "5 TAG", icon: null, color: "bg-blue-600/10" },
+        { label: "1 TAG", color: "#3b82f6" },
+        { label: "5 TAG", color: "#2563eb" },
+        { label: "50 L", color: "#eab308" },
+        { label: "100 L", color: "#ca8a04" },
+        { label: "500 L", color: "#a16207" },
+        { label: "1 USDC", color: "#22c55e" },
+        { label: "0.01 SOL", color: "#a855f7" },
+        { label: "EMPTY", color: "#374151" },
+        { label: "GEN BOX", color: "#ef4444" },
+        { label: "SPEC BOX", color: "#f97316" },
     ];
 
     const spin = async () => {
         if (!publicKey || isSpinning) return;
-
         setIsSpinning(true);
 
         try {
@@ -35,34 +38,37 @@ export default function SpinGame() {
             });
 
             const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Transaction failed");
 
-            if (!res.ok) {
-                throw new Error(data.error || "Transaction failed");
-            }
+            // 1. Calculate Precise Rotation
+            const degreesPerSegment = 360 / segments.length; // 36deg
+            const extraSpins = 3600; // 10 full circles for effect
 
-            // Calculate rotation: 
-            // 1. Current rotation base
-            // 2. Add 5-10 full spins for speed effect (1800+ degrees)
-            // 3. Offset by the segment index (index * 45 degrees)
-            const degreesPerSegment = 45;
-            const extraSpins = 1800;
-            const newRotation = rotation + extraSpins + (data.segmentIndex * degreesPerSegment) - (rotation % 360);
+            // This logic:
+            // a) Reset previous rotation remainder to align to 0
+            // b) Subtract (index * 36) to move the target segment to the top
+            // c) Subtract (36 / 2) which is 18deg to hit the EXACT center of that slice
+            const currentRotation = rotation - (rotation % 360);
+            const targetOffset = (data.segmentIndex * degreesPerSegment) + (degreesPerSegment / 2);
+            const newRotation = currentRotation + extraSpins + (360 - targetOffset);
 
             setRotation(newRotation);
 
-            // Wait for the CSS transition (4s) + a small buffer
+            // 2. Wait for Animation to finish
             setTimeout(() => {
                 setIsSpinning(false);
-
-                // If it's any type of box, trigger the special modal
                 if (data.rewardType.includes("BOX")) {
                     setBoxValue(data.rewardLabel);
                     setShowBox(true);
                 } else {
-                    toast.success(`SYSTEM OUTPUT: ${data.rewardLabel}`, {
+                    toast.success(`WON: ${data.rewardLabel}`, {
                         style: { background: '#000', color: '#eab308', border: '1px solid #eab308' }
                     });
                 }
+
+                // Dispatch event for _app.tsx to update header stats
+                window.dispatchEvent(new Event('balanceUpdate'));
+
             }, 4100);
 
         } catch (err: any) {
@@ -71,67 +77,99 @@ export default function SpinGame() {
         }
     };
 
+    if (!mounted) return null;
+
     return (
-        <div className="flex flex-col items-center">
-            <h2 className="text-xl font-black italic text-white uppercase mb-8 tracking-widest animate-pulse">
-                The Reactor Core
-            </h2>
+        <div className="flex flex-col items-center w-full">
+            <h2 className="text-xl font-black italic text-white uppercase mb-8">The Reactor Core</h2>
 
-            <div className="relative w-80 h-80 mb-10">
-                {/* Fixed Top Needle */}
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-30 w-0 h-0 border-l-[15px] border-l-transparent border-r-[15px] border-r-transparent border-t-[30px] border-t-yellow-500 drop-shadow-[0_0_15px_rgba(234,179,8,0.8)]" />
+            {/* Wheel Container */}
+            <div style={{ position: 'relative', width: '320px', height: '320px', marginBottom: '40px' }}>
 
-                {/* Rotating Wheel Body */}
-                <div
-                    className="w-full h-full rounded-full border-[8px] border-white/10 relative overflow-hidden transition-transform duration-[4000ms] cubic-bezier(0.15, 0, 0.15, 1) shadow-[0_0_80px_rgba(255,255,255,0.05)]"
-                    style={{ transform: `rotate(-${rotation}deg)` }}
-                >
+                {/* Pointer */}
+                <div style={{
+                    position: 'absolute', top: '-20px', left: '50%', transform: 'translateX(-50%)', zIndex: 50,
+                    width: 0, height: 0,
+                    borderLeft: '15px solid transparent', borderRight: '15px solid transparent', borderTop: '30px solid #eab308',
+                    filter: 'drop-shadow(0 0 10px #eab308)'
+                }} />
+
+                {/* The Wheel */}
+                <div style={{
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: '50%',
+                    position: 'relative',
+                    border: '8px solid rgba(255,255,255,0.1)',
+                    boxShadow: '0 0 30px rgba(0,0,0,0.5)',
+                    transform: `rotate(${rotation}deg)`,
+                    transition: 'transform 4s cubic-bezier(0.15, 0, 0.15, 1)',
+                    // Perfect pie slices using conic-gradient
+                    background: `conic-gradient(${segments.map((seg, i) => `${seg.color} ${i * 36}deg ${(i + 1) * 36}deg`).join(', ')
+                        })`
+                }}>
                     {segments.map((seg, i) => (
-                        <div
-                            key={i}
-                            className={`absolute top-0 left-0 w-full h-full origin-center flex flex-col items-center pt-10 ${seg.color}`}
-                            style={{
-                                transform: `rotate(${i * 45}deg)`,
-                                clipPath: 'polygon(50% 50%, 15% 0, 85% 0)'
-                            }}
-                        >
-                            {seg.icon ? (
-                                <img src={seg.icon} className="w-10 h-10 rounded-full mb-2 shadow-lg" alt="reward" />
-                            ) : (
-                                <div className="text-2xl mb-2">
-                                    {seg.label === 'EMPTY' ? '📦' : '🎁'}
-                                </div>
-                            )}
-                            <span className="text-[8px] font-black text-white uppercase tracking-tighter text-center px-2">
+                        <div key={i} style={{
+                            position: 'absolute',
+                            top: '0',
+                            left: '50%',
+                            height: '50%',
+                            width: '60px',
+                            marginLeft: '-30px',
+                            transformOrigin: 'bottom center',
+                            // +18deg offset centers the label in the 36deg slice
+                            transform: `rotate(${i * 36 + 18}deg)`,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'flex-start',
+                            paddingTop: '15px',
+                            zIndex: 10
+                        }}>
+                            <span style={{ fontSize: '22px', marginBottom: '2px', filter: 'drop-shadow(0 2px 2px black)' }}>
+                                {seg.label.includes('BOX') ? '📦' : seg.label === 'EMPTY' ? '💀' : '🎁'}
+                            </span>
+                            <span style={{
+                                fontSize: '11px',
+                                fontWeight: '900',
+                                color: 'white',
+                                textTransform: 'uppercase',
+                                textAlign: 'center',
+                                lineHeight: '1',
+                                // Strong multi-directional text shadow for maximum legibility
+                                textShadow: '2px 2px 0px #000, -1px -1px 0px #000, 1px -1px 0px #000, -1px 1px 0px #000'
+                            }}>
                                 {seg.label}
                             </span>
                         </div>
                     ))}
-
-                    {/* Center Core Decor */}
-                    <div className="absolute inset-0 m-auto w-12 h-12 bg-black rounded-full border-4 border-white/20 z-10 flex items-center justify-center">
-                        <div className="w-2 h-2 bg-yellow-500 rounded-full animate-ping" />
-                    </div>
                 </div>
+
+                {/* Center Cap */}
+                <div style={{
+                    position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                    width: '50px', height: '50px', backgroundColor: '#000', borderRadius: '50%',
+                    border: '4px solid rgba(255,255,255,0.2)', zIndex: 40,
+                    boxShadow: 'inset 0 0 10px rgba(255,255,255,0.2)'
+                }} />
             </div>
 
-            {/* Engagement Button */}
             <button
                 onClick={spin}
                 disabled={isSpinning}
-                className="group relative w-full bg-red-600 py-6 rounded-[2rem] overflow-hidden active:scale-95 transition-all shadow-[0_10px_0_rgb(153,27,27)] hover:shadow-[0_5px_0_rgb(153,27,27)] hover:translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`w-full py-5 rounded-full font-black uppercase italic transition-all shadow-[0_8px_0_#991b1b] active:shadow-none active:translate-y-2 ${isSpinning ? 'bg-gray-600 cursor-not-allowed' : 'bg-red-600 hover:bg-red-500 text-white'
+                    }`}
             >
-                <div className="relative z-10 text-white font-black text-2xl italic tracking-tighter uppercase">
-                    {isSpinning ? "Processing Core..." : "Engage Spin (5 TAG)"}
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                {isSpinning ? "Spinning..." : "Engage Spin (5 TAG)"}
             </button>
 
-            {/* Special Box UI Pop-up */}
             <BoxModal
                 isOpen={showBox}
                 content={boxValue}
-                onClose={() => setShowBox(false)}
+                onClose={() => {
+                    setShowBox(false);
+                    window.dispatchEvent(new Event('balanceUpdate'));
+                }}
             />
         </div>
     );

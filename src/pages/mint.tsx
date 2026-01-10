@@ -186,7 +186,7 @@ const Mint: NextPage = () => {
 
   return (
     <SeekerGuard>
-      <div className="min-h-screen bg-black text-white font-sans pb-32">
+      <div className="text-white font-sans">
         <Head><title>LAAMTAG | Mint</title></Head>
         <main className="max-w-6xl mx-auto py-12 px-6">
           <div className="flex flex-col lg:flex-row gap-16 items-center">
