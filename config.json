@@ -25,7 +25,7 @@
     "default": {
       "botTax": null,
       "solPayment": {
-        "value": 0.001,
+        "value": 0.275,
         "destination": "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc"
       },
       "tokenPayment": null,
