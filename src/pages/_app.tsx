@@ -53,13 +53,16 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
 
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [expanded, setExpanded] = useState(false);
-    const [stats, setStats] = useState({ laam: 0, tag: 0, sol: 0, tier: 'BRONZE', username: '' });
+    const [stats, setStats] = useState({ laam: 0, tag: 0, sol: 0, tier: 'BRONZE', username: '', currentStage: 1, weaponLevel: 1 });
     const [pendingCount, setPendingCount] = useState(0);
 
+    const isGamePage = router.pathname.includes('/games/shooter');
     const isAdmin = publicKey && ADMIN_WALLETS.includes(publicKey.toString());
 
     const fetchStats = useCallback(async () => {
         if (!publicKey) return;
+
+        // 1. Fetch DB Stats (LAAM/TAG) - This usually works fine
         try {
             const res = await fetch(`/api/user/${publicKey.toString()}`);
             const data = await res.json();
@@ -69,21 +72,33 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
                     laam: data.laamPoints || 0,
                     tag: data.tagTickets || 0,
                     tier: data.rank || 'BRONZE',
-                    username: data.username || ''
+                    username: data.username || '',
+                    currentStage: data.shooterStage || 1,
+                    weaponLevel: data.weaponLevel || 1
                 }));
             }
+        } catch (err) {
+            console.error("DB Stats Error:", err);
+        }
+
+        // 2. Fetch SOL Balance - THIS is what is causing the CORS/Network error
+        try {
             const bal = await connection.getBalance(publicKey);
             setStats(prev => ({ ...prev, sol: bal / LAMPORTS_PER_SOL }));
+        } catch (err) {
+            console.warn("Solana RPC Error (CORS):", err);
+            // We don't crash the whole function, just log a warning
+        }
 
-            if (isAdmin) {
+        // 3. Admin Check
+        if (isAdmin) {
+            try {
                 const adminRes = await fetch('/api/admin/pending', {
                     headers: { 'x-admin-wallet': publicKey.toString() }
                 });
                 const adminData = await adminRes.json();
                 setPendingCount(adminData.count || 0);
-            }
-        } catch (err) {
-            console.error("Fetch stats error:", err);
+            } catch (e) { console.error("Admin fetch error", e); }
         }
     }, [publicKey, connection, isAdmin]);
 
@@ -112,8 +127,6 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
     ];
 
     const topRow = allContentItems.slice(0, 4);
-    const bottomRows = allContentItems.slice(4);
-
     const toggleButton: FooterItem = {
         name: expanded ? 'Less' : 'More',
         icon: expanded ? <X size={20} /> : <Plus size={20} />,
@@ -123,7 +136,7 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
     };
 
     const finalGridItems = expanded
-        ? [...topRow, toggleButton, ...bottomRows]
+        ? [...topRow, toggleButton, ...allContentItems.slice(4)]
         : [...topRow, toggleButton];
 
     return (
@@ -131,73 +144,77 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
             <RankUpModal isOpen={showRankModal} newRank={newRank} onClose={() => setShowRankModal(false)} />
             <HistoryModal isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
 
-            <header className="main-header">
-                <nav className="header-nav">
-                    <div className="header-top">
-                        <Link href="/" className="logo">LAAMTAG HUB</Link>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            {isAdmin && (
-                                <Link href="/admin/dashboard" style={{ fontSize: '10px', color: '#eab308', textDecoration: 'none', fontWeight: 900 }}>
-                                    T ({pendingCount})
-                                </Link>
-                            )}
-                            <WalletMultiButtonDynamic />
+            {!isGamePage && (
+                <header className="main-header">
+                    <nav className="header-nav">
+                        <div className="header-top">
+                            <Link href="/" className="logo">LAAMTAG HUB</Link>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                {isAdmin && (
+                                    <Link href="/admin/dashboard" style={{ fontSize: '10px', color: '#eab308', textDecoration: 'none', fontWeight: 900 }}>
+                                        T ({pendingCount})
+                                    </Link>
+                                )}
+                                <WalletMultiButtonDynamic />
+                            </div>
                         </div>
-                    </div>
+                        <div className="stats-bar">
+                            <div style={{ padding: '0 12px' }}>
+                                <p className="stat-label">OPERATOR</p>
+                                <p className="stat-value" style={{ color: '#eab308', textTransform: 'uppercase' }}>
+                                    {stats.username ? stats.username : 'SEEKER'}
+                                </p>
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <StatBox label="LAAM" value={stats.laam.toLocaleString()} color="#eab308" />
+                                <StatBox label="TAG" value={stats.tag.toLocaleString()} color="#fff" />
+                                <StatBox label="SOL" value={stats.sol.toFixed(2)} color="#22d3ee" />
+                                <StatBox label="TIER" value={stats.tier} color="#c084fc" />
+                            </div>
+                        </div>
+                    </nav>
+                </header>
+            )}
 
-                    <div className="stats-bar">
-                        <div style={{ padding: '0 12px' }}>
-                            <p className="stat-label">OPERATOR</p> {/* Changed label from ID to OPERATOR */}
-                            <p className="stat-value" style={{ color: '#eab308', textTransform: 'uppercase' }}>
-                                {/* If username exists, show it. Otherwise show 'SEEKER' */}
-                                {stats.username ? stats.username : 'SEEKER'}
-                            </p>
+            <main className={isGamePage ? "game-content-fullscreen" : "main-content"}>
+                <div className={isGamePage ? "" : "content-wrapper"}>
+                    {/* Inject stats if it's the game container */}
+                    {router.pathname === '/games/shooter' ? (
+                        <div className="w-full h-full">
+                            {children}
                         </div>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                            <StatBox label="LAAM" value={stats.laam.toLocaleString()} color="#eab308" />
-                            <StatBox label="TAG" value={stats.tag.toLocaleString()} color="#fff" />
-                            <StatBox label="SOL" value={stats.sol.toFixed(2)} color="#22d3ee" />
-                            <StatBox label="TIER" value={stats.tier} color="#c084fc" />
-                        </div>
-                    </div>
-                </nav>
-            </header>
-
-            <main className="main-content">
-                <div className="content-wrapper">
-                    {children}
+                    ) : children}
                 </div>
             </main>
 
-            <footer className="main-footer">
-                <div className="footer-grid">
-                    {finalGridItems.map((item: FooterItem, idx: number) => {
-                        // Check if path exists before comparing
-                        const isUrlActive = item.path ? router.pathname === item.path : false;
-                        const itemClass = `footer-item ${item.highlight ? 'highlight' : ''} ${isUrlActive ? 'active' : ''}`;
-
-                        if (item.type === 'link' && item.path) {
+            {!isGamePage && (
+                <footer className="main-footer">
+                    <div className="footer-grid">
+                        {finalGridItems.map((item: FooterItem, idx: number) => {
+                            const isUrlActive = item.path ? router.pathname === item.path : false;
+                            const itemClass = `footer-item ${item.highlight ? 'highlight' : ''} ${isUrlActive ? 'active' : ''}`;
+                            if (item.type === 'link' && item.path) {
+                                return (
+                                    <Link key={`${item.name}-${idx}`} href={item.path} className={itemClass}>
+                                        <div className="icon-container">{item.icon}</div>
+                                        <span>{item.name}</span>
+                                    </Link>
+                                );
+                            }
                             return (
-                                <Link key={`${item.name}-${idx}`} href={item.path} className={itemClass}>
+                                <button
+                                    key={`${item.name}-${idx}`}
+                                    onClick={item.action === 'history' ? () => setIsHistoryOpen(true) : () => setExpanded(!expanded)}
+                                    className={itemClass}
+                                >
                                     <div className="icon-container">{item.icon}</div>
                                     <span>{item.name}</span>
-                                </Link>
+                                </button>
                             );
-                        }
-
-                        return (
-                            <button
-                                key={`${item.name}-${idx}`}
-                                onClick={item.action === 'history' ? () => setIsHistoryOpen(true) : () => setExpanded(!expanded)}
-                                className={itemClass}
-                            >
-                                <div className="icon-container">{item.icon}</div>
-                                <span>{item.name}</span>
-                            </button>
-                        );
-                    })}
-                </div>
-            </footer>
+                        })}
+                    </div>
+                </footer>
+            )}
         </div>
     );
 };

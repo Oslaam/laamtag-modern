@@ -36,9 +36,11 @@
     "lucide-react": "^0.562.0",
     "next": "^15.1.0",
     "nodemailer": "^7.0.12",
+    "phaser": "^3.90.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hot-toast": "^2.6.0",
+    "swr": "^2.3.8",
     "tweetnacl": "^1.0.3"
   },
   "devDependencies": {

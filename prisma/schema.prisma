@@ -21,6 +21,16 @@ model User {
   quests             UserQuest[]
   activities         Activity[]
   pendingRewards     PendingReward[]
+  // Game Progress
+  shooterLevel   Int      @default(1)
+  shooterStage   Int      @default(1)
+  
+  // Stats (Weapon levels)
+  weaponLevel        Int              @default(1)
+  shieldLevel        Int              @default(0)
+  shoeLevel          Int              @default(1)
+  lifeLevel          Int              @default(1)
+  currentStage       Int              @default(1)
 }
 
 model Activity {

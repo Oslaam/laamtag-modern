@@ -10,13 +10,18 @@ import {
 import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 
 export const ContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
-    const endpoint = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
         setMounted(true);
     }, []);
-
+    const endpoint = useMemo(() => {
+        if (typeof window !== "undefined") {
+            return `${window.location.origin}/api/rpc-proxy`;
+        }
+        // Fallback for server-side rendering
+        return "https://sender.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
+    }, []);
     const wallets = useMemo(() => {
         if (!mounted) return [];
 
@@ -27,7 +32,7 @@ export const ContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
                 appIdentity: {
                     name: 'LaamTag',
                     uri: 'https://mint.uselaamtag.xyz',
-                    icon: '/assets/images/favicon.png', // ✅ FIXED
+                    icon: '/assets/images/favicon.png',
                 },
                 authorizationResultCache: createDefaultAuthorizationResultCache(),
                 onWalletNotFound: async () => {
