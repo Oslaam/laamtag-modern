@@ -1,43 +1,162 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { EventBus } from '../game/EventBus';
-import { Play, Pause, ArrowLeft, User, RotateCcw } from 'lucide-react';
-import Link from 'next/link';
+import { Play, Pause, RotateCcw, ShoppingCart, Zap, Home, Shield, Wind, Heart, ChevronRight, Ticket } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
+import styles from '../styles/ShooterContainer.module.css';
+import { StartGame } from '../game/main';
 
-export default function ShooterContainer({ userStats }: any) {
+export default function ShooterContainer() {
     const { publicKey } = useWallet();
-    const gameRef = useRef<HTMLDivElement>(null);
+    const router = useRouter();
+    const phaserGame = useRef<any>(null);
+    const sceneReadyRef = useRef(false);
+
+    const [isSceneReady, setIsSceneReady] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
     const [gameStarted, setGameStarted] = useState(false);
     const [isPaused, setIsPaused] = useState(false);
     const [isLandscape, setIsLandscape] = useState(true);
     const [isMounted, setIsMounted] = useState(false);
     const [isGameOver, setIsGameOver] = useState(false);
     const [isVictory, setIsVictory] = useState(false);
+    const [isShopOpen, setIsShopOpen] = useState(false);
 
-    // --- RESTART LOGIC ---
-    const restartGame = () => {
-        const gameInstance = (window as any).game;
-        if (gameInstance) {
-            const scene = gameInstance.scene.getScene('ShooterScene');
-            if (scene) {
-                scene.events.off(); // Clear old listeners
-                scene.scene.restart();
-                if (scene.physics) scene.physics.world.resume();
-                setIsPaused(false);
-                setIsGameOver(false);
-                setIsVictory(false);
-                toast.success("MISSION RESTARTED");
+    const [stats, setStats] = useState({
+        laam: 0,
+        tag: 0,
+        weaponLevel: 1,
+        shieldLevel: 1,
+        shoeLevel: 1,
+        lifeLevel: 1
+    });
+
+    const fetchUserData = useCallback(async () => {
+        if (!publicKey) return;
+        try {
+            const res = await fetch(`/api/user/stats?wallet=${publicKey.toString()}`);
+            const data = await res.json();
+            if (res.ok && data) {
+                setStats(data);
+
+                // IMPORTANT: Inject walletAddress into the data object passed to Phaser
+                const dataWithWallet = { ...data, walletAddress: publicKey.toString() };
+
+                if (sceneReadyRef.current && phaserGame.current) {
+                    setTimeout(() => {
+                        if (phaserGame.current) {
+                            EventBus.emit('apply-upgrades', dataWithWallet);
+                        }
+                    }, 200);
+                }
             }
+        } catch (err) {
+            console.error("Failed to fetch stats:", err);
         }
+    }, [publicKey]);
+
+    useEffect(() => {
+        setIsMounted(true);
+        const checkOri = () => setIsLandscape(window.innerWidth > window.innerHeight);
+        window.addEventListener('resize', checkOri);
+
+        const handleSceneReady = () => {
+            sceneReadyRef.current = true;
+            setIsSceneReady(true);
+        };
+
+        const handleGameOver = () => setIsGameOver(true);
+        const handleVictory = () => setIsVictory(true);
+
+        const handleStageCleared = (data: any) => {
+            toast(`STAGE ${data.stage - 1} CLEAR! SHOP OPEN`, { icon: '🚀' });
+            setIsShopOpen(true);
+        };
+
+        const handleRewardEarned = (data: { type: string }) => {
+            if (data.type === 'SPECIAL_BOMB_TAG') {
+                setStats(prev => ({ ...prev, tag: (prev.tag || 0) + 1 }));
+            } else if (data.type === 'SPECIAL_BOMB_LAAM') {
+                setStats(prev => ({ ...prev, laam: (prev.laam || 0) + 10 }));
+            }
+        };
+
+        EventBus.on('current-scene-ready', handleSceneReady);
+        EventBus.on('game-over', handleGameOver);
+        EventBus.on('victory', handleVictory);
+        EventBus.on('stage-cleared', handleStageCleared);
+        EventBus.on('level-completed', handleRewardEarned);
+
+        if (publicKey) fetchUserData();
+
+        return () => {
+            window.removeEventListener('resize', checkOri);
+            EventBus.off('current-scene-ready', handleSceneReady);
+            EventBus.off('game-over', handleGameOver);
+            EventBus.off('victory', handleVictory);
+            EventBus.off('stage-cleared', handleStageCleared);
+            EventBus.off('level-completed', handleRewardEarned);
+
+            if (phaserGame.current) {
+                phaserGame.current.destroy(true);
+                phaserGame.current = null;
+                sceneReadyRef.current = false;
+            }
+        };
+    }, [publicKey, fetchUserData]);
+
+    const goHome = () => router.push('/');
+
+    const handleEngage = () => {
+        if (isLoading) return;
+        setIsLoading(true);
+
+        let activeGame = phaserGame.current;
+        if (!activeGame) {
+            activeGame = StartGame("game-container");
+            phaserGame.current = activeGame;
+        }
+
+        let attempts = 0;
+        const readyCheck = setInterval(() => {
+            attempts++;
+            if (activeGame && sceneReadyRef.current) {
+                // Ensure wallet is included during start handshake
+                const statsWithWallet = { ...stats, walletAddress: publicKey?.toString() };
+                
+                EventBus.emit('apply-upgrades', statsWithWallet);
+                EventBus.emit('start-game');
+
+                setGameStarted(true);
+                setIsLoading(false);
+                clearInterval(readyCheck);
+                return;
+            }
+
+            if (attempts > 60) {
+                setIsLoading(false);
+                clearInterval(readyCheck);
+                toast.error("LOAD ERROR: PLEASE REFRESH PAGE");
+            }
+        }, 150);
     };
 
-    const startGame = () => {
-        if (!publicKey) return toast.error("CONNECT WALLET FIRST");
-        setGameStarted(true);
-        EventBus.emit('start-game');
-    };
+    const restartGame = useCallback(() => {
+        if (phaserGame.current) {
+            const statsWithWallet = { ...stats, walletAddress: publicKey?.toString() };
+            EventBus.emit('start-game');
+            EventBus.emit('apply-upgrades', statsWithWallet);
+
+            setIsGameOver(false);
+            setIsVictory(false);
+            setIsPaused(false);
+            setIsShopOpen(false);
+            setGameStarted(true);
+        }
+    }, [stats, publicKey]);
 
     const togglePause = () => {
         const newPauseState = !isPaused;
@@ -45,304 +164,148 @@ export default function ShooterContainer({ userStats }: any) {
         EventBus.emit('pause-game', newPauseState);
     };
 
-    useEffect(() => {
-        setIsMounted(true);
-        const checkOri = () => {
-            if (typeof window !== 'undefined') {
-                setIsLandscape(window.innerWidth > window.innerHeight);
+    const handleUpgrade = async (itemType: string) => {
+        if (!publicKey) return toast.error("CONNECT WALLET");
+        try {
+            const res = await fetch('/api/games/shooter/upgrade', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    walletAddress: publicKey.toString(),
+                    item: itemType
+                })
+            });
+            const result = await res.json();
+
+            if (res.ok) {
+                toast.success("SYSTEM UPGRADED!");
+                const updatedStats = {
+                    ...stats,
+                    tag: result.remainingTag,
+                    weaponLevel: itemType === 'weapon' ? result.newLevel : stats.weaponLevel,
+                    shieldLevel: itemType === 'shield' ? result.newLevel : stats.shieldLevel,
+                    shoeLevel: itemType === 'engine' ? result.newLevel : stats.shoeLevel,
+                    lifeLevel: itemType === 'hull' ? result.newLevel : stats.lifeLevel,
+                };
+                setStats(updatedStats);
+                // Pass wallet through here too
+                EventBus.emit('apply-upgrades', { ...updatedStats, walletAddress: publicKey.toString() });
+            } else {
+                toast.error(result.error || "INSUFFICIENT TAG");
             }
-        };
+        } catch (err) {
+            toast.error("UPGRADE FAILED: SERVER ERROR");
+        }
+    };
 
-        window.addEventListener('resize', checkOri);
-        checkOri();
-
-        let game: any;
-
-        const initPhaser = async () => {
-            const Phaser = await import('phaser');
-            const { ShooterScene } = await import('../game/scenes/ShooterScene');
-
-            const config: any = {
-                type: Phaser.AUTO,
-                parent: gameRef.current || undefined,
-                width: Math.max(window.innerWidth, 800),
-                height: Math.max(window.innerHeight, 600),
-                physics: {
-                    default: 'arcade',
-                    arcade: { gravity: { x: 0, y: 0 }, debug: false }
-                },
-                scene: [ShooterScene],
-                scale: {
-                    mode: Phaser.Scale.RESIZE,
-                    autoCenter: Phaser.Scale.CENTER_BOTH
-                }
-            };
-            game = new Phaser.Game(config);
-            (window as any).game = game;
-
-            if (publicKey) {
-                game.registry.set('walletAddress', publicKey.toString());
-            }
-        };
-
-        initPhaser();
-
-        const onSceneReady = () => {
-            if (userStats) {
-                EventBus.emit('sync-stats', {
-                    level: userStats.shooterLevel || 1,
-                    stage: userStats.currentStage || 1,
-                    gun: userStats.weaponLevel || 1,
-                    shield: userStats.shieldLevel || 0,
-                    shoe: userStats.shoeLevel || 1,
-                    life: userStats.lifeLevel || 1
-                });
-            }
-        };
-
-        const handleReward = async (data: any) => {
-            if (!publicKey) return;
-            try {
-                const response = await fetch('/api/games/shooter/reward', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        walletAddress: publicKey.toString(),
-                        level: data.level,
-                        type: data.type
-                    })
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    // Send the exact amounts back to Phaser to show on screen
-                    EventBus.emit('reward-processed', {
-                        laam: result.laam,
-                        tag: result.tag,
-                        type: data.type
-                    });
-
-                    window.dispatchEvent(new Event('balanceUpdate'));
-                }
-            } catch (err) { console.error(err); }
-        };
-
-        const handlePurchase = async (data: any) => {
-            if (!publicKey) return toast.error("Connect Wallet");
-            try {
-                const res = await fetch('/api/games/shooter/upgrade', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        walletAddress: publicKey.toString(),
-                        item: data.item,
-                        cost: data.cost
-                    })
-                });
-
-                const result = await res.json();
-                if (result.success) {
-                    toast.success(`${data.item.toUpperCase()} UPGRADED!`);
-                    if (window.navigator.vibrate) window.navigator.vibrate(50);
-
-                    if (result.success) {
-                        EventBus.emit('reward-processed', {
-                            laam: result.laam,
-                            tag: result.tag,
-                            type: data.type,
-                            isCritical: result.isCritical // Pass the flag here
-                        });
-
-                        window.dispatchEvent(new Event('balanceUpdate'));
-                    }
-                    window.dispatchEvent(new Event('balanceUpdate'));
-                } else {
-                    toast.error(result.error || "Purchase failed");
-                }
-            } catch (err) { console.error("Purchase Error:", err); }
-        };
-
-        const handleGameOver = () => {
-            setIsGameOver(true);
-            if (window.navigator.vibrate) window.navigator.vibrate([100, 50, 100]);
-        };
-
-        const handleVictory = () => {
-            setIsVictory(true);
-            if (window.navigator.vibrate) window.navigator.vibrate([50, 30, 50, 30, 100]);
-        };
-
-        EventBus.on('current-scene-ready', onSceneReady);
-        EventBus.on('level-completed', handleReward);
-        EventBus.on('attempt-purchase', handlePurchase);
-        EventBus.on('game-over', handleGameOver);
-        EventBus.on('victory', handleVictory);
-
-        return () => {
-            EventBus.off('current-scene-ready', onSceneReady);
-            EventBus.off('level-completed', handleReward);
-            EventBus.off('attempt-purchase', handlePurchase);
-            EventBus.off('game-over', handleGameOver);
-            EventBus.off('victory', handleVictory);
-            if (game) {
-                game.destroy(true);
-                delete (window as any).game;
-            }
-            window.removeEventListener('resize', checkOri);
-        };
-    }, [publicKey, userStats]);
-
-    if (!isMounted) return <div className="bg-black h-screen w-full" />;
+    if (!isMounted) return null;
 
     if (!isLandscape) {
         return (
-            <div className="fixed inset-0 bg-black flex flex-col items-center justify-center z-[100] p-10 text-center">
-                <div className="text-6xl mb-4">📱</div>
-                <h1 className="text-white text-2xl font-bold">ROTATE FOR BATTLE</h1>
+            <div className="fixed inset-0 bg-black flex items-center justify-center z-[9999]">
+                <h2 className="text-white font-black italic text-xl">ROTATE FOR BATTLE</h2>
             </div>
         );
     }
 
     return (
-        <div className="relative w-full h-screen bg-black overflow-hidden font-sans">
-            {/* START SCREEN */}
-            {!gameStarted && (
-                <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-gray-900/95">
-                    <div className="absolute top-8 flex items-center gap-4 bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
-                        <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center text-black">
-                            <User size={28} />
+        <div className={styles.container}>
+            <div className={`${styles.innerFrame} relative overflow-hidden`}>
+                {gameStarted && (
+                    <div className="absolute top-4 right-24 z-[100] flex gap-3">
+                        <div className="bg-black/60 border border-pink-500/50 px-4 py-2 rounded-full flex items-center gap-2 backdrop-blur-md">
+                            <Ticket size={14} className="text-pink-500" />
+                            <span className="text-white font-bold text-xs">TAG: {(stats?.tag ?? 0).toLocaleString()}</span>
                         </div>
-                        <div>
-                            <p className="text-[10px] text-yellow-500 font-black uppercase tracking-widest">Pilot Status</p>
-                            <p className="text-white font-mono text-sm">
-                                {publicKey ? `${publicKey.toString().slice(0, 6)}...${publicKey.toString().slice(-6)}` : 'DISCONNECTED'}
-                            </p>
+                        <div className="bg-black/60 border border-yellow-500/50 px-4 py-2 rounded-full flex items-center gap-2 backdrop-blur-md">
+                            <Zap size={14} className="text-yellow-500" />
+                            <span className="text-white font-bold text-xs">LAAM: {(stats?.laam ?? 0).toLocaleString()}</span>
                         </div>
                     </div>
+                )}
 
-                    <h1 className="text-6xl font-black text-yellow-500 mb-8 italic tracking-tighter drop-shadow-2xl">
-                        SPACE SHOOTER
-                    </h1>
+                <div id="game-container" className="w-full h-full absolute inset-0 z-[1]" />
 
-                    <div className="flex gap-6 mb-10">
-                        <div className="p-5 bg-black/40 border border-yellow-500/30 rounded-2xl text-center min-w-[140px] backdrop-blur-sm">
-                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Current Stage</p>
-                            <p className="text-3xl font-black text-white">{userStats?.currentStage || 1}</p>
+                {gameStarted && !isGameOver && !isVictory && (
+                    <div className="absolute top-4 left-6 z-[101] flex gap-2">
+                        <button onClick={togglePause} className="bg-black/50 p-3 rounded-xl border border-white/10 text-white backdrop-blur-md hover:bg-white/20 transition-colors">
+                            {isPaused ? <Play size={20} fill="white" /> : <Pause size={20} fill="white" />}
+                        </button>
+                        <button onClick={() => setIsShopOpen(!isShopOpen)} className={`p-3 rounded-xl border border-white/10 backdrop-blur-md transition-all ${isShopOpen ? 'bg-pink-600 text-white scale-105' : 'bg-black/50 text-white hover:bg-white/20'}`}>
+                            <ShoppingCart size={20} />
+                        </button>
+                        <button onClick={restartGame} className="bg-black/50 p-3 rounded-xl border border-white/10 text-white backdrop-blur-md hover:bg-white/20 transition-colors">
+                            <RotateCcw size={20} />
+                        </button>
+                    </div>
+                )}
+
+                {!gameStarted && (
+                    <div className="absolute inset-0 z-[200] flex flex-col items-center justify-center bg-black/95">
+                        <div className="relative mb-8">
+                            <div className="absolute -inset-4 bg-yellow-500/20 blur-xl rounded-full animate-pulse" />
+                            <h1 className="relative text-7xl font-black text-yellow-500 italic tracking-tighter text-center">VOID SHOOTER</h1>
                         </div>
-                        <div className="p-5 bg-black/40 border border-yellow-500/30 rounded-2xl text-center min-w-[140px] backdrop-blur-sm">
-                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Weapon Lvl</p>
-                            <p className="text-3xl font-black text-white">{userStats?.weaponLevel || 1}</p>
+
+                        <button
+                            onClick={handleEngage}
+                            disabled={isLoading}
+                            className={`px-16 py-5 rounded-full font-black text-3xl transition-all shadow-[0_0_30px_rgba(234,179,8,0.3)] ${isLoading ? 'bg-zinc-700 text-zinc-500 cursor-not-allowed scale-95' : 'bg-yellow-500 text-black hover:scale-110 hover:bg-yellow-400 active:scale-95'}`}
+                        >
+                            {isLoading ? "SYNCING..." : "ENGAGE"}
+                        </button>
+                    </div>
+                )}
+
+                <button onClick={goHome} className="absolute top-4 right-6 z-[101] bg-white/10 p-3 rounded-full text-white backdrop-blur-md hover:bg-red-500/80 transition-colors">
+                    <Home size={20} />
+                </button>
+
+                <div className={`${styles.shopPanel} ${isShopOpen ? styles.shopPanelOpen : ''} z-[105]`}>
+                    <div className="p-6 pt-20 flex-1 overflow-y-auto">
+                        <h3 className="text-pink-500 font-black italic text-2xl mb-2 flex items-center gap-2">
+                            <Ticket size={24} /> UPGRADES
+                        </h3>
+                        <div className="space-y-4">
+                            {[
+                                { id: 'weapon', label: 'Plasma Cannon', level: stats.weaponLevel, icon: <Zap size={18} />, color: 'text-yellow-500', desc: 'Higher Fire Rate' },
+                                { id: 'shield', label: 'Energy Shield', level: stats.shieldLevel, icon: <Shield size={18} />, color: 'text-blue-400', desc: 'Damage Reduction' },
+                                { id: 'engine', label: 'Hyper Engine', level: stats.shoeLevel, icon: <Wind size={18} />, color: 'text-green-400', desc: 'Movement Speed' },
+                                { id: 'hull', label: 'Titanium Hull', level: stats.lifeLevel, icon: <Heart size={18} />, color: 'text-red-500', desc: 'Max Durability' },
+                            ].map((item) => (
+                                <button
+                                    key={item.id}
+                                    onClick={() => handleUpgrade(item.id)}
+                                    className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl flex flex-col items-start hover:border-pink-500/50 hover:bg-white/10 transition-all active:scale-95 group"
+                                >
+                                    <div className="flex justify-between w-full mb-1">
+                                        <span className={`font-bold flex items-center gap-2 ${item.color} group-hover:text-white`}>
+                                            {item.icon} {item.label}
+                                        </span>
+                                        <span className="text-zinc-500 text-xs font-mono">LVL {item.level}</span>
+                                    </div>
+                                    <div className="text-[10px] text-zinc-400 font-medium mb-2">{item.desc}</div>
+                                    <div className="bg-pink-500/10 text-pink-500 text-[10px] px-2 py-1 rounded-md font-black italic">
+                                        COST: {Math.floor(1 * Math.pow(1.2, item.level))} TAG
+                                    </div>
+                                </button>
+                            ))}
                         </div>
                     </div>
-
-                    <button
-                        onClick={startGame}
-                        className="group flex items-center gap-3 bg-yellow-500 hover:bg-yellow-400 text-black px-12 py-5 rounded-full font-black text-2xl transition-all shadow-[0_0_30px_rgba(234,179,8,0.3)]"
-                    >
-                        <Play size={28} fill="black" /> START MISSION
+                    <button onClick={() => setIsShopOpen(false)} className="p-6 border-t border-white/5 text-zinc-500 flex items-center justify-center gap-2 hover:text-white font-black uppercase text-xs transition-colors">
+                        Return to Combat <ChevronRight size={16} />
                     </button>
-
-                    <Link href="/games" className="mt-8 text-zinc-500 flex items-center gap-2 hover:text-white transition-colors text-xs uppercase tracking-[0.2em]">
-                        <ArrowLeft size={16} /> Back to Hub
-                    </Link>
                 </div>
-            )}
 
-            {/* GAME HUD */}
-            {gameStarted && (
-                <div className="absolute top-0 left-0 w-full p-6 z-40 flex justify-between items-start pointer-events-none">
-                    <div className="flex gap-3 pointer-events-auto">
-                        <button
-                            onClick={togglePause}
-                            className="bg-black/60 p-4 rounded-2xl border border-white/10 backdrop-blur-md text-white hover:bg-yellow-500/20 transition-colors shadow-xl"
-                        >
-                            {isPaused ? <Play size={24} fill="white" /> : <Pause size={24} fill="white" />}
+                {isGameOver && (
+                    <div className="absolute inset-0 z-[300] bg-black/90 flex flex-col items-center justify-center backdrop-blur-md">
+                        <h2 className="text-red-500 text-6xl font-black italic mb-2 tracking-tighter">TERMINATED</h2>
+                        <button onClick={restartGame} className="bg-white text-black px-10 py-4 rounded-2xl font-black flex items-center gap-2 hover:bg-zinc-200 transition-colors">
+                            <RotateCcw size={22} /> REDEPLOY
                         </button>
-
-                        <button
-                            onClick={restartGame}
-                            className="bg-black/60 p-4 rounded-2xl border border-white/10 backdrop-blur-md text-white hover:bg-red-500/20 transition-colors shadow-xl"
-                        >
-                            <RotateCcw size={24} />
-                        </button>
-
-                        <div className="bg-black/60 px-6 py-2 rounded-2xl border border-white/10 backdrop-blur-md shadow-xl">
-                            <p className="text-[10px] text-yellow-500 font-black uppercase tracking-widest leading-tight">Stage</p>
-                            <p className="font-black text-white text-xl leading-none">{userStats?.currentStage || 1}</p>
-                        </div>
                     </div>
-
-                    <div className="bg-black/60 px-6 py-2 rounded-2xl border border-white/10 backdrop-blur-md text-right pointer-events-auto shadow-xl">
-                        <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest leading-tight">Operator</p>
-                        <p className="font-mono text-sm text-yellow-500 font-bold">
-                            {publicKey ? `${publicKey.toString().slice(0, 4)}...${publicKey.toString().slice(-4)}` : 'UNKNOWN'}
-                        </p>
-                    </div>
-                </div>
-            )}
-
-            {/* VICTORY OVERLAY */}
-            {isVictory && (
-                <div className="absolute inset-0 z-[60] flex items-center justify-center bg-yellow-500/10 backdrop-blur-xl">
-                    <div className="bg-gray-900 border-2 border-yellow-500 p-10 rounded-3xl text-center max-w-sm w-full shadow-[0_0_50px_rgba(234,179,8,0.4)] mx-4 relative overflow-hidden">
-                        <div className="absolute -top-24 -left-24 w-48 h-48 bg-yellow-500/20 blur-3xl rounded-full animate-pulse" />
-
-                        <h2 className="text-5xl font-black text-yellow-500 mb-2 italic">VICTORY</h2>
-                        <p className="text-zinc-400 text-xs uppercase tracking-widest mb-8 font-bold">Boss Neutralized • Sector Secured</p>
-
-                        <div className="bg-black/40 border border-white/5 rounded-2xl p-6 mb-8">
-                            <p className="text-[10px] text-yellow-500 font-black uppercase mb-1">Rewards Acquired</p>
-                            <p className="text-2xl font-mono text-white tracking-tighter">+500 $TAG</p>
-                        </div>
-
-                        <div className="space-y-4">
-                            <button
-                                onClick={() => {
-                                    setIsVictory(false);
-                                    const gameInstance = (window as any).game;
-                                    const scene = gameInstance.scene.getScene('ShooterScene');
-                                    scene.completeLevel();
-                                }}
-                                className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-black py-4 rounded-xl flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-lg"
-                            >
-                                NEXT MISSION <Play size={20} fill="black" />
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* GAME OVER OVERLAY */}
-            {isGameOver && (
-                <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-xl">
-                    <div className="bg-gray-900 border-2 border-red-500 p-10 rounded-3xl text-center max-w-sm w-full shadow-[0_0_50px_rgba(239,68,68,0.3)] mx-4">
-                        <h2 className="text-5xl font-black text-white mb-2 italic">WASTED</h2>
-                        <p className="text-zinc-400 text-xs uppercase tracking-widest mb-8 font-bold">Mission Failed, Operator</p>
-
-                        <div className="space-y-4">
-                            <button
-                                onClick={() => {
-                                    setIsGameOver(false);
-                                    restartGame();
-                                }}
-                                className="w-full bg-red-600 hover:bg-red-500 text-white font-black py-4 rounded-xl flex items-center justify-center gap-2 transition-transform active:scale-95"
-                            >
-                                <RotateCcw size={20} /> TRY AGAIN
-                            </button>
-
-                            <Link
-                                href="/games"
-                                className="w-full bg-white/5 hover:bg-white/10 text-zinc-400 font-bold py-4 rounded-xl block transition-colors"
-                            >
-                                ABANDON MISSION
-                            </Link>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            <div ref={gameRef} id="game-container" className="w-full h-full" />
+                )}
+            </div>
         </div>
     );
 }

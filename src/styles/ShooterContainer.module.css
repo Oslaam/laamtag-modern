@@ -1,0 +1,90 @@
+/* src/styles/ShooterContainer.module.css */
+
+.container {
+    width: 100vw;
+    height: 100vh;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #000;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 9999;
+    /* Prevent accidental scrolling/bouncing on mobile browsers */
+    overscroll-behavior: none;
+    touch-action: none;
+}
+
+/* Ensure the game scales but keeps a clean 16:9 or similar ratio */
+.innerFrame {
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Specifically for Seeker/Mobile: Hide global site UI */
+.container :global(.main-header),
+.container :global(.main-footer),
+.container :global(nav) {
+    display: none !important;
+}
+
+.currencyHud {
+    position: absolute;
+    top: 15px;
+    /* Tighter for mobile */
+    right: 20px;
+    z-index: 1000;
+    display: flex;
+    gap: 15px;
+    pointer-events: none;
+    /* Allows clicks to pass through to Phaser */
+    font-family: 'Courier New', Courier, monospace;
+}
+
+.currencyItem {
+    background: rgba(0, 0, 0, 0.7);
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1px solid #eab308;
+    color: #fff;
+    font-size: 14px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+/* Add to src/styles/ShooterContainer.module.css */
+
+.shopPanel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: 300px;
+    background: rgba(0, 0, 0, 0.85);
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    z-index: 150;
+    transform: translateX(100%);
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    flex-direction: column;
+}
+
+.shopPanelOpen {
+    transform: translateX(0);
+}
+
+/* Make sure the game container is behind UI */
+#game-container {
+    z-index: 1;
+}
