@@ -2,7 +2,11 @@ import { useState } from 'react';
 import SeekerGuard from '../components/SeekerGuard';
 import GuessGameComponent from '../components/GuessGame';
 import SpinGame from '../components/SpinGame';
-import ShooterContainer from '../components/ShooterContainer';
+import dynamic from 'next/dynamic';
+const ShooterContainer = dynamic(
+    () => import('../components/ShooterContainer'),
+    { ssr: false } // This is the magic line that fixes the build error
+);
 import LootVault from '../components/LootVault';
 import HistoryModal from '../components/HistoryModal';
 import { Toaster } from 'react-hot-toast';

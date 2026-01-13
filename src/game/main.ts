@@ -3,7 +3,7 @@ import { ShooterScene } from './scenes/ShooterScene';
 import Phaser from 'phaser';
 
 const config: Phaser.Types.Core.GameConfig = {
-    type: Phaser.AUTO,
+    type: typeof window !== 'undefined' ? Phaser.AUTO : Phaser.HEADLESS,
     width: 1024,
     height: 768,
     parent: 'game-container',
