@@ -70,7 +70,10 @@ export default function ShooterContainer() {
         const handleVictory = () => setIsVictory(true);
 
         const handleStageCleared = (data: any) => {
-            toast(`STAGE ${data.stage - 1} CLEAR! SHOP OPEN`, { icon: '🚀' });
+            toast(`STAGE ${data.stage - 1} CLEAR! SHOP OPEN`, {
+                icon: '🚀',
+                style: { background: '#000', color: '#eab308', border: '1px solid #eab308', fontWeight: 900, fontSize: '10px' }
+            });
             setIsShopOpen(true);
         };
 
@@ -171,7 +174,9 @@ export default function ShooterContainer() {
             const result = await res.json();
 
             if (res.ok) {
-                toast.success("SYSTEM UPGRADED!");
+                toast.success("SYSTEM UPGRADED!", {
+                    style: { background: '#000', color: '#eab308', border: '1px solid #eab308' }
+                });
                 const updatedStats = {
                     ...stats,
                     tag: result.remainingTag,
@@ -194,110 +199,128 @@ export default function ShooterContainer() {
 
     if (!isLandscape) {
         return (
-            <div className="fixed inset-0 bg-black flex items-center justify-center z-[9999]">
-                <h2 className="text-white font-black italic text-xl">ROTATE FOR BATTLE</h2>
+            <div style={{ position: 'fixed', inset: 0, backgroundColor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+                <h2 style={{ color: '#fff', fontWeight: 900, fontStyle: 'italic', fontSize: '20px', textTransform: 'uppercase' }}>ROTATE FOR BATTLE</h2>
             </div>
         );
     }
 
     return (
-        <div className={styles.container}>
-            <div className={`${styles.innerFrame} relative overflow-hidden`}>
-                {/* Stats Display */}
+        <div className={styles.container} style={{ backgroundColor: '#050505' }}>
+            <div className={`${styles.innerFrame} relative overflow-hidden`} style={{ border: '4px solid #111', boxShadow: 'inset 0 0 100px rgba(0,0,0,0.5)' }}>
+
+                {/* Stats Display - Inspired by Ref 2 Terminal Card style */}
                 {gameStarted && (
-                    <div className="absolute top-4 right-24 z-[10000] flex gap-3">
-                        <div className="bg-black/60 border border-pink-500/50 px-4 py-2 rounded-full flex items-center gap-2 backdrop-blur-md">
-                            <Ticket size={14} className="text-pink-500" />
-                            <span className="text-white font-bold text-xs">TAG: {(stats?.tag ?? 0).toLocaleString()}</span>
+                    <div style={{ position: 'absolute', top: '16px', right: '100px', zIndex: 10000, display: 'flex', gap: '12px' }}>
+                        <div style={{ background: 'rgba(0,0,0,0.8)', border: '1px solid #eab308', padding: '6px 16px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '8px', backdropFilter: 'blur(8px)' }}>
+                            <Ticket size={12} style={{ color: '#eab308' }} />
+                            <span style={{ color: '#fff', fontWeight: 900, fontSize: '10px', fontFamily: 'monospace' }}>TAG: {(stats?.tag ?? 0).toLocaleString()}</span>
                         </div>
-                        <div className="bg-black/60 border border-yellow-500/50 px-4 py-2 rounded-full flex items-center gap-2 backdrop-blur-md">
-                            <Zap size={14} className="text-yellow-500" />
-                            <span className="text-white font-bold text-xs">LAAM: {(stats?.laam ?? 0).toLocaleString()}</span>
+                        <div style={{ background: 'rgba(0,0,0,0.8)', border: '1px solid #eab308', padding: '6px 16px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '8px', backdropFilter: 'blur(8px)' }}>
+                            <Zap size={12} style={{ color: '#eab308' }} />
+                            <span style={{ color: '#fff', fontWeight: 900, fontSize: '10px', fontFamily: 'monospace' }}>LAAM: {(stats?.laam ?? 0).toLocaleString()}</span>
                         </div>
                     </div>
                 )}
 
                 <div id="game-container" className="w-full h-full absolute inset-0 z-[1]" />
 
-                {/* Control Buttons - Higher Z-Index */}
+                {/* Control Buttons - Ref 1 Mechanical Hub style */}
                 {gameStarted && !isGameOver && !isVictory && (
-                    <div className="absolute top-4 left-6 z-[10001] flex gap-2">
-                        <button onClick={togglePause} style={{ zIndex: 10001 }} className="bg-black/50 p-3 rounded-xl border border-white/10 text-white backdrop-blur-md hover:bg-white/20 transition-colors">
-                            {isPaused ? <Play size={20} fill="white" /> : <Pause size={20} fill="white" />}
+                    <div style={{ position: 'absolute', top: '16px', left: '24px', zIndex: 10001, display: 'flex', gap: '10px' }}>
+                        <button onClick={togglePause} style={{ background: '#111', border: '1px solid #333', padding: '10px', borderRadius: '8px', color: '#fff', boxShadow: '0 4px 0 #000' }}>
+                            {isPaused ? <Play size={18} fill="#eab308" color="#eab308" /> : <Pause size={18} fill="#fff" />}
                         </button>
-                        <button onClick={() => setIsShopOpen(!isShopOpen)} style={{ zIndex: 10001 }} className={`p-3 rounded-xl border border-white/10 backdrop-blur-md transition-all ${isShopOpen ? 'bg-pink-600 text-white scale-105' : 'bg-black/50 text-white hover:bg-white/20'}`}>
-                            <ShoppingCart size={20} />
+                        <button onClick={() => setIsShopOpen(!isShopOpen)} style={{ background: isShopOpen ? '#991b1b' : '#111', border: '1px solid #333', padding: '10px', borderRadius: '8px', color: '#fff', boxShadow: isShopOpen ? 'none' : '0 4px 0 #000', transform: isShopOpen ? 'translateY(2px)' : 'none' }}>
+                            <ShoppingCart size={18} />
                         </button>
-                        <button onClick={restartGame} style={{ zIndex: 10001 }} className="bg-black/50 p-3 rounded-xl border border-white/10 text-white backdrop-blur-md hover:bg-white/20 transition-colors">
-                            <RotateCcw size={20} />
+                        <button onClick={restartGame} style={{ background: '#111', border: '1px solid #333', padding: '10px', borderRadius: '8px', color: '#fff', boxShadow: '0 4px 0 #000' }}>
+                            <RotateCcw size={18} />
                         </button>
                     </div>
                 )}
 
+                {/* Entry Screen - Inspired by Ref 1 Reactor Core */}
                 {!gameStarted && (
-                    <div className="absolute inset-0 z-[20000] flex flex-col items-center justify-center bg-black/95">
-                        <div className="relative mb-8">
-                            <div className="absolute -inset-4 bg-yellow-500/20 blur-xl rounded-full animate-pulse" />
-                            <h1 className="relative text-7xl font-black text-yellow-500 italic tracking-tighter text-center">VOID SHOOTER</h1>
+                    <div style={{ position: 'absolute', inset: 0, zIndex: 20000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'radial-gradient(circle, #111 0%, #000 100%)' }}>
+                        <div style={{ position: 'relative', marginBottom: '40px' }}>
+                            <div style={{ position: 'absolute', inset: '-20px', background: 'rgba(234, 179, 8, 0.1)', filter: 'blur(30px)', borderRadius: '50%' }} />
+                            <h1 style={{ position: 'relative', fontSize: '64px', fontWeight: 900, color: '#eab308', fontStyle: 'italic', letterSpacing: '-4px', textAlign: 'center', textShadow: '0 0 20px rgba(234,179,8,0.5)' }}>
+                                VOID<br /><span style={{ color: '#fff' }}>SHOOTER</span>
+                            </h1>
                         </div>
                         <button
                             onClick={handleEngage}
                             disabled={isLoading}
-                            className={`px-16 py-5 rounded-full font-black text-3xl transition-all shadow-[0_0_30px_rgba(234,179,8,0.3)] ${isLoading ? 'bg-zinc-700 text-zinc-500 cursor-not-allowed scale-95' : 'bg-yellow-500 text-black hover:scale-110 hover:bg-yellow-400 active:scale-95'}`}
+                            style={{
+                                padding: '20px 60px',
+                                background: isLoading ? '#1f2937' : '#991b1b',
+                                color: '#fff',
+                                borderRadius: '4px',
+                                border: 'none',
+                                fontWeight: 900,
+                                fontSize: '24px',
+                                letterSpacing: '4px',
+                                boxShadow: isLoading ? 'none' : '0 8px 0 #450a0a',
+                                transform: isLoading ? 'translateY(4px)' : 'none',
+                                transition: 'all 0.1s'
+                            }}
                         >
-                            {isLoading ? "SYNCING..." : "ENGAGE"}
+                            {isLoading ? "INITIALIZING..." : "ENGAGE"}
                         </button>
                     </div>
                 )}
 
-                {/* Home Button - Higher Z-Index */}
-                <button onClick={goHome} style={{ zIndex: 10001 }} className="absolute top-4 right-6 bg-white/10 p-3 rounded-full text-white backdrop-blur-md hover:bg-red-500/80 transition-colors">
-                    <Home size={20} />
+                <button onClick={goHome} style={{ position: 'absolute', top: '16px', right: '24px', zIndex: 10001, background: '#111', border: '1px solid #333', padding: '10px', borderRadius: '50%', color: '#fff' }}>
+                    <Home size={18} />
                 </button>
 
-                {/* Shop Panel - Highest Layer when open */}
-                <div className={`${styles.shopPanel} ${isShopOpen ? styles.shopPanelOpen : ''} z-[20001]`}>
-                    <div className="p-6 pt-20 flex-1 overflow-y-auto">
-                        <h3 className="text-pink-500 font-black italic text-2xl mb-2 flex items-center gap-2">
-                            <Ticket size={24} /> UPGRADES
+                {/* Shop Panel - Ref 2 Terminal style */}
+                <div className={`${styles.shopPanel} ${isShopOpen ? styles.shopPanelOpen : ''}`} style={{ zIndex: 20001, background: '#080808', borderLeft: '2px solid #1a1a1a' }}>
+                    <div style={{ padding: '24px', paddingTop: '80px', height: '100%', overflowY: 'auto' }}>
+                        <h3 style={{ color: '#eab308', fontWeight: 900, fontStyle: 'italic', fontSize: '20px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid #1a1a1a', paddingBottom: '10px' }}>
+                            <Zap size={20} /> SYSTEM_UPGRADES
                         </h3>
-                        <div className="space-y-4">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             {[
-                                { id: 'weapon', label: 'Plasma Cannon', level: stats.weaponLevel, icon: <Zap size={18} />, color: 'text-yellow-500', desc: 'Higher Fire Rate' },
-                                { id: 'shield', label: 'Energy Shield', level: stats.shieldLevel, icon: <Shield size={18} />, color: 'text-blue-400', desc: 'Damage Reduction' },
-                                { id: 'engine', label: 'Hyper Engine', level: stats.shoeLevel, icon: <Wind size={18} />, color: 'text-green-400', desc: 'Movement Speed' },
-                                { id: 'hull', label: 'Titanium Hull', level: stats.lifeLevel, icon: <Heart size={18} />, color: 'text-red-500', desc: 'Max Durability' },
+                                { id: 'weapon', label: 'Plasma Cannon', level: stats.weaponLevel, icon: <Zap size={16} />, color: '#eab308', desc: 'ROF +20%' },
+                                { id: 'shield', label: 'Energy Shield', level: stats.shieldLevel, icon: <Shield size={16} />, color: '#60a5fa', desc: 'DEF +15%' },
+                                { id: 'engine', label: 'Hyper Engine', level: stats.shoeLevel, icon: <Wind size={16} />, color: '#4ade80', desc: 'SPD +10%' },
+                                { id: 'hull', label: 'Titanium Hull', level: stats.lifeLevel, icon: <Heart size={16} />, color: '#f87171', desc: 'HP +25%' },
                             ].map((item) => (
                                 <button
                                     key={item.id}
                                     onClick={() => handleUpgrade(item.id)}
-                                    className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl flex flex-col items-start hover:border-pink-500/50 hover:bg-white/10 transition-all active:scale-95 group"
+                                    style={{
+                                        width: '100%', background: '#000', border: '1px solid #1a1a1a', padding: '16px', borderRadius: '8px',
+                                        display: 'flex', flexDirection: 'column', textAlign: 'left', gap: '4px', transition: 'all 0.2s'
+                                    }}
                                 >
-                                    <div className="flex justify-between w-full mb-1">
-                                        <span className={`font-bold flex items-center gap-2 ${item.color} group-hover:text-white`}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                                        <span style={{ fontWeight: 900, display: 'flex', alignItems: 'center', gap: '8px', color: item.color, fontSize: '12px', textTransform: 'uppercase' }}>
                                             {item.icon} {item.label}
                                         </span>
-                                        <span className="text-zinc-500 text-xs font-mono">LVL {item.level}</span>
+                                        <span style={{ color: '#444', fontSize: '10px', fontWeight: 900, fontFamily: 'monospace' }}>LVL {item.level}</span>
                                     </div>
-                                    <div className="text-[10px] text-zinc-400 font-medium mb-2">{item.desc}</div>
-                                    <div className="bg-pink-500/10 text-pink-500 text-[10px] px-2 py-1 rounded-md font-black italic">
+                                    <div style={{ fontSize: '9px', color: '#666', fontWeight: 500 }}>{item.desc}</div>
+                                    <div style={{ marginTop: '8px', background: 'rgba(234,179,8,0.1)', color: '#eab308', fontSize: '9px', padding: '4px 8px', borderRadius: '2px', fontWeight: 900, alignSelf: 'flex-start' }}>
                                         COST: {Math.floor(1 * Math.pow(1.2, item.level))} TAG
                                     </div>
                                 </button>
                             ))}
                         </div>
                     </div>
-                    <button onClick={() => setIsShopOpen(false)} className="p-6 border-t border-white/5 text-zinc-500 flex items-center justify-center gap-2 hover:text-white font-black uppercase text-xs transition-colors">
-                        Return to Combat <ChevronRight size={16} />
+                    <button onClick={() => setIsShopOpen(false)} style={{ position: 'absolute', bottom: 0, width: '100%', padding: '20px', borderTop: '1px solid #1a1a1a', color: '#444', fontWeight: 900, fontSize: '10px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                        EXIT_TERMINAL <ChevronRight size={14} />
                     </button>
                 </div>
 
-                {/* Game Over Overlay */}
+                {/* Game Over Overlay - High contrast "Terminated" */}
                 {isGameOver && (
-                    <div className="absolute inset-0 z-[30000] bg-black/90 flex flex-col items-center justify-center backdrop-blur-md">
-                        <h2 className="text-red-500 text-6xl font-black italic mb-2 tracking-tighter">TERMINATED</h2>
-                        <button onClick={restartGame} className="bg-white text-black px-10 py-4 rounded-2xl font-black flex items-center gap-2 hover:bg-zinc-200 transition-colors">
-                            <RotateCcw size={22} /> REDEPLOY
+                    <div style={{ position: 'absolute', inset: 0, zIndex: 30000, background: 'rgba(0,0,0,0.95)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(10px)' }}>
+                        <h2 style={{ color: '#991b1b', fontSize: '72px', fontWeight: 900, fontStyle: 'italic', marginBottom: '20px', letterSpacing: '-4px' }}>TERMINATED</h2>
+                        <button onClick={restartGame} style={{ background: '#fff', color: '#000', padding: '16px 40px', borderRadius: '4px', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '18px', textTransform: 'uppercase' }}>
+                            <RotateCcw size={20} /> REDEPLOY
                         </button>
                     </div>
                 )}
