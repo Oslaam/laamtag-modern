@@ -8,6 +8,14 @@ const config: Phaser.Types.Core.GameConfig = {
     height: 768,
     parent: 'game-container',
     backgroundColor: '#050510',
+
+    scale: {
+        mode: Phaser.Scale.FIT,           // Fits the game to the parent container
+        autoCenter: Phaser.Scale.CENTER_BOTH, // Centers it
+        width: 1024,                     // Logic width
+        height: 768,                     // Logic height
+    },
+
     physics: {
         default: 'arcade',
         arcade: {

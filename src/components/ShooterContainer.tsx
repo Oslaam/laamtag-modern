@@ -41,8 +41,6 @@ export default function ShooterContainer() {
             const data = await res.json();
             if (res.ok && data) {
                 setStats(data);
-
-                // IMPORTANT: Inject walletAddress into the data object passed to Phaser
                 const dataWithWallet = { ...data, walletAddress: publicKey.toString() };
 
                 if (sceneReadyRef.current && phaserGame.current) {
@@ -124,18 +122,14 @@ export default function ShooterContainer() {
         const readyCheck = setInterval(() => {
             attempts++;
             if (activeGame && sceneReadyRef.current) {
-                // Ensure wallet is included during start handshake
                 const statsWithWallet = { ...stats, walletAddress: publicKey?.toString() };
-                
                 EventBus.emit('apply-upgrades', statsWithWallet);
                 EventBus.emit('start-game');
-
                 setGameStarted(true);
                 setIsLoading(false);
                 clearInterval(readyCheck);
                 return;
             }
-
             if (attempts > 60) {
                 setIsLoading(false);
                 clearInterval(readyCheck);
@@ -149,7 +143,6 @@ export default function ShooterContainer() {
             const statsWithWallet = { ...stats, walletAddress: publicKey?.toString() };
             EventBus.emit('start-game');
             EventBus.emit('apply-upgrades', statsWithWallet);
-
             setIsGameOver(false);
             setIsVictory(false);
             setIsPaused(false);
@@ -188,7 +181,6 @@ export default function ShooterContainer() {
                     lifeLevel: itemType === 'hull' ? result.newLevel : stats.lifeLevel,
                 };
                 setStats(updatedStats);
-                // Pass wallet through here too
                 EventBus.emit('apply-upgrades', { ...updatedStats, walletAddress: publicKey.toString() });
             } else {
                 toast.error(result.error || "INSUFFICIENT TAG");
@@ -211,8 +203,9 @@ export default function ShooterContainer() {
     return (
         <div className={styles.container}>
             <div className={`${styles.innerFrame} relative overflow-hidden`}>
+                {/* Stats Display */}
                 {gameStarted && (
-                    <div className="absolute top-4 right-24 z-[100] flex gap-3">
+                    <div className="absolute top-4 right-24 z-[10000] flex gap-3">
                         <div className="bg-black/60 border border-pink-500/50 px-4 py-2 rounded-full flex items-center gap-2 backdrop-blur-md">
                             <Ticket size={14} className="text-pink-500" />
                             <span className="text-white font-bold text-xs">TAG: {(stats?.tag ?? 0).toLocaleString()}</span>
@@ -226,27 +219,27 @@ export default function ShooterContainer() {
 
                 <div id="game-container" className="w-full h-full absolute inset-0 z-[1]" />
 
+                {/* Control Buttons - Higher Z-Index */}
                 {gameStarted && !isGameOver && !isVictory && (
-                    <div className="absolute top-4 left-6 z-[101] flex gap-2">
-                        <button onClick={togglePause} className="bg-black/50 p-3 rounded-xl border border-white/10 text-white backdrop-blur-md hover:bg-white/20 transition-colors">
+                    <div className="absolute top-4 left-6 z-[10001] flex gap-2">
+                        <button onClick={togglePause} style={{ zIndex: 10001 }} className="bg-black/50 p-3 rounded-xl border border-white/10 text-white backdrop-blur-md hover:bg-white/20 transition-colors">
                             {isPaused ? <Play size={20} fill="white" /> : <Pause size={20} fill="white" />}
                         </button>
-                        <button onClick={() => setIsShopOpen(!isShopOpen)} className={`p-3 rounded-xl border border-white/10 backdrop-blur-md transition-all ${isShopOpen ? 'bg-pink-600 text-white scale-105' : 'bg-black/50 text-white hover:bg-white/20'}`}>
+                        <button onClick={() => setIsShopOpen(!isShopOpen)} style={{ zIndex: 10001 }} className={`p-3 rounded-xl border border-white/10 backdrop-blur-md transition-all ${isShopOpen ? 'bg-pink-600 text-white scale-105' : 'bg-black/50 text-white hover:bg-white/20'}`}>
                             <ShoppingCart size={20} />
                         </button>
-                        <button onClick={restartGame} className="bg-black/50 p-3 rounded-xl border border-white/10 text-white backdrop-blur-md hover:bg-white/20 transition-colors">
+                        <button onClick={restartGame} style={{ zIndex: 10001 }} className="bg-black/50 p-3 rounded-xl border border-white/10 text-white backdrop-blur-md hover:bg-white/20 transition-colors">
                             <RotateCcw size={20} />
                         </button>
                     </div>
                 )}
 
                 {!gameStarted && (
-                    <div className="absolute inset-0 z-[200] flex flex-col items-center justify-center bg-black/95">
+                    <div className="absolute inset-0 z-[20000] flex flex-col items-center justify-center bg-black/95">
                         <div className="relative mb-8">
                             <div className="absolute -inset-4 bg-yellow-500/20 blur-xl rounded-full animate-pulse" />
                             <h1 className="relative text-7xl font-black text-yellow-500 italic tracking-tighter text-center">VOID SHOOTER</h1>
                         </div>
-
                         <button
                             onClick={handleEngage}
                             disabled={isLoading}
@@ -257,11 +250,13 @@ export default function ShooterContainer() {
                     </div>
                 )}
 
-                <button onClick={goHome} className="absolute top-4 right-6 z-[101] bg-white/10 p-3 rounded-full text-white backdrop-blur-md hover:bg-red-500/80 transition-colors">
+                {/* Home Button - Higher Z-Index */}
+                <button onClick={goHome} style={{ zIndex: 10001 }} className="absolute top-4 right-6 bg-white/10 p-3 rounded-full text-white backdrop-blur-md hover:bg-red-500/80 transition-colors">
                     <Home size={20} />
                 </button>
 
-                <div className={`${styles.shopPanel} ${isShopOpen ? styles.shopPanelOpen : ''} z-[105]`}>
+                {/* Shop Panel - Highest Layer when open */}
+                <div className={`${styles.shopPanel} ${isShopOpen ? styles.shopPanelOpen : ''} z-[20001]`}>
                     <div className="p-6 pt-20 flex-1 overflow-y-auto">
                         <h3 className="text-pink-500 font-black italic text-2xl mb-2 flex items-center gap-2">
                             <Ticket size={24} /> UPGRADES
@@ -297,8 +292,9 @@ export default function ShooterContainer() {
                     </button>
                 </div>
 
+                {/* Game Over Overlay */}
                 {isGameOver && (
-                    <div className="absolute inset-0 z-[300] bg-black/90 flex flex-col items-center justify-center backdrop-blur-md">
+                    <div className="absolute inset-0 z-[30000] bg-black/90 flex flex-col items-center justify-center backdrop-blur-md">
                         <h2 className="text-red-500 text-6xl font-black italic mb-2 tracking-tighter">TERMINATED</h2>
                         <button onClick={restartGame} className="bg-white text-black px-10 py-4 rounded-2xl font-black flex items-center gap-2 hover:bg-zinc-200 transition-colors">
                             <RotateCcw size={22} /> REDEPLOY

@@ -20,14 +20,14 @@ export class ShooterScene extends Phaser.Scene {
         shieldLevel: 1,
         shoeLevel: 1,
         lifeLevel: 1,
-        walletAddress: '' // Added to store wallet for DB sync
+        walletAddress: ''
     };
 
     private level = 1;
     private stage = 1;
     private maxStages = 5;
     private enemiesKilled = 0;
-    private enemiesToKill = 100; // RESTORED TO 100
+    private enemiesToKill = 100;
     private health = 100;
     private maxHealth = 100;
     private isGameOver = false;
@@ -45,7 +45,6 @@ export class ShooterScene extends Phaser.Scene {
     init(data: { stats?: any, level?: number, stage?: number }) {
         if (data.stats) {
             this.stats = { ...this.stats, ...data.stats };
-            // Store wallet address if provided in stats
             if (data.stats.walletAddress) this.stats.walletAddress = data.stats.walletAddress;
         }
         this.level = data.level || 1;
@@ -57,7 +56,6 @@ export class ShooterScene extends Phaser.Scene {
         this.isManualReady = false;
     }
 
-    // NEW: Database Sync Function
     async syncStageToDatabase(stage: number) {
         if (!this.stats.walletAddress) return;
         try {
@@ -148,7 +146,8 @@ export class ShooterScene extends Phaser.Scene {
 
         this.bossHealthBar = this.add.graphics().setDepth(100);
         this.playerHealthBar = this.add.graphics().setDepth(100);
-        this.infoText = this.add.text(20, 20, '', { fontSize: '18px', color: '#fff', fontStyle: 'bold' });
+        // Initial position updated to relative
+        this.infoText = this.add.text(this.scale.width * 0.02, this.scale.height * 0.02, '', { fontSize: '18px', color: '#fff', fontStyle: 'bold' });
 
         this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
             if (!this.isGameOver && this.isStarted && this.player.active) {
@@ -208,7 +207,7 @@ export class ShooterScene extends Phaser.Scene {
         const y = Phaser.Math.Between(50, this.scale.height - 50);
         const enemy = this.enemies.create(this.scale.width + 50, y, 'enemy');
         const difficultyStep = ((this.level - 1) * 5) + (this.stage - 1);
-        const multiplier = Math.pow(1.5, difficultyStep); // 1.5x Scaling intact
+        const multiplier = Math.pow(1.5, difficultyStep);
         enemy.setData('hp', 2 * multiplier);
         enemy.setVelocityX(-200 - (this.level * 25));
 
@@ -255,7 +254,7 @@ export class ShooterScene extends Phaser.Scene {
     handleHit(bullet: any, target: any) {
         bullet.destroy();
         this.particleManager.emitParticleAt(target.x, target.y, 5);
-        const playerDamage = 1 * (1 + (this.stats.weaponLevel - 1) * 0.35); // User scaling intact
+        const playerDamage = 1 * (1 + (this.stats.weaponLevel - 1) * 0.35);
         let hp = target.getData('hp') - playerDamage;
         target.setData('hp', hp);
 
@@ -276,7 +275,6 @@ export class ShooterScene extends Phaser.Scene {
             this.boss.destroy();
         }
 
-        // SYNC Progress to DB
         this.syncStageToDatabase(this.stage);
 
         if (this.stage < this.maxStages) {
@@ -334,16 +332,24 @@ export class ShooterScene extends Phaser.Scene {
         this.stars1.tilePositionX += 0.5;
         this.stars2.tilePositionX += 1.2;
         this.stars3.tilePositionX += 2.5;
+
+        // Update Info Text Position and Value
+        this.infoText.setPosition(this.scale.width * 0.02, this.scale.height * 0.03);
         this.infoText.setText(`LVL: ${this.level} STG: ${this.stage} | KILLS: ${this.enemiesKilled}/${this.enemiesToKill}`);
+
         this.drawBossUI();
         this.drawPlayerHealthBar();
     }
 
     drawPlayerHealthBar() {
         if (!this.playerHealthBar) return;
-        this.playerHealthBar.clear().fillStyle(0x333333).fillRect(20, 55, 200, 12);
-        const w = (this.health / this.maxHealth) * 200;
-        this.playerHealthBar.fillStyle(0x00ff00).fillRect(20, 55, Math.max(0, w), 12);
+        const marginX = this.scale.width * 0.02;
+        const marginY = this.scale.height * 0.08;
+        const barWidth = this.scale.width * 0.25;
+
+        this.playerHealthBar.clear().fillStyle(0x333333).fillRect(marginX, marginY, barWidth, 12);
+        const currentHealthWidth = (this.health / this.maxHealth) * barWidth;
+        this.playerHealthBar.fillStyle(0x00ff00).fillRect(marginX, marginY, Math.max(0, currentHealthWidth), 12);
     }
 
     drawBossUI() {
@@ -352,8 +358,12 @@ export class ShooterScene extends Phaser.Scene {
         if (this.isBossPhase && this.boss?.active) {
             const hp = this.boss.getData('hp');
             const maxHp = this.boss.getData('maxHp');
-            this.bossHealthBar.fillStyle(0x333333).fillRect(this.scale.width / 4, 20, this.scale.width / 2, 20);
-            this.bossHealthBar.fillStyle(0xff0000).fillRect(this.scale.width / 4, 20, (hp / maxHp) * (this.scale.width / 2), 20);
+            const barWidth = this.scale.width / 2;
+            const xPos = this.scale.width / 4;
+            const yPos = this.scale.height * 0.03;
+
+            this.bossHealthBar.fillStyle(0x333333).fillRect(xPos, yPos, barWidth, 20);
+            this.bossHealthBar.fillStyle(0xff0000).fillRect(xPos, yPos, (hp / maxHp) * barWidth, 20);
         }
     }
 
