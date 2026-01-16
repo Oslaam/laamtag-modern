@@ -1,3 +1,5 @@
+'use client';
+
 import { WalletAdapterNetwork, WalletError } from '@solana/wallet-adapter-base';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
@@ -15,31 +17,30 @@ export const ContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
     useEffect(() => {
         setMounted(true);
     }, []);
+
     const endpoint = useMemo(() => {
         const url = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
-
         if (!url || !url.startsWith("http")) {
-            console.error("Invalid Solana RPC URL:", url);
             return "https://api.mainnet-beta.solana.com";
         }
-
         return url;
     }, []);
-
 
     const wallets = useMemo(() => {
         if (!mounted) return [];
 
         return [
             new SolanaMobileWalletAdapter({
-                cluster: WalletAdapterNetwork.Mainnet,
                 addressSelector: createDefaultAddressSelector(),
                 appIdentity: {
                     name: 'LaamTag',
-                    uri: 'https://mint.uselaamtag.xyz',
-                    icon: '/assets/images/favicon.png',
+                    uri: 'https://app.uselaamtag.xyz',
+                    icon: '/favicon.png',
                 },
                 authorizationResultCache: createDefaultAuthorizationResultCache(),
+                // FIX 1: Must use the WalletAdapterNetwork enum, not a string
+                cluster: WalletAdapterNetwork.Mainnet,
+                // FIX 2: This property is REQUIRED in the TS SDK 
                 onWalletNotFound: async () => {
                     console.warn('Mobile wallet not found');
                 },
@@ -50,14 +51,14 @@ export const ContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
     }, [mounted]);
 
     const onError = useCallback((error: WalletError) => {
-        console.error(error);
+        console.error("Wallet Error:", error.message);
     }, []);
 
     if (!mounted) return null;
 
     return (
-        <ConnectionProvider endpoint={endpoint}>
-            <WalletProvider wallets={wallets} onError={onError} autoConnect={false}>
+        <ConnectionProvider endpoint={endpoint} config={{ commitment: 'confirmed' }}>
+            <WalletProvider wallets={wallets} onError={onError} autoConnect={true}>
                 <WalletModalProvider>
                     {children}
                 </WalletModalProvider>
