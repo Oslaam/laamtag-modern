@@ -11,6 +11,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         laamPoints: true,
         tagTickets: true,
         rank: true,
+        personalMinted: true,
       }
     });
 

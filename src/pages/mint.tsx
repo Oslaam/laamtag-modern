@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 import type { NextPage } from "next";
 import Head from "next/head";
 import { useState, useEffect } from "react";
@@ -69,12 +68,12 @@ const Mint: NextPage = () => {
 
       setStats({
         global: redeemed,
-        // FIX: Change 'personalMinted' to 'tagTickets' so it matches your Database/API
-        personal: res.data.tagTickets || 0,
+        // CHANGE THIS: Use personalMinted from your Prisma schema
+        personal: res.data.personalMinted || 0,
         soldOut: redeemed >= total
       });
 
-      console.log("Stats Updated:", { redeemed, personal: res.data.tagTickets });
+      console.log("Stats Updated:", { redeemed, personal: res.data.personalMinted });
     } catch (e) {
       console.warn("Status Sync Error:", e);
     }
@@ -127,7 +126,7 @@ const Mint: NextPage = () => {
             .prepend(setComputeUnitPrice(umi, { microLamports: 1000 }))
             .add(mintBuilder);
 
-          const result = await transactionBuilder.sendAndConfirm(umi);
+          await transactionBuilder.sendAndConfirm(umi);
           results.push({ success: true });
         } catch (err: any) {
           results.push({ success: false });
@@ -136,9 +135,23 @@ const Mint: NextPage = () => {
       }
 
       const successCount = results.filter(r => r.success).length;
+
       if (successCount > 0) {
+        // --- DATABASE SYNC START ---
+        // This tells your new API route to update 'personalMinted' in Prisma
+        try {
+          await axios.post('/api/user/update-mints', {
+            walletAddress: publicKey.toBase58(),
+            amount: successCount
+          });
+        } catch (dbErr) {
+          console.error("Blockchain success, but Database failed to update:", dbErr);
+          // Note: The NFT is minted on Solana, but we failed to record it in our DB.
+        }
+        // --- DATABASE SYNC END ---
+
         alert(`🎉 IDENTITY SECURED: ${successCount} ${successCount > 1 ? 'UNITS' : 'UNIT'} ADDED TO VAULT`);
-        fetchStatus();
+        fetchStatus(); // This refreshes the UI to show the new count
       }
     } catch (err: any) {
       alert(err.message || "Mint process failed");
