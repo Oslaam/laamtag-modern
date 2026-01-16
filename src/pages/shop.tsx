@@ -15,7 +15,8 @@ export default function ShopPage() {
         const loadId = toast.loading("Initializing Terminal...");
 
         try {
-            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+
             const transaction = new Transaction({
                 feePayer: publicKey,
                 recentBlockhash: blockhash,
@@ -30,12 +31,25 @@ export default function ShopPage() {
             toast.loading("Awaiting Signature...", { id: loadId });
             const signature = await sendTransaction(transaction, connection);
 
-            toast.loading("Verifying on Blockchain...", { id: loadId });
-            await connection.confirmTransaction({
-                signature,
-                blockhash,
-                lastValidBlockHeight
-            }, 'confirmed');
+
+            toast.loading("Verifying (Approx 30s)...", { id: loadId });
+
+            // --- TIMEOUT LOGIC START ---
+            const abortController = new AbortController();
+            const timeoutId = setTimeout(() => abortController.abort(), 60000); // 60 second limit
+
+            try {
+                await connection.confirmTransaction({
+                    signature,
+                    blockhash,
+                    lastValidBlockHeight
+                }, 'confirmed');
+                clearTimeout(timeoutId);
+            } catch (e) {
+                // If it takes longer than 60s, don't crash, just tell user to check balance
+                throw new Error("Confirmation taking too long. Please check your wallet balance in a minute.");
+            }
+            // --- TIMEOUT LOGIC END ---
 
             const res = await fetch('/api/shop/buy-tickets', {
                 method: 'POST',
@@ -43,21 +57,19 @@ export default function ShopPage() {
                 body: JSON.stringify({
                     walletAddress: publicKey.toString(),
                     amount: qty,
-                    price: 0,
                     signature
                 }),
             });
 
             if (res.ok) {
                 toast.success(`Acquired ${qty} TAG Tickets!`, { id: loadId });
-                // Trigger global balance update
                 window.dispatchEvent(new Event('balanceUpdate'));
             } else {
-                toast.error("Database sync failed. Contact support.", { id: loadId });
+                toast.error("Database sync failed.", { id: loadId });
             }
         } catch (err: any) {
             console.error("Shop Error:", err);
-            toast.error(err.message.includes("User rejected") ? "Declined" : "System Error", { id: loadId });
+            toast.error(err.message.includes("User rejected") ? "Declined" : err.message, { id: loadId });
         }
     };
 
@@ -80,9 +92,12 @@ export default function ShopPage() {
                     {/* ITEMS LIST */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         {[
-                            { qty: 5, sol: 0.05, label: 'SCOUT PACK' },
-                            { qty: 20, sol: 0.15, label: 'ELITE BUNDLE', hot: true },
-                            { qty: 50, sol: 0.3, label: 'COMMANDER STASH' }
+                            { qty: 1, sol: 0.015, label: 'SCOUT PASS' },
+                            { qty: 5, sol: 0.075, label: 'RUNNER PACK' },
+                            { qty: 10, sol: 0.15, label: 'ELITE CACHE' },
+                            { qty: 50, sol: 0.75, label: 'COMMANDER VAULT', hot: true },
+                            { qty: 100, sol: 1.5, label: 'LEGION RESERVE' },
+                            { qty: 500, sol: 7.5, label: 'DYNASTY TREASURY' }
                         ].map((item) => (
                             <div
                                 key={item.qty}
@@ -121,7 +136,12 @@ export default function ShopPage() {
                                         width: 'auto',
                                         padding: '12px 24px',
                                         backgroundColor: '#a855f7',
-                                        fontSize: '12px'
+                                        fontSize: '12px',
+                                        color: '#fff',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        fontWeight: 900,
+                                        cursor: 'pointer'
                                     }}
                                 >
                                     {item.sol} SOL
@@ -141,6 +161,7 @@ export default function ShopPage() {
                     }}>
                         <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px', lineHeight: '1.5' }}>
                             Tickets are used for <strong>Gaming Modules</strong> and <strong>Quest Entry</strong>.
+                            <br />
                             Purchases are processed immediately on the Solana blockchain.
                         </p>
                     </div>

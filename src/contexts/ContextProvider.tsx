@@ -16,12 +16,17 @@ export const ContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
         setMounted(true);
     }, []);
     const endpoint = useMemo(() => {
-        if (typeof window !== "undefined") {
-            return `${window.location.origin}/api/rpc-proxy`;
+        const url = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
+
+        if (!url || !url.startsWith("http")) {
+            console.error("Invalid Solana RPC URL:", url);
+            return "https://api.mainnet-beta.solana.com";
         }
-        // Fallback for server-side rendering
-        return "https://sender.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
+
+        return url;
     }, []);
+
+
     const wallets = useMemo(() => {
         if (!mounted) return [];
 
