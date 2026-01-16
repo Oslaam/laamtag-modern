@@ -4,7 +4,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import SeekerGuard from '../components/SeekerGuard';
 
 export default function AppHome() {
-  const { connected } = useWallet();
+  const { connected, publicKey } = useWallet();
 
   return (
     <div className="main-content">
@@ -20,8 +20,12 @@ export default function AppHome() {
           <p className="terminal-desc" style={{ textTransform: 'uppercase', fontWeight: 'bold' }}>
             System Locked. Connect Seeker Wallet to Initialize.
           </p>
+          {/* Note: Ensure your Navbar has the WalletMultiButton visible */}
         </div>
       ) : (
+        /* We keep the Guard here, but I've updated your SeekerGuard.tsx 
+           in the previous step to handle the Admin bypass correctly. 
+        */
         <SeekerGuard>
           <div className="content-wrapper">
             <div style={{ padding: '24px 0' }}>
@@ -29,9 +33,14 @@ export default function AppHome() {
                 Welcome <br />
                 <span style={{ color: '#eab308' }}>Seeker Universe</span>
               </h2>
+              {/* Debug info: Helpful during development */}
+              <p style={{ fontSize: '8px', opacity: 0.3, marginTop: '4px' }}>
+                MODULE ID: {publicKey?.toBase58().slice(0, 8)}...
+              </p>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
               {/* MINT CARD */}
               <Link href="/mint" style={{ textDecoration: 'none' }}>
                 <div className="terminal-card">
@@ -62,7 +71,7 @@ export default function AppHome() {
                 </div>
               </Link>
 
-               {/* GAMES CARD */}
+              {/* GAMES CARD */}
               <Link href="/games" style={{ textDecoration: 'none' }}>
                 <div className="terminal-card">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -76,6 +85,7 @@ export default function AppHome() {
                   </div>
                 </div>
               </Link>
+
             </div>
           </div>
         </SeekerGuard>
