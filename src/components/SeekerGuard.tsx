@@ -29,85 +29,36 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        const verifySGT = async () => {
-            if (!publicKey) {
-                setHasAccess(null);
-                return;
-            }
+        if (!publicKey) {
+            setHasAccess(null);
+            return;
+        }
 
-            // 1. ADMIN BYPASS
-            if (ADMIN_WALLETS.includes(publicKey.toBase58())) {
-                setHasAccess(true);
-                return;
-            }
+        // 1. Check Admin first (instant)
+        if (ADMIN_WALLETS.includes(publicKey.toBase58())) {
+            setHasAccess(true);
+            return;
+        }
 
-            setLoading(true);
-            try {
-                // 2. FETCH ALL TOKEN-2022 ACCOUNTS
-                const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
-                    publicKey,
-                    { programId: TOKEN_2022_PROGRAM_ID }
-                );
-
-                const accountsWithBalance = tokenAccounts.value.filter(
-                    (acc) => acc.account.data.parsed.info.tokenAmount.uiAmount > 0
-                );
-
-                if (accountsWithBalance.length === 0) {
-                    setHasAccess(false);
-                    return;
-                }
-
-                // 3. EXTRACT MINTS & FETCH ACCOUNT INFO IN BATCHES
-                const mintPubkeys = accountsWithBalance.map(
-                    (acc) => new PublicKey(acc.account.data.parsed.info.mint)
-                );
-
-                // Batch fetch to avoid RPC limit issues
-                const mintInfos = await connection.getMultipleAccountsInfo(mintPubkeys);
-
-                let isVerifiedSeeker = false;
-
-                for (let i = 0; i < mintInfos.length; i++) {
-                    const info = mintInfos[i];
-                    if (!info) continue;
-
-                    try {
-                        const mintData = unpackMint(mintPubkeys[i], info, TOKEN_2022_PROGRAM_ID);
-
-                        // Check Property 1: Mint Authority
-                        const hasAuth = mintData.mintAuthority?.toBase58() === SGT_MINT_AUTHORITY;
-
-                        // Check Property 2: Metadata Pointer
-                        const metaPointer = getMetadataPointerState(mintData);
-                        const hasMeta = metaPointer &&
-                            metaPointer.metadataAddress?.toBase58() === SGT_METADATA_ADDRESS;
-
-                        // Check Property 3: Group Member Pointer
-                        const groupPointer = getTokenGroupMemberState(mintData);
-                        const hasGroup = groupPointer &&
-                            groupPointer.group?.toBase58() === SGT_GROUP_MINT_ADDRESS;
-
-                        if (hasAuth && hasMeta && hasGroup) {
-                            isVerifiedSeeker = true;
-                            break;
-                        }
-                    } catch (e) {
-                        continue; // Move to next if unpacking fails
-                    }
-                }
-
-                setHasAccess(isVerifiedSeeker);
-            } catch (err) {
-                console.error("SGT Verification Failed:", err);
+        // 2. Only run API if we haven't verified yet
+        setLoading(true);
+        fetch('/api/seekerguard/verify-sgt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ wallet: publicKey.toBase58() })
+        })
+            .then(res => res.json())
+            .then(data => {
+                console.log("SGT Verification:", data.hasAccess);
+                setHasAccess(!!data.hasAccess);
+            })
+            .catch((err) => {
+                console.error("Guard API Error:", err);
                 setHasAccess(false);
-            } finally {
-                setLoading(false);
-            }
-        };
+            })
+            .finally(() => setLoading(false));
 
-        verifySGT();
-    }, [publicKey, connection]);
+    }, [publicKey]);
 
     // --- UI RENDER LOGIC ---
     if (!publicKey) {
