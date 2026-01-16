@@ -61,6 +61,21 @@ export default function AppHome() {
                   </div>
                 </div>
               </Link>
+
+               {/* GAMES CARD */}
+              <Link href="/games" style={{ textDecoration: 'none' }}>
+                <div className="terminal-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <h3 className="terminal-link">Games Center</h3>
+                      <p className="terminal-desc">Play Games to Earn Multiple Rewards</p>
+                    </div>
+                    <div style={{ background: '#eab308', color: '#000', padding: '4px 12px', borderRadius: '6px', fontWeight: 900, fontSize: '10px' }}>
+                      03
+                    </div>
+                  </div>
+                </div>
+              </Link>
             </div>
           </div>
         </SeekerGuard>

@@ -44,7 +44,12 @@ export class Preloader extends Phaser.Scene {
             progressBox.destroy();
             loadingText.destroy();
             percentText.destroy();
-            this.scene.start('ShooterScene');
+
+            // Pull the data from the registry we set in main.ts
+            const initialData = this.registry.get('initialData');
+
+            // Pass it to the ShooterScene
+            this.scene.start('ShooterScene', initialData);
         });
 
         // --- LOAD YOUR ASSETS HERE ---

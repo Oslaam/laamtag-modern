@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import styles from '../styles/ShooterContainer.module.css';
 import { StartGame } from '../game/main';
 
+
 export default function ShooterContainer() {
     const { publicKey } = useWallet();
     const router = useRouter();
@@ -25,13 +26,20 @@ export default function ShooterContainer() {
     const [isVictory, setIsVictory] = useState(false);
     const [isShopOpen, setIsShopOpen] = useState(false);
 
+    const [isRestarting, setIsRestarting] = useState(false);
+
+    const [statsReady, setStatsReady] = useState(false);
+
+    // Inside ShooterContainer.tsx
     const [stats, setStats] = useState({
         laam: 0,
         tag: 0,
         weaponLevel: 1,
         shieldLevel: 1,
         shoeLevel: 1,
-        lifeLevel: 1
+        lifeLevel: 1,
+        shooterLevel: 1, // Add this
+        shooterStage: 1  // Add this
     });
 
     const fetchUserData = useCallback(async () => {
@@ -40,14 +48,31 @@ export default function ShooterContainer() {
             const res = await fetch(`/api/user/stats?wallet=${publicKey.toString()}`);
             const data = await res.json();
             if (res.ok && data) {
-                setStats(data);
-                const dataWithWallet = { ...data, walletAddress: publicKey.toString() };
+                // MAP PRISMA NAMES TO YOUR LOCAL STATS STATE
+                setStats({
+                    ...data,
+                    laam: data.laamPoints, // Map laamPoints to laam
+                    tag: data.tagTickets,  // Map tagTickets to tag
+                    shooterLevel: data.shooterLevel || 1, // Map from Prisma
+                    shooterStage: data.shooterStage || 1  // Map from Prisma
+                });
+
+                // TWEAK: Set statsReady to true AFTER setStats to ensure 
+                // the state has been queued for update.
+                setStatsReady(true);
+
+                const dataWithWallet = {
+                    ...data,
+                    laam: data.laamPoints,
+                    tag: data.tagTickets,
+                    shooterLevel: data.shooterLevel || 1,
+                    shooterStage: data.shooterStage || 1,
+                    walletAddress: publicKey.toString()
+                };
 
                 if (sceneReadyRef.current && phaserGame.current) {
                     setTimeout(() => {
-                        if (phaserGame.current) {
-                            EventBus.emit('apply-upgrades', dataWithWallet);
-                        }
+                        EventBus.emit('apply-upgrades', dataWithWallet);
                     }, 200);
                 }
             }
@@ -69,19 +94,74 @@ export default function ShooterContainer() {
         const handleGameOver = () => setIsGameOver(true);
         const handleVictory = () => setIsVictory(true);
 
-        const handleStageCleared = (data: any) => {
+        const handleStageCleared = async (data: { stage: number }) => {
+            // 1. Update React State immediately so "Restart" uses the correct stage
+            setStats(prev => ({
+                ...prev,
+                shooterStage: data.stage
+            }));
+
+            // 2. UI Feedback
             toast(`STAGE ${data.stage - 1} CLEAR! SHOP OPEN`, {
                 icon: '🚀',
                 style: { background: '#000', color: '#eab308', border: '1px solid #eab308', fontWeight: 900, fontSize: '10px' }
             });
             setIsShopOpen(true);
+
+            // 3. Sync to Database (sync-stage.ts)
+            if (publicKey) {
+                try {
+                    await fetch('/api/games/shooter/sync-stage', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            walletAddress: publicKey.toString(),
+                            stage: data.stage // This saves the NEW stage (e.g., 2, 3, 4, or 5)
+                        })
+                    });
+                } catch (err) {
+                    console.error("Failed to sync stage progress:", err);
+                }
+            }
         };
 
-        const handleRewardEarned = (data: { type: string }) => {
-            if (data.type === 'SPECIAL_BOMB_TAG') {
-                setStats(prev => ({ ...prev, tag: (prev.tag || 0) + 1 }));
-            } else if (data.type === 'SPECIAL_BOMB_LAAM') {
-                setStats(prev => ({ ...prev, laam: (prev.laam || 0) + 10 }));
+        // Inside ShooterContainer.tsx -> useEffect -> handleRewardEarned
+        const handleRewardEarned = async (data: { type: string }) => {
+            if (!publicKey) return;
+
+            try {
+                const res = await fetch('/api/games/shooter/reward', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        walletAddress: publicKey.toString(),
+                        type: data.type
+                    })
+                });
+
+                const result = await res.json();
+
+                if (res.ok) {
+                    setStats(prev => {
+                        // If it was a boss win, we increment the level and reset stage locally
+                        const isBoss = data.type === 'BOSS_WIN';
+
+                        return {
+                            ...prev,
+                            tag: (prev.tag || 0) + (result.tag || 0),
+                            laam: (prev.laam || 0) + (result.laam || 0),
+                            // sync the local levels with what the DB just did:
+                            shooterLevel: isBoss ? prev.shooterLevel + 1 : prev.shooterLevel,
+                            shooterStage: isBoss ? 1 : prev.shooterStage
+                        };
+                    });
+
+                    toast.success(`+${result.laam || result.tag} RECEIVED`, {
+                        style: { background: '#000', color: '#eab308', border: '1px solid #eab308', fontSize: '10px' }
+                    });
+                }
+            } catch (err) {
+                console.error("Failed to save reward:", err);
             }
         };
 
@@ -104,7 +184,10 @@ export default function ShooterContainer() {
             if (phaserGame.current) {
                 phaserGame.current.destroy(true);
                 phaserGame.current = null;
+                // CRITICAL: Reset these so the NEXT time you click Engage, it waits properly
                 sceneReadyRef.current = false;
+                setIsSceneReady(false);
+                setIsLoading(false);
             }
         };
     }, [publicKey, fetchUserData]);
@@ -112,27 +195,61 @@ export default function ShooterContainer() {
     const goHome = () => router.push('/');
 
     const handleEngage = () => {
+        // 1. Safety Checks
+        if (!statsReady) {
+            toast.error("LOADING PLAYER DATA...");
+            return;
+        }
+
         if (isLoading) return;
+
+        console.log("REACT: Engage Clicked - Initializing Systems");
+
+        // 2. Setup State
+        sceneReadyRef.current = false;
         setIsLoading(true);
 
         let activeGame = phaserGame.current;
+
+        // 3. Start Phaser if it isn't running
         if (!activeGame) {
-            activeGame = StartGame("game-container");
+            activeGame = StartGame("game-container", {
+                level: stats.shooterLevel,
+                stage: stats.shooterStage,
+                stats: {
+                    ...stats,
+                    walletAddress: publicKey?.toString()
+                }
+            });
             phaserGame.current = activeGame;
         }
 
+        // 4. Wait for the Scene to tell React it is ready
         let attempts = 0;
         const readyCheck = setInterval(() => {
             attempts++;
-            if (activeGame && sceneReadyRef.current) {
-                const statsWithWallet = { ...stats, walletAddress: publicKey?.toString() };
+
+            // This becomes true when ShooterScene calls EventBus.emit('current-scene-ready')
+            if (sceneReadyRef.current) {
+                console.log("REACT RECEIVING: Scene Ready - Sending Start Signal");
+
+                const statsWithWallet = {
+                    ...stats,
+                    walletAddress: publicKey?.toString()
+                };
+
+                // Send data and start signals
                 EventBus.emit('apply-upgrades', statsWithWallet);
                 EventBus.emit('start-game');
+
+                // UI Updates
                 setGameStarted(true);
                 setIsLoading(false);
                 clearInterval(readyCheck);
                 return;
             }
+
+            // Timeout after ~9 seconds
             if (attempts > 60) {
                 setIsLoading(false);
                 clearInterval(readyCheck);
@@ -141,18 +258,34 @@ export default function ShooterContainer() {
         }, 150);
     };
 
+
     const restartGame = useCallback(() => {
-        if (phaserGame.current) {
+        if (phaserGame.current && !isRestarting) {
+            setIsRestarting(true);
+
             const statsWithWallet = { ...stats, walletAddress: publicKey?.toString() };
-            EventBus.emit('start-game');
-            EventBus.emit('apply-upgrades', statsWithWallet);
-            setIsGameOver(false);
-            setIsVictory(false);
-            setIsPaused(false);
-            setIsShopOpen(false);
-            setGameStarted(true);
+
+            // 1. Tell Phaser to restart with data
+            const scene = phaserGame.current.scene.scenes[0];
+            scene.scene.restart({
+                stats: statsWithWallet,
+                level: stats.shooterLevel,
+                stage: stats.shooterStage
+            });
+
+            // 2. Wait for the scene to be ready, then trigger the start logic
+            setTimeout(() => {
+                setIsGameOver(false);
+                setIsVictory(false);
+                setGameStarted(true);
+                setIsRestarting(false);
+
+                // CRITICAL: Emit the start event AFTER the delay 
+                // so the scene is definitely 'isManualReady'
+                EventBus.emit('start-game');
+            }, 800);
         }
-    }, [stats, publicKey]);
+    }, [stats, publicKey, isRestarting]);
 
     const togglePause = () => {
         const newPauseState = !isPaused;
@@ -174,12 +307,10 @@ export default function ShooterContainer() {
             const result = await res.json();
 
             if (res.ok) {
-                toast.success("SYSTEM UPGRADED!", {
-                    style: { background: '#000', color: '#eab308', border: '1px solid #eab308' }
-                });
                 const updatedStats = {
                     ...stats,
-                    tag: result.remainingTag,
+                    // Subtract the cost returned by the API from current local TAG
+                    tag: stats.tag - result.cost,
                     weaponLevel: itemType === 'weapon' ? result.newLevel : stats.weaponLevel,
                     shieldLevel: itemType === 'shield' ? result.newLevel : stats.shieldLevel,
                     shoeLevel: itemType === 'engine' ? result.newLevel : stats.shoeLevel,
@@ -310,7 +441,22 @@ export default function ShooterContainer() {
                             ))}
                         </div>
                     </div>
-                    <button onClick={() => setIsShopOpen(false)} style={{ position: 'absolute', bottom: 0, width: '100%', padding: '20px', borderTop: '1px solid #1a1a1a', color: '#444', fontWeight: 900, fontSize: '10px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                    /* Locate the EXIT_TERMINAL button at the bottom of your shopPanel in ShooterContainer.tsx */
+
+                    <button
+                        onClick={() => {
+                            setIsShopOpen(false);
+                            // This is the missing link: It triggers startGameLogic() in the current scene
+                            EventBus.emit('resume-stage');
+
+                        }}
+                        style={{
+                            position: 'absolute', bottom: 0, width: '100%', padding: '20px',
+                            borderTop: '1px solid #1a1a1a', color: '#444', fontWeight: 900,
+                            fontSize: '10px', textTransform: 'uppercase', display: 'flex',
+                            alignItems: 'center', justifyContent: 'center', gap: '8px'
+                        }}
+                    >
                         EXIT_TERMINAL <ChevronRight size={14} />
                     </button>
                 </div>
@@ -319,8 +465,30 @@ export default function ShooterContainer() {
                 {isGameOver && (
                     <div style={{ position: 'absolute', inset: 0, zIndex: 30000, background: 'rgba(0,0,0,0.95)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(10px)' }}>
                         <h2 style={{ color: '#991b1b', fontSize: '72px', fontWeight: 900, fontStyle: 'italic', marginBottom: '20px', letterSpacing: '-4px' }}>TERMINATED</h2>
-                        <button onClick={restartGame} style={{ background: '#fff', color: '#000', padding: '16px 40px', borderRadius: '4px', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '18px', textTransform: 'uppercase' }}>
-                            <RotateCcw size={20} /> REDEPLOY
+
+                        <button
+                            onClick={restartGame}
+                            disabled={isRestarting}
+                            style={{
+                                background: isRestarting ? '#333' : '#fff',
+                                color: isRestarting ? '#666' : '#000',
+                                padding: '16px 40px',
+                                borderRadius: '4px',
+                                fontWeight: 900,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                fontSize: '18px',
+                                textTransform: 'uppercase',
+                                cursor: isRestarting ? 'not-allowed' : 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            <RotateCcw
+                                size={20}
+                                className={isRestarting ? styles.spinning : ''}
+                            />
+                            {isRestarting ? "FETCHING DATA..." : "REDEPLOY"}
                         </button>
                     </div>
                 )}

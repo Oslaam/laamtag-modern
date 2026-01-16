@@ -23,13 +23,28 @@ const config: Phaser.Types.Core.GameConfig = {
             debug: false
         }
     },
-    scene: [
-        Preloader,
-        ShooterScene
-    ]
+    scene: [Preloader, ShooterScene]
 };
 
 // Ensure the word 'export' is here and it is a named function
-export const StartGame = (parent: string) => {
-    return new Phaser.Game({ ...config, parent });
+export const StartGame = (
+    parent: string,
+    data?: {
+        level: number;
+        stage: number;
+        stats: any;
+    }
+) => {
+    return new Phaser.Game({
+        ...config,
+        parent,
+        scene: [Preloader, ShooterScene], // Keep this simple
+        callbacks: {
+            preBoot: (game) => {
+                // This injects your DB data into the global registry 
+                // so ALL scenes can see it easily without errors.
+                game.registry.set('initialData', data);
+            }
+        }
+    });
 };
