@@ -55,18 +55,26 @@ const Mint: NextPage = () => {
   const fetchStatus = async () => {
     try {
       if (!publicKey) return;
-      const res = await axios.get(`/api/status/${publicKey.toBase58()}`);
+
+      // 1. Fetch user stats from the API (the one we fixed from /api/status to /api/user)
+      const res = await axios.get(`/api/user/${publicKey.toBase58()}`);
+
+      // 2. Fetch Candy Machine State from Solana
       const umi = createUmi(RPC_URL).use(mplCandyMachine());
       const candyMachine = await fetchCandyMachine(umi, umiPublicKey(MY_CANDY_ID.trim()));
 
-      const itemsRedeemed = Number(candyMachine.itemsRedeemed);
-      const isSoldOut = itemsRedeemed >= MAX_SUPPLY;
+      // Use BigInt conversion safely for the progress bar
+      const redeemed = Number(candyMachine.itemsRedeemed);
+      const total = Number(candyMachine.data.itemsAvailable);
 
       setStats({
-        global: itemsRedeemed,
-        personal: res.data.personalMinted || 0,
-        soldOut: isSoldOut
+        global: redeemed,
+        // FIX: Change 'personalMinted' to 'tagTickets' so it matches your Database/API
+        personal: res.data.tagTickets || 0,
+        soldOut: redeemed >= total
       });
+
+      console.log("Stats Updated:", { redeemed, personal: res.data.tagTickets });
     } catch (e) {
       console.warn("Status Sync Error:", e);
     }

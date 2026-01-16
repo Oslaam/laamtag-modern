@@ -20,10 +20,12 @@ export const ContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
     const endpoint = useMemo(() => {
         const url = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
-        if (!url || !url.startsWith("http")) {
-            return "https://api.mainnet-beta.solana.com";
+
+        if (!url) {
+            console.error("❌ RPC URL IS MISSING! Check your .env file and restart npm run dev.");
         }
-        return url;
+
+        return url || "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
     }, []);
 
     const wallets = useMemo(() => {
