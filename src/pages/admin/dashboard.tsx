@@ -17,8 +17,7 @@ const MotionSvg = motion.svg as any;
 
 const ADMIN_WALLETS = [
   "E4cHwRYWTznNjTvchSkZVXH8LWqdWbLekVXWjzmite6M", // Your Address
-  "kzHT1obsuYCCWUChsvtUADxEw6VqNF3F9kywWEXDkKG",
-  "CfRjo855LvAWcviiiq7DdcLz9i5Xqy8Vvnmh95UnL9Ua"
+  "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc"
 ];
 
 export default function AdminDashboard() {

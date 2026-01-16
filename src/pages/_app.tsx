@@ -26,7 +26,7 @@ const WalletMultiButtonDynamic = dynamic(
 
 const ADMIN_WALLETS = [
     "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc",
-    "CfRjo855LvAWcviiiq7DdcLz9i5Xqy8Vvnmh95UnL9Ua"
+    "E4cHwRYWTznNjTvchSkZVXH8LWqdWbLekVXWjzmite6M"
 ];
 
 interface FooterItem {
