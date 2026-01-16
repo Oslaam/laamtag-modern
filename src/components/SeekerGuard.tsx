@@ -4,11 +4,17 @@ import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { TOKEN_2022_PROGRAM_ID, getMint } from '@solana/spl-token';
 import { PublicKey } from '@solana/web3.js';
 import { useEffect, useState } from 'react';
-import { Lock, ShieldAlert, Zap, ArrowLeft } from 'lucide-react';
+import { Lock, ShieldAlert, ArrowLeft } from 'lucide-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 
+// The Seeker Genesis Mint Authority
 const SEEKER_MINT_AUTHORITY = new PublicKey("GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4");
-const ADMIN_WALLET = "E4cHwRYWTznNjTvchSkZVXH8LWqdWbLekVXWjzmite6M";
+
+// Authorized Admin Wallets
+const ADMIN_WALLETS = [
+    "E4cHwRYWTznNjTvchSkZVXH8LWqdWbLekVXWjzmite6M",
+    "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc"
+];
 
 export default function SeekerGuard({ children }: { children: React.ReactNode }) {
     const { connection } = useConnection();
@@ -22,29 +28,49 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
                 setHasAccess(null);
                 return;
             }
-            if (publicKey.toBase58() === ADMIN_WALLET) {
+
+            // 1. IMMEDIATE ADMIN CHECK
+            const walletAddr = publicKey.toBase58();
+            if (ADMIN_WALLETS.includes(walletAddr)) {
+                console.log("Terminal Access: Admin Verified");
                 setHasAccess(true);
                 return;
             }
+
             setLoading(true);
             try {
+                // 2. FETCH TOKEN-2022 ACCOUNTS
                 const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
                     publicKey,
                     { programId: TOKEN_2022_PROGRAM_ID }
                 );
 
                 let verified = false;
-                for (const account of tokenAccounts.value) {
-                    const amount = account.account.data.parsed.info.tokenAmount.uiAmount;
-                    if (amount > 0) {
+
+                // 3. OPTIMIZED SEARCH: Only check accounts with balance > 0
+                const activeAccounts = tokenAccounts.value.filter(
+                    acc => acc.account.data.parsed.info.tokenAmount.uiAmount > 0
+                );
+
+                console.log(`Scanning ${activeAccounts.length} active Token-2022 assets...`);
+
+                for (const account of activeAccounts) {
+                    try {
                         const mintAddress = new PublicKey(account.account.data.parsed.info.mint);
                         const mintInfo = await getMint(connection, mintAddress, "confirmed", TOKEN_2022_PROGRAM_ID);
+
+                        // Check if the mint authority matches Seeker Genesis
                         if (mintInfo.mintAuthority?.equals(SEEKER_MINT_AUTHORITY)) {
                             verified = true;
                             break;
                         }
+                    } catch (e) {
+                        // Skip individual mint failures (e.g. RPC timeout on one specific token)
+                        continue;
                     }
                 }
+
+                console.log("Verification Result:", verified ? "ACCESS GRANTED" : "ACCESS DENIED");
                 setHasAccess(verified);
             } catch (err) {
                 console.error("Verification Error:", err);
@@ -53,6 +79,7 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
                 setLoading(false);
             }
         };
+
         verifyToken();
     }, [publicKey, connection]);
 
@@ -134,5 +161,6 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
         );
     }
 
+    // 4. STATE: ACCESS GRANTED
     return <>{children}</>;
 }
