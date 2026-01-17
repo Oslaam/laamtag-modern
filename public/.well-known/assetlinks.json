@@ -1,0 +1,14 @@
+[
+    {
+        "relation": [
+            "delegate_permission/common.handle_all_urls"
+        ],
+        "target": {
+            "namespace": "android_app",
+            "package_name": "com.uselaamtag.twa",
+            "sha256_cert_fingerprints": [
+                "52:ED:DB:A7:AC:FF:2F:C5:DC:4F:86:40:95:85:29:07:D7:FB:F7:7F:3A:F0:86:58:E4:71:4D:CC:C6:C4:A9:A6"
+            ]
+        }
+    }
+]
