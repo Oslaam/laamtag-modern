@@ -1,0 +1,22 @@
+{
+    "short_name": "LAAMTAG",
+    "name": "LAAMTAG Hub - Seeker Exclusive",
+    "icons": [
+        {
+            "src": "/assets/images/laamtag-logo-NObg.png",
+            "type": "image/png",
+            "sizes": "192x192"
+        },
+        {
+            "src": "/assets/images/laaamtag-icon.png",
+            "type": "image/png",
+            "sizes": "512x512",
+            "purpose": "any maskable"
+        }
+    ],
+    "start_url": "/",
+    "background_color": "#000000",
+    "display": "standalone",
+    "scope": "/",
+    "theme_color": "#582c9b"
+}
