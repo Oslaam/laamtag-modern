@@ -15,18 +15,20 @@ export default function ShopPage() {
         const loadId = toast.loading("Initializing Terminal...");
 
         try {
-            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+            const latestBlockhash = await connection.getLatestBlockhash('confirmed');
 
-            const transaction = new Transaction({
-                feePayer: publicKey,
-                recentBlockhash: blockhash,
-            }).add(
+            const transaction = new Transaction();
+            transaction.feePayer = publicKey;
+            transaction.recentBlockhash = latestBlockhash.blockhash;
+
+            transaction.add(
                 SystemProgram.transfer({
                     fromPubkey: publicKey,
                     toPubkey: TREASURY_WALLET,
                     lamports: Math.round(priceInSol * LAMPORTS_PER_SOL),
                 })
             );
+
 
             toast.loading("Awaiting Signature...", { id: loadId });
             const signature = await sendTransaction(transaction, connection);
@@ -39,11 +41,15 @@ export default function ShopPage() {
             const timeoutId = setTimeout(() => abortController.abort(), 60000); // 60 second limit
 
             try {
-                await connection.confirmTransaction({
-                    signature,
-                    blockhash,
-                    lastValidBlockHeight
-                }, 'confirmed');
+                await connection.confirmTransaction(
+                    {
+                        signature,
+                        blockhash: latestBlockhash.blockhash,
+                        lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+                    },
+                    'confirmed'
+                );
+
                 clearTimeout(timeoutId);
             } catch (e) {
                 // If it takes longer than 60s, don't crash, just tell user to check balance
