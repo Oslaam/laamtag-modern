@@ -232,16 +232,21 @@ const App: FC<AppProps> = ({ Component, pageProps }) => (
             <title>LaamTag - Terminal</title>
             {/* 1. Mobile specific viewport settings */}
             <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover" />
-            
+
             {/* 2. Link to your manifest file */}
             <link rel="manifest" href="/manifest.json" />
-            
+
             {/* 3. Theme color for the Android status bar */}
             <meta name="theme-color" content="#eab308" />
-            
+
             {/* 4. iOS support (optional but good) */}
             <meta name="apple-mobile-web-app-capable" content="yes" />
             <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+            {/* Web favicon */}
+            <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+            <link rel="icon" type="image/png" sizes="56x56" href="/favicon-56.png" />
+
         </Head>
         <GlobalLayout>
             <Component {...pageProps} />
