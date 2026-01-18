@@ -12,16 +12,11 @@ export default function ShopPage() {
 
     const handlePurchase = async (qty: number, priceInSol: number) => {
         if (!publicKey) return toast.error("Connect wallet first!");
-        const loadId = toast.loading("Initializing Terminal...");
+        const loadId = toast.loading("Connecting to Wallet...");
 
         try {
-            const latestBlockhash = await connection.getLatestBlockhash('confirmed');
-
-            const transaction = new Transaction();
-            transaction.feePayer = publicKey;
-            transaction.recentBlockhash = latestBlockhash.blockhash;
-
-            transaction.add(
+            // 1. Create a "naked" transaction (No manual feePayer or recentBlockhash)
+            const transaction = new Transaction().add(
                 SystemProgram.transfer({
                     fromPubkey: publicKey,
                     toPubkey: TREASURY_WALLET,
@@ -29,34 +24,15 @@ export default function ShopPage() {
                 })
             );
 
-
-            toast.loading("Awaiting Signature...", { id: loadId });
+            // 2. The adapter handles the signing and broadcasting logic for all platforms
             const signature = await sendTransaction(transaction, connection);
 
+            toast.loading("Verifying Purchase...", { id: loadId });
 
-            toast.loading("Verifying (Approx 30s)...", { id: loadId });
+            // 3. Robust confirmation
+            await connection.confirmTransaction(signature, 'confirmed');
 
-            // --- TIMEOUT LOGIC START ---
-            const abortController = new AbortController();
-            const timeoutId = setTimeout(() => abortController.abort(), 60000); // 60 second limit
-
-            try {
-                await connection.confirmTransaction(
-                    {
-                        signature,
-                        blockhash: latestBlockhash.blockhash,
-                        lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-                    },
-                    'confirmed'
-                );
-
-                clearTimeout(timeoutId);
-            } catch (e) {
-                // If it takes longer than 60s, don't crash, just tell user to check balance
-                throw new Error("Confirmation taking too long. Please check your wallet balance in a minute.");
-            }
-            // --- TIMEOUT LOGIC END ---
-
+            // 4. Update your database
             const res = await fetch('/api/shop/buy-tickets', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -68,14 +44,16 @@ export default function ShopPage() {
             });
 
             if (res.ok) {
-                toast.success(`Acquired ${qty} TAG Tickets!`, { id: loadId });
+                toast.success(`Success! Got ${qty} Tickets`, { id: loadId });
                 window.dispatchEvent(new Event('balanceUpdate'));
             } else {
                 toast.error("Database sync failed.", { id: loadId });
             }
         } catch (err: any) {
             console.error("Shop Error:", err);
-            toast.error(err.message.includes("User rejected") ? "Declined" : err.message, { id: loadId });
+            // Better error message for when a user cancels on mobile
+            const isCancel = err.message?.includes("User rejected");
+            toast.error(isCancel ? "Transaction Cancelled" : "Transaction Failed", { id: loadId });
         }
     };
 

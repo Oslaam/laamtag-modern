@@ -37,7 +37,7 @@ export const ContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
                 appIdentity: {
                     name: 'LaamTag',
                     uri: 'https://app.uselaamtag.xyz',
-                    icon: '/favicon.png',
+                    icon: 'https://app.uselaamtag.xyz/favicon.png',
                 },
                 authorizationResultCache: createDefaultAuthorizationResultCache(),
                 // FIX 1: Must use the WalletAdapterNetwork enum, not a string
