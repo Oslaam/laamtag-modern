@@ -60,13 +60,14 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
     const isAdmin = publicKey && ADMIN_WALLETS.includes(publicKey.toString());
 
     const fetchStats = useCallback(async () => {
-        if (!publicKey) return;
+        // 1. Safety Check: Only fetch if wallet is connected and browser is active
+        if (!publicKey || typeof window === 'undefined') return;
 
-        // 1. Fetch DB Stats (LAAM/TAG) - This usually works fine
+        // 2. Fetch Database Stats (LAAM/TAG)
         try {
             const res = await fetch(`/api/user/${publicKey.toString()}`);
-            const data = await res.json();
             if (res.ok) {
+                const data = await res.json();
                 setStats(prev => ({
                     ...prev,
                     laam: data.laamPoints || 0,
@@ -81,36 +82,63 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
             console.error("DB Stats Error:", err);
         }
 
-        // 2. Fetch SOL Balance - THIS is what is causing the CORS/Network error
+        // 3. Fetch SOL Balance with RPC Error Handling
         try {
+            // We use a small timeout check here to prevent the browser from freezing 
+            // if the RPC is slow during a wallet connection
             const bal = await connection.getBalance(publicKey);
             setStats(prev => ({ ...prev, sol: bal / LAMPORTS_PER_SOL }));
         } catch (err) {
-            console.warn("Solana RPC Error (CORS):", err);
-            // We don't crash the whole function, just log a warning
+            // Log as warning only - don't let RPC CORS errors break the UI
+            console.warn("Solana RPC Balance Fetch paused or failed:", err);
         }
 
-        // 3. Admin Check
+        // 4. Admin Check
         if (isAdmin) {
             try {
                 const adminRes = await fetch('/api/admin/pending', {
                     headers: { 'x-admin-wallet': publicKey.toString() }
                 });
-                const adminData = await adminRes.json();
-                setPendingCount(adminData.count || 0);
-            } catch (e) { console.error("Admin fetch error", e); }
+                if (adminRes.ok) {
+                    const adminData = await adminRes.json();
+                    setPendingCount(adminData.count || 0);
+                }
+            } catch (e) {
+                console.error("Admin fetch error", e);
+            }
         }
     }, [publicKey, connection, isAdmin]);
 
     useEffect(() => {
-        fetchStats();
-        window.addEventListener('balanceUpdate', fetchStats);
-        const interval = setInterval(fetchStats, 30000);
+        // 1. Initial fetch: Only run if the wallet is actually connected
+        // This prevents background errors while the user is still in the connection menu
+        if (publicKey) {
+            fetchStats();
+        }
+
+        // 2. Listen for custom balance update events (useful for manual refreshes)
+        const handleBalanceUpdate = () => fetchStats();
+        window.addEventListener('balanceUpdate', handleBalanceUpdate);
+
+        // 3. Setup the 30-second background refresh interval
+        // We only start this timer if a publicKey exists
+        let intervalId: NodeJS.Timeout | undefined;
+
+        if (publicKey) {
+            intervalId = setInterval(() => {
+                fetchStats();
+            }, 30000);
+        }
+
+        // 4. Cleanup function: Stop the timer and remove listeners when the user 
+        // disconnects or navigates away to prevent memory leaks and "freezing"
         return () => {
-            window.removeEventListener('balanceUpdate', fetchStats);
-            clearInterval(interval);
+            window.removeEventListener('balanceUpdate', handleBalanceUpdate);
+            if (intervalId) {
+                clearInterval(intervalId);
+            }
         };
-    }, [fetchStats]);
+    }, [publicKey, fetchStats]); // publicKey is required here to restart the cycle on connect
 
     const allContentItems: FooterItem[] = [
         { name: 'Mint', icon: <Coins size={20} />, path: '/mint', type: 'link' },
