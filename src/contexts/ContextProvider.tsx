@@ -19,8 +19,13 @@ export const ContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
     }, []);
 
     const endpoint = useMemo(() => {
-        // This uses your own domain to talk to Helius, which mobile browsers trust more
-        return "/api/rpc-proxy";
+        const url = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
+
+        if (!url) {
+            console.error("❌ RPC URL IS MISSING! Check your .env file and restart npm run dev.");
+        }
+
+        return url || "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
     }, []);
 
     const wallets = useMemo(() => {
@@ -32,7 +37,7 @@ export const ContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
                 appIdentity: {
                     name: 'LaamTag',
                     uri: 'https://app.uselaamtag.xyz/',
-                    icon: 'https://app.uselaamtag.xyz/favicon.png',
+                    icon: 'https://app.uselaamtag.xyz/assets/images/laamtag-logo-NObg.png',
                 },
                 authorizationResultCache: createDefaultAuthorizationResultCache(),
                 // FIX 1: Must use the WalletAdapterNetwork enum, not a string
@@ -55,7 +60,7 @@ export const ContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
     return (
         <ConnectionProvider endpoint={endpoint} config={{ commitment: 'confirmed' }}>
-            <WalletProvider wallets={wallets} onError={onError} autoConnect={true}>
+            <WalletProvider wallets={wallets} onError={onError} autoConnect={false}>
                 <WalletModalProvider>
                     {children}
                 </WalletModalProvider>
