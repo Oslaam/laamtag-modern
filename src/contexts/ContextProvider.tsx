@@ -19,15 +19,18 @@ export const ContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
     }, []);
 
     const endpoint = useMemo(() => {
+        // 1. First, try to get the variable from Railway
         const url = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
 
+        // 2. If it's missing (usually happens during the Build phase), 
+        //    use your hardcoded URL so the build can finish successfully.
         if (!url) {
-            console.error("❌ RPC URL IS MISSING! Check your .env file and restart npm run dev.");
+            return "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
         }
 
-        return url || "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
+        return url;
     }, []);
-
+    
     const wallets = useMemo(() => {
         if (!mounted) return [];
 
