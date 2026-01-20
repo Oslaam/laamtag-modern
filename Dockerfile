@@ -22,6 +22,9 @@ COPY . .
 # 6. Build the Next.js app
 RUN npm run build
 
-# 7. Start the production server
-EXPOSE 3000
-CMD ["npm", "run", "start"]
+# 7. Expose the port Railway uses
+EXPOSE 8080
+
+# 8. Start the standalone server directly
+# We use the array format for CMD to ensure it handles signals correctly
+CMD ["node", ".next/standalone/server.js"]
