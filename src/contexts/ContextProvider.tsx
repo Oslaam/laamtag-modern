@@ -39,7 +39,7 @@ export const ContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
                 addressSelector: createDefaultAddressSelector(),
                 appIdentity: {
                     name: 'LaamTag',
-                    uri: 'https://app.uselaamtag.xyz/',
+                    uri: 'https://app.uselaamtag.xyz',
                     icon: 'https://app.uselaamtag.xyz/assets/images/laaamtag-icon.png',
                 },
                 authorizationResultCache: createDefaultAuthorizationResultCache(),
