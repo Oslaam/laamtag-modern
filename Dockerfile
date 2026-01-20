@@ -26,5 +26,4 @@ RUN npm run build
 EXPOSE 8080
 
 # 8. Start the standalone server directly
-# We use the array format for CMD to ensure it handles signals correctly
 CMD ["node", ".next/standalone/server.js"]
