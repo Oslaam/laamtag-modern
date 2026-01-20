@@ -268,7 +268,7 @@ const App: FC<AppProps> = ({ Component, pageProps }) => (
             <meta name="theme-color" content="#eab308" />
 
             {/* 4. iOS support (optional but good) */}
-            <meta name="apple-mobile-web-app-capable" content="yes" />
+            <meta name="mobile-web-app-capable" content="yes" />
             <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
             {/* Web favicon */}
