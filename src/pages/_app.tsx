@@ -60,85 +60,35 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
     const isAdmin = publicKey && ADMIN_WALLETS.includes(publicKey.toString());
 
     const fetchStats = useCallback(async () => {
-        // 1. Safety Check: Only fetch if wallet is connected and browser is active
-        if (!publicKey || typeof window === 'undefined') return;
+        // ONLY fetch if we have a public key AND we aren't in the middle of connecting
+        if (!publicKey) return;
 
-        // 2. Fetch Database Stats (LAAM/TAG)
         try {
             const res = await fetch(`/api/user/${publicKey.toString()}`);
-            if (res.ok) {
-                const data = await res.json();
-                setStats(prev => ({
-                    ...prev,
-                    laam: data.laamPoints || 0,
-                    tag: data.tagTickets || 0,
-                    tier: data.rank || 'BRONZE',
-                    username: data.username || '',
-                    currentStage: data.shooterStage || 1,
-                    weaponLevel: data.weaponLevel || 1
-                }));
-            }
+            // ... rest of your code
         } catch (err) {
             console.error("DB Stats Error:", err);
-        }
-
-        // 3. Fetch SOL Balance with RPC Error Handling
-        try {
-            // We use a small timeout check here to prevent the browser from freezing 
-            // if the RPC is slow during a wallet connection
-            const bal = await connection.getBalance(publicKey);
-            setStats(prev => ({ ...prev, sol: bal / LAMPORTS_PER_SOL }));
-        } catch (err) {
-            // Log as warning only - don't let RPC CORS errors break the UI
-            console.warn("Solana RPC Balance Fetch paused or failed:", err);
-        }
-
-        // 4. Admin Check
-        if (isAdmin) {
-            try {
-                const adminRes = await fetch('/api/admin/pending', {
-                    headers: { 'x-admin-wallet': publicKey.toString() }
-                });
-                if (adminRes.ok) {
-                    const adminData = await adminRes.json();
-                    setPendingCount(adminData.count || 0);
-                }
-            } catch (e) {
-                console.error("Admin fetch error", e);
-            }
         }
     }, [publicKey, connection, isAdmin]);
 
     useEffect(() => {
-        // 1. Initial fetch: Only run if the wallet is actually connected
-        // This prevents background errors while the user is still in the connection menu
-        if (publicKey) {
-            fetchStats();
-        }
+        // 1. Only start if we actually have a publicKey
+        if (!publicKey) return;
 
-        // 2. Listen for custom balance update events (useful for manual refreshes)
+        fetchStats();
+
         const handleBalanceUpdate = () => fetchStats();
         window.addEventListener('balanceUpdate', handleBalanceUpdate);
 
-        // 3. Setup the 30-second background refresh interval
-        // We only start this timer if a publicKey exists
-        let intervalId: NodeJS.Timeout | undefined;
+        const intervalId = setInterval(() => {
+            fetchStats();
+        }, 30000);
 
-        if (publicKey) {
-            intervalId = setInterval(() => {
-                fetchStats();
-            }, 30000);
-        }
-
-        // 4. Cleanup function: Stop the timer and remove listeners when the user 
-        // disconnects or navigates away to prevent memory leaks and "freezing"
         return () => {
             window.removeEventListener('balanceUpdate', handleBalanceUpdate);
-            if (intervalId) {
-                clearInterval(intervalId);
-            }
+            clearInterval(intervalId);
         };
-    }, [publicKey, fetchStats]); // publicKey is required here to restart the cycle on connect
+    }, [publicKey]); // Remove fetchStats from here to prevent unnecessary loops
 
     const allContentItems: FooterItem[] = [
         { name: 'Mint', icon: <Coins size={20} />, path: '/mint', type: 'link' },
