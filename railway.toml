@@ -2,6 +2,6 @@
 builder = "NIXPACKS"
 
 [deploy]
-startCommand = "PORT=8080 node .next/standalone/server.js"
+startCommand = "/bin/sh -c 'PORT=8080 node .next/standalone/server.js'"
 restartPolicyType = "ON_FAILURE"
 
