@@ -16,6 +16,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     };
 
     res.setHeader('Content-Type', 'application/json');
+    // Cache for 10 minutes, with stale-while-revalidate for 20 minutes
     res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=1200');
     res.status(200).json(manifest);
 }
