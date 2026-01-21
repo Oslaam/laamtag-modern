@@ -4,8 +4,8 @@ import { logActivity } from '../../../lib/activityLogger';
 import { Connection, LAMPORTS_PER_SOL } from '@solana/web3.js';
 
 // Setup connection
-const RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
-const connection = new Connection(RPC_URL);
+const RPC_URL = process.env.HELIUS_RPC_URL;
+const connection = new Connection(RPC_URL!);
 const TREASURY_WALLET = "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc";
 
 // Price logic - Adjust to match your shop.tsx (0.015 SOL per 1 TAG)
@@ -33,18 +33,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             return res.status(400).json({ message: "This transaction has already been claimed." });
         }
 
-        // 2. BLOCKCHAIN VERIFICATION
+        // 2. BLOCKCHAIN VERIFICATION (Seeker-Optimized Retry Logic)
         if (!signature) {
             return res.status(400).json({ message: "No transaction signature provided" });
         }
 
-        const tx = await connection.getTransaction(signature, {
-            commitment: 'confirmed',
-            maxSupportedTransactionVersion: 0
-        });
+        let tx = null;
+        let retries = 0;
+
+        // Try up to 5 times to find the transaction on the network
+        while (!tx && retries < 5) {
+            tx = await connection.getTransaction(signature, {
+                commitment: 'confirmed',
+                maxSupportedTransactionVersion: 0
+            });
+
+            if (!tx) {
+                retries++;
+                // Wait 1.5 seconds for the RPC to index the data
+                await new Promise(resolve => setTimeout(resolve, 1500));
+            }
+        }
 
         if (!tx || tx.meta?.err) {
-            return res.status(400).json({ message: "Transaction failed or not found." });
+            return res.status(400).json({ message: "Transaction failed or not found after retries." });
         }
 
         // 3. VERIFY SENDER & RECIPIENT

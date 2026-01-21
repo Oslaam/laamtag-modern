@@ -15,8 +15,14 @@ export default function ShopPage() {
         const loadId = toast.loading("Connecting to Wallet...");
 
         try {
-            // 1. Create a "naked" transaction (No manual feePayer or recentBlockhash)
-            const transaction = new Transaction().add(
+            // 1. MUST fetch the blockhash first
+            const latestBlockhash = await connection.getLatestBlockhash('confirmed');
+
+            // 2. Create the transaction with the blockhash and feePayer
+            const transaction = new Transaction({
+                feePayer: publicKey,
+                recentBlockhash: latestBlockhash.blockhash,
+            }).add(
                 SystemProgram.transfer({
                     fromPubkey: publicKey,
                     toPubkey: TREASURY_WALLET,
@@ -24,15 +30,19 @@ export default function ShopPage() {
                 })
             );
 
-            // 2. The adapter handles the signing and broadcasting logic for all platforms
+            // 3. Send Transaction
             const signature = await sendTransaction(transaction, connection);
 
             toast.loading("Verifying Purchase...", { id: loadId });
 
-            // 3. Robust confirmation
-            await connection.confirmTransaction(signature, 'confirmed');
+            // 4. Robust Confirmation for Mobile
+            await connection.confirmTransaction({
+                signature,
+                blockhash: latestBlockhash.blockhash,
+                lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+            }, 'confirmed');
 
-            // 4. Update your database
+            // 5. Update Database
             const res = await fetch('/api/shop/buy-tickets', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -51,7 +61,6 @@ export default function ShopPage() {
             }
         } catch (err: any) {
             console.error("Shop Error:", err);
-            // Better error message for when a user cancels on mobile
             const isCancel = err.message?.includes("User rejected");
             toast.error(isCancel ? "Transaction Cancelled" : "Transaction Failed", { id: loadId });
         }
