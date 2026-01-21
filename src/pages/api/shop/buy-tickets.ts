@@ -8,8 +8,8 @@ const RPC_URL = process.env.HELIUS_RPC_URL || process.env.NEXT_PUBLIC_SOLANA_RPC
 const connection = new Connection(RPC_URL);
 const TREASURY_WALLET = "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc";
 
-// Price logic - Adjust to match your shop.tsx (0.015 SOL per 1 TAG)
-const PRICE_PER_TICKET_SOL = 0.015;
+// Price logic - Adjust to match your shop.tsx (0.003 SOL per 1 TAG)
+const PRICE_PER_TICKET_SOL = 0.003;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method !== 'POST') return res.status(405).json({ message: 'Method not allowed' });

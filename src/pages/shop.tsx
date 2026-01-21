@@ -1,24 +1,37 @@
+import { useState } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { Transaction, SystemProgram, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import SeekerGuard from '../components/SeekerGuard';
-import { Ticket } from 'lucide-react';
+import ShopComponent, { Pack } from '../components/Shop'; // Importing your UI-only component
 import toast, { Toaster } from 'react-hot-toast';
 
 const TREASURY_WALLET = new PublicKey("CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc");
 
+// We define the data here so the logic and data stay together
+const SHOP_PACKS: Pack[] = [
+    { amount: 1, price: 0.003, label: 'SCOUT PASS', desc: 'ENTRY ACCESS' },
+    { amount: 5, price: 0.015, label: 'RUNNER PACK', desc: 'FAST TRACK START' },
+    { amount: 10, price: 0.03, label: 'ELITE CACHE', desc: 'TACTICAL ADVANTAGE' },
+    { amount: 50, price: 0.15, label: 'COMMANDER VAULT', desc: 'ELITE CLEARANCE', hot: true },
+    { amount: 100, price: 0.3, label: 'LEGION RESERVE', desc: 'FORCE MULTIPLIER' },
+    { amount: 500, price: 1.5, label: 'DYNASTY TREASURY', desc: 'ABSOLUTE DOMINANCE' }
+];
+
+
 export default function ShopPage() {
     const { connection } = useConnection();
     const { publicKey, signTransaction } = useWallet();
+    const [isProcessing, setIsProcessing] = useState(false);
 
-    const handlePurchase = async (qty: number, priceInSol: number) => {
+    const handlePurchase = async (pack: Pack) => {
         if (!publicKey) return toast.error("Connect wallet first!");
-        const loadId = toast.loading("Connecting to Wallet...");
+
+        setIsProcessing(true);
+        const loadId = toast.loading(`Initiating ${pack.label}...`);
 
         try {
-            // 1. MUST fetch the blockhash first
             const latestBlockhash = await connection.getLatestBlockhash('confirmed');
 
-            // 2. Create the transaction with the blockhash and feePayer
             const transaction = new Transaction({
                 feePayer: publicKey,
                 recentBlockhash: latestBlockhash.blockhash,
@@ -26,56 +39,57 @@ export default function ShopPage() {
                 SystemProgram.transfer({
                     fromPubkey: publicKey,
                     toPubkey: TREASURY_WALLET,
-                    lamports: Math.round(priceInSol * LAMPORTS_PER_SOL),
+                    lamports: Math.round(pack.price * LAMPORTS_PER_SOL),
                 })
             );
 
-            // 3. Send Transaction
-            if (!signTransaction) {
-                throw new Error("Wallet does not support signing");
-            }
+            if (!signTransaction) throw new Error("Wallet does not support signing");
 
-            //  Sign explicitly
+            toast.loading("Awaiting Signature...", { id: loadId });
             const signedTx = await signTransaction(transaction);
 
-            //  Send raw transaction
             const signature = await connection.sendRawTransaction(
                 signedTx.serialize(),
                 { skipPreflight: false }
             );
 
-            toast.loading("Verifying Purchase...", { id: loadId });
+            toast.loading("Verifying on Blockchain...", { id: loadId });
 
-            // 4. Robust Confirmation for Mobile
             await connection.confirmTransaction({
                 signature,
                 blockhash: latestBlockhash.blockhash,
-                lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+                lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
             }, 'confirmed');
 
-            // 5. Update Database
             const res = await fetch('/api/shop/buy-tickets', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     walletAddress: publicKey.toString(),
-                    amount: qty,
-                    signature
+                    amount: pack.amount,
+                    signature,
                 }),
             });
 
             if (res.ok) {
-                toast.success(`Success! Got ${qty} Tickets`, { id: loadId });
+                toast.success(`Success! Acquired ${pack.amount} Tickets`, { id: loadId });
                 window.dispatchEvent(new Event('balanceUpdate'));
             } else {
                 toast.error("Database sync failed.", { id: loadId });
             }
         } catch (err: any) {
             console.error("Shop Error:", err);
-            const isCancel = err.message?.includes("User rejected");
-            toast.error(isCancel ? "Transaction Cancelled" : "Transaction Failed", { id: loadId });
+            toast.error(
+                err.message?.includes("User rejected")
+                    ? "Transaction Cancelled"
+                    : "Transaction Failed",
+                { id: loadId }
+            );
+        } finally {
+            setIsProcessing(false);
         }
     };
+
 
     return (
         <SeekerGuard>
@@ -93,66 +107,14 @@ export default function ShopPage() {
                         </p>
                     </div>
 
-                    {/* ITEMS LIST */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        {[
-                            { qty: 1, sol: 0.015, label: 'SCOUT PASS' },
-                            { qty: 5, sol: 0.075, label: 'RUNNER PACK' },
-                            { qty: 10, sol: 0.15, label: 'ELITE CACHE' },
-                            { qty: 50, sol: 0.75, label: 'COMMANDER VAULT', hot: true },
-                            { qty: 100, sol: 1.5, label: 'LEGION RESERVE' },
-                            { qty: 500, sol: 7.5, label: 'DYNASTY TREASURY' }
-                        ].map((item) => (
-                            <div
-                                key={item.qty}
-                                className="terminal-card"
-                                style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    padding: '20px 24px',
-                                    border: item.hot ? '1px solid #a855f7' : '1px solid rgba(255,255,255,0.1)',
-                                    boxShadow: item.hot ? '0 0 20px rgba(168, 85, 247, 0.15)' : 'none'
-                                }}
-                            >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                    <div style={{
-                                        background: 'rgba(168, 85, 247, 0.1)',
-                                        padding: '12px',
-                                        borderRadius: '16px'
-                                    }}>
-                                        <Ticket className="text-purple-500" size={24} />
-                                    </div>
-                                    <div>
-                                        <p style={{ fontSize: '8px', fontWeight: 900, color: '#a855f7', marginBottom: '4px' }}>
-                                            {item.label}
-                                        </p>
-                                        <h3 style={{ fontSize: '20px', fontWeight: 900, margin: 0 }}>
-                                            {item.qty} <span style={{ fontSize: '12px', opacity: 0.5 }}>TAG</span>
-                                        </h3>
-                                    </div>
-                                </div>
-
-                                <button
-                                    onClick={() => handlePurchase(item.qty, item.sol)}
-                                    className="primary-btn"
-                                    style={{
-                                        width: 'auto',
-                                        padding: '12px 24px',
-                                        backgroundColor: '#a855f7',
-                                        fontSize: '12px',
-                                        color: '#fff',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        fontWeight: 900,
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    {item.sol} SOL
-                                </button>
-                            </div>
-                        ))}
-                    </div>
+                    {/* UI COMPONENT 
+                        We pass the packs, the loading state, and the function
+                    */}
+                    <ShopComponent
+                        packs={SHOP_PACKS}
+                        loading={isProcessing}
+                        onBuy={handlePurchase}
+                    />
 
                     {/* FOOTER NOTE */}
                     <div style={{
