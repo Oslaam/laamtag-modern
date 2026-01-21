@@ -42,9 +42,13 @@ export default function ShopPage() {
                 return;
             }
 
-            // 🔥 THE FIX: Create transaction WITHOUT setting feePayer or recentBlockhash
-            // Let sendTransaction handle it automatically for mobile wallets
+            // 🔥 THE FIX: ALWAYS get blockhash and set it
+            const latestBlockhash = await connection.getLatestBlockhash('finalized');
+
+            // Create transaction with proper setup
             const transaction = new Transaction();
+            transaction.feePayer = publicKey;
+            transaction.recentBlockhash = latestBlockhash.blockhash;
 
             transaction.add(
                 SystemProgram.transfer({
@@ -54,21 +58,13 @@ export default function ShopPage() {
                 })
             );
 
-            // 🔥 ONLY set these if using signTransaction (desktop path)
-            // Mobile wallets handle this internally
-            if (!sendTransaction && signTransaction) {
-                const latestBlockhash = await connection.getLatestBlockhash('finalized');
-                transaction.feePayer = publicKey;
-                transaction.recentBlockhash = latestBlockhash.blockhash;
-            }
-
             toast.loading("Awaiting Signature...", { id: loadId });
 
             let signature: string;
 
             // Try sendTransaction first (for mobile wallets), fallback to signTransaction
             if (sendTransaction) {
-                // 📱 Mobile wallet adapter path
+                // 📱 Mobile wallet adapter path (Seeker, Phantom Mobile, etc.)
                 console.log("📱 Using sendTransaction (Mobile Wallet Adapter)");
 
                 signature = await sendTransaction(transaction, connection, {
@@ -78,7 +74,7 @@ export default function ShopPage() {
 
                 console.log("✅ Mobile transaction sent:", signature);
             } else if (signTransaction) {
-                // 💻 Desktop wallet path
+                // 💻 Desktop wallet path (Phantom Desktop, Solflare Desktop, etc.)
                 console.log("💻 Using signTransaction (Desktop Wallet)");
 
                 const signedTx = await signTransaction(transaction);
@@ -102,7 +98,7 @@ export default function ShopPage() {
 
             toast.loading("Verifying on Blockchain...", { id: loadId });
 
-            // ✅ Wait for confirmation (with retry logic for mobile)
+            // ✅ Wait for confirmation with polling
             let confirmed = false;
             let attempts = 0;
             const maxAttempts = 30;
@@ -172,6 +168,8 @@ export default function ShopPage() {
                 errorMessage = "Signature failed - Please try again";
             } else if (err.message?.includes("timeout")) {
                 errorMessage = "Transaction timeout - Check wallet for status";
+            } else if (err.message?.includes("recentBlockhash required")) {
+                errorMessage = "Configuration error - Please try again";
             } else if (err.message) {
                 errorMessage = err.message;
             }
