@@ -10,6 +10,7 @@ import RankUpModal from '../components/RankUpModal';
 import HistoryModal from '../components/HistoryModal';
 import { useRankWatcher } from '../hooks/useRankWatcher';
 import dynamic from 'next/dynamic';
+import { getRank } from '../utils/ranks';
 import {
     Hammer, Trophy, Layers, Gamepad2, ShoppingCart,
     FileText, User, BarChart3, Mail, History, Coins, ScrollText, Plus, X,
@@ -44,7 +45,6 @@ const GlobalLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
     if (!mounted) return null;
     return <InnerLayout>{children}</InnerLayout>;
 };
-
 const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
     const { publicKey } = useWallet();
     const { connection } = useConnection();
@@ -53,42 +53,78 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
 
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [expanded, setExpanded] = useState(false);
-    const [stats, setStats] = useState({ laam: 0, tag: 0, sol: 0, tier: 'BRONZE', username: '', currentStage: 1, weaponLevel: 1 });
+
+    // Default state
+    const [stats, setStats] = useState({
+        laam: 0,
+        tag: 0,
+        sol: 0,
+        tier: 'BRONZE',
+        username: '',
+        currentStage: 1,
+        weaponLevel: 1
+    });
     const [pendingCount, setPendingCount] = useState(0);
 
     const isGamePage = router.pathname.includes('/games/shooter');
     const isAdmin = publicKey && ADMIN_WALLETS.includes(publicKey.toString());
 
     const fetchStats = useCallback(async () => {
-        // ONLY fetch if we have a public key AND we aren't in the middle of connecting
-        if (!publicKey) return;
+        if (!publicKey || !connection) {
+            setStats({ laam: 0, tag: 0, sol: 0, tier: 'BRONZE', username: '', currentStage: 1, weaponLevel: 1 });
+            return;
+        };
 
         try {
+            const solBalance = await connection.getBalance(publicKey);
             const res = await fetch(`/api/user/${publicKey.toString()}`);
-            // ... rest of your code
+
+            if (res.ok) {
+                const data = await res.json();
+
+                // ✅ FIX 1: Use laamPoints (from Prisma) instead of laamAmount
+                const currentPoints = data.laamPoints || 0;
+
+                // ✅ FIX 2: Dynamic calculation ensures TIER is always correct
+                const rankData = getRank(currentPoints);
+
+                setStats({
+                    laam: currentPoints,
+                    tag: data.tagTickets || 0,
+                    sol: solBalance / LAMPORTS_PER_SOL,
+                    tier: rankData.name.toUpperCase(),
+                    username: data.username || '',
+                    currentStage: data.currentStage || 1,
+                    weaponLevel: data.weaponLevel || 1
+                });
+            }
         } catch (err) {
-            console.error("DB Stats Error:", err);
+            console.error("Fetch Stats Error:", err);
         }
-    }, [publicKey, connection, isAdmin]);
+    }, [publicKey, connection]);
 
+    // ✅ SINGLE CLEAN EFFECT (Merged your two previous ones)
     useEffect(() => {
-        // 1. Only start if we actually have a publicKey
-        if (!publicKey) return;
-
+        // Initial call when wallet connects
         fetchStats();
 
-        const handleBalanceUpdate = () => fetchStats();
+        const handleBalanceUpdate = () => {
+            console.log("🔔 Balance Update Triggered");
+            fetchStats();
+        };
+
         window.addEventListener('balanceUpdate', handleBalanceUpdate);
 
-        const intervalId = setInterval(() => {
-            fetchStats();
-        }, 30000);
+        // Refresh every 30s
+        const intervalId = setInterval(fetchStats, 30000);
 
         return () => {
             window.removeEventListener('balanceUpdate', handleBalanceUpdate);
             clearInterval(intervalId);
         };
-    }, [publicKey]); // Remove fetchStats from here to prevent unnecessary loops
+    }, [publicKey, connection, fetchStats]);
+
+    // ... rest of your UI code remains the same ...
 
     const allContentItems: FooterItem[] = [
         { name: 'Mint', icon: <Coins size={20} />, path: '/mint', type: 'link' },

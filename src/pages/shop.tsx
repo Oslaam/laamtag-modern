@@ -18,38 +18,34 @@ const SHOP_PACKS: Pack[] = [
 
 export default function ShopPage() {
     const { connection } = useConnection();
-    const { publicKey, signTransaction } = useWallet();
+    const { publicKey, sendTransaction } = useWallet();
     const [isProcessing, setIsProcessing] = useState(false);
 
     const handlePurchase = async (pack: Pack) => {
-        if (!publicKey) return toast.error("Connect wallet first!");
-        if (!signTransaction) return toast.error("Wallet does not support signing");
+        if (!publicKey) {
+            toast.error("Connect wallet first!");
+            return;
+        }
 
         setIsProcessing(true);
         const loadId = toast.loading(`Initiating ${pack.label}...`);
 
         try {
-            // FIX 1: Check balance BEFORE creating transaction
+            // 1️⃣ Balance check (good practice)
             const balance = await connection.getBalance(publicKey);
             const balanceInSol = balance / LAMPORTS_PER_SOL;
-            const requiredBalance = pack.price + 0.001; // Add buffer for fees
+            const requiredBalance = pack.price + 0.001;
 
             if (balanceInSol < requiredBalance) {
                 toast.error(
                     `Insufficient SOL. Need ${requiredBalance.toFixed(4)} SOL (You have ${balanceInSol.toFixed(4)})`,
-                    { id: loadId, duration: 5000 }
+                    { id: loadId }
                 );
-                setIsProcessing(false);
                 return;
             }
 
-            // FIX 2: Use 'finalized' instead of 'confirmed'
-            const latestBlockhash = await connection.getLatestBlockhash('finalized');
-
-            const transaction = new Transaction({
-                feePayer: publicKey,
-                recentBlockhash: latestBlockhash.blockhash,
-            }).add(
+            // 2️⃣ Build transaction (wallet-agnostic)
+            const tx = new Transaction().add(
                 SystemProgram.transfer({
                     fromPubkey: publicKey,
                     toPubkey: TREASURY_WALLET,
@@ -57,42 +53,34 @@ export default function ShopPage() {
                 })
             );
 
-            toast.loading("Awaiting Signature...", { id: loadId });
-            const signedTx = await signTransaction(transaction);
+            tx.feePayer = publicKey;
 
-            // FIX 3: Verify transaction was actually signed
-            if (!signedTx.signatures || signedTx.signatures.length === 0 || !signedTx.signatures[0].signature) {
-                throw new Error("Transaction was not properly signed by wallet");
-            }
+            const latestBlockhash = await connection.getLatestBlockhash("confirmed");
+            tx.recentBlockhash = latestBlockhash.blockhash;
 
-            console.log("✅ Transaction signed successfully");
+            // 3️⃣ Wallet-controlled send (THIS IS THE FIX)
+            toast.loading("Confirming in wallet...", { id: loadId });
 
-            // FIX 4: Use skipPreflight: true for mobile compatibility
-            const signature = await connection.sendRawTransaction(
-                signedTx.serialize(),
+            const signature = await sendTransaction(tx, connection, {
+                preflightCommitment: "confirmed",
+            });
+
+            toast.loading("Verifying on blockchain...", { id: loadId });
+
+            // 4️⃣ Explicit confirmation
+            await connection.confirmTransaction(
                 {
-                    skipPreflight: true,
-                    maxRetries: 5,
-                    preflightCommitment: 'finalized'
-                }
+                    signature,
+                    blockhash: latestBlockhash.blockhash,
+                    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+                },
+                "confirmed"
             );
 
-            console.log("📡 Transaction sent:", signature);
-            toast.loading("Verifying on Blockchain...", { id: loadId });
-
-            // FIX 5: Use 'finalized' commitment for confirmation
-            await connection.confirmTransaction({
-                signature,
-                blockhash: latestBlockhash.blockhash,
-                lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-            }, 'finalized');
-
-            console.log("✅ Transaction confirmed on blockchain");
-
-            // FIX 6: Better error handling for API call
-            const res = await fetch('/api/shop/buy-tickets', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+            // 5️⃣ Backend sync
+            const res = await fetch("/api/shop/buy-tickets", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     walletAddress: publicKey.toString(),
                     amount: pack.amount,
@@ -102,39 +90,35 @@ export default function ShopPage() {
 
             const data = await res.json();
 
-            if (res.ok) {
-                toast.success(`✅ Success! Acquired ${pack.amount} Tickets`, {
-                    id: loadId,
-                    duration: 4000
-                });
-                window.dispatchEvent(new Event('balanceUpdate'));
-            } else {
-                console.error("❌ API Error:", data);
-                toast.error(data.message || "Database sync failed. Contact support.", {
-                    id: loadId,
-                    duration: 6000
-                });
+            if (!res.ok) {
+                throw new Error(data?.message || "Backend sync failed");
             }
-        } catch (err: any) {
-            console.error("❌ Shop Error:", err);
 
-            // FIX 7: Better error messages
-            let errorMessage = "Transaction Failed";
-            if (err.message?.includes("User rejected") || err.message?.includes("User declined")) {
-                errorMessage = "Transaction Cancelled";
-            } else if (err.message?.includes("insufficient funds")) {
-                errorMessage = "Insufficient SOL in wallet";
-            } else if (err.message?.includes("not properly signed")) {
-                errorMessage = "Signature failed - Please try again";
+            toast.success(`✅ Success! Acquired ${pack.amount} Tickets`, {
+                id: loadId,
+                duration: 4000,
+            });
+
+            window.dispatchEvent(new Event("balanceUpdate"));
+        } catch (err: any) {
+            console.error("❌ Purchase error:", err);
+
+            let errorMessage = "Transaction failed";
+
+            if (err.message?.includes("User rejected")) {
+                errorMessage = "Transaction cancelled";
+            } else if (err.message?.includes("insufficient")) {
+                errorMessage = "Insufficient SOL";
             } else if (err.message) {
                 errorMessage = err.message;
             }
 
-            toast.error(errorMessage, { id: loadId, duration: 5000 });
+            toast.error(errorMessage, { id: loadId });
         } finally {
             setIsProcessing(false);
         }
     };
+
 
     return (
         <SeekerGuard>
