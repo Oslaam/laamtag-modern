@@ -42,8 +42,11 @@ export default function ShopPage() {
                 return;
             }
 
-            // ✅ Build transaction
-            const transaction = new Transaction().add(
+            // 🔥 THE FIX: Create transaction WITHOUT setting feePayer or recentBlockhash
+            // Let sendTransaction handle it automatically for mobile wallets
+            const transaction = new Transaction();
+
+            transaction.add(
                 SystemProgram.transfer({
                     fromPubkey: publicKey,
                     toPubkey: TREASURY_WALLET,
@@ -51,27 +54,33 @@ export default function ShopPage() {
                 })
             );
 
-            transaction.feePayer = publicKey;
-
-            const latestBlockhash = await connection.getLatestBlockhash('finalized');
-            transaction.recentBlockhash = latestBlockhash.blockhash;
+            // 🔥 ONLY set these if using signTransaction (desktop path)
+            // Mobile wallets handle this internally
+            if (!sendTransaction && signTransaction) {
+                const latestBlockhash = await connection.getLatestBlockhash('finalized');
+                transaction.feePayer = publicKey;
+                transaction.recentBlockhash = latestBlockhash.blockhash;
+            }
 
             toast.loading("Awaiting Signature...", { id: loadId });
 
             let signature: string;
 
-            // 🔥 THE FIX: Try sendTransaction first (for mobile wallets), fallback to signTransaction
+            // Try sendTransaction first (for mobile wallets), fallback to signTransaction
             if (sendTransaction) {
-                // Mobile wallet adapter path (Solana Mobile Wallet Adapter)
+                // 📱 Mobile wallet adapter path
                 console.log("📱 Using sendTransaction (Mobile Wallet Adapter)");
+
                 signature = await sendTransaction(transaction, connection, {
                     skipPreflight: true,
                     maxRetries: 5,
-                    preflightCommitment: 'finalized'
                 });
+
+                console.log("✅ Mobile transaction sent:", signature);
             } else if (signTransaction) {
-                // Desktop wallet path (Phantom, Solflare extensions)
+                // 💻 Desktop wallet path
                 console.log("💻 Using signTransaction (Desktop Wallet)");
+
                 const signedTx = await signTransaction(transaction);
 
                 if (!signedTx.signatures || signedTx.signatures.length === 0 || !signedTx.signatures[0].signature) {
@@ -83,24 +92,44 @@ export default function ShopPage() {
                     {
                         skipPreflight: true,
                         maxRetries: 5,
-                        preflightCommitment: 'finalized'
                     }
                 );
+
+                console.log("✅ Desktop transaction sent:", signature);
             } else {
                 throw new Error("Wallet does not support transaction signing");
             }
 
-            console.log("📡 Transaction sent:", signature);
             toast.loading("Verifying on Blockchain...", { id: loadId });
 
-            // ✅ Confirm transaction
-            await connection.confirmTransaction({
-                signature,
-                blockhash: latestBlockhash.blockhash,
-                lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-            }, 'finalized');
+            // ✅ Wait for confirmation (with retry logic for mobile)
+            let confirmed = false;
+            let attempts = 0;
+            const maxAttempts = 30;
 
-            console.log("✅ Transaction confirmed on blockchain");
+            while (!confirmed && attempts < maxAttempts) {
+                try {
+                    const status = await connection.getSignatureStatus(signature);
+
+                    if (status?.value?.confirmationStatus === 'confirmed' ||
+                        status?.value?.confirmationStatus === 'finalized') {
+                        confirmed = true;
+                        console.log("✅ Transaction confirmed on blockchain");
+                    } else if (status?.value?.err) {
+                        throw new Error("Transaction failed on blockchain");
+                    } else {
+                        attempts++;
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
+                } catch (err) {
+                    attempts++;
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
+
+            if (!confirmed) {
+                throw new Error("Transaction confirmation timeout. Please check your wallet.");
+            }
 
             // ✅ Sync with backend
             const res = await fetch('/api/shop/buy-tickets', {
@@ -132,12 +161,17 @@ export default function ShopPage() {
             console.error("❌ Shop Error:", err);
 
             let errorMessage = "Transaction Failed";
-            if (err.message?.includes("User rejected") || err.message?.includes("User declined") || err.message?.includes("User cancelled")) {
+            if (err.message?.includes("User rejected") ||
+                err.message?.includes("User declined") ||
+                err.message?.includes("User cancelled")) {
                 errorMessage = "Transaction Cancelled";
-            } else if (err.message?.includes("insufficient funds")) {
+            } else if (err.message?.includes("insufficient funds") ||
+                err.message?.includes("Insufficient SOL")) {
                 errorMessage = "Insufficient SOL in wallet";
             } else if (err.message?.includes("not properly signed")) {
                 errorMessage = "Signature failed - Please try again";
+            } else if (err.message?.includes("timeout")) {
+                errorMessage = "Transaction timeout - Check wallet for status";
             } else if (err.message) {
                 errorMessage = err.message;
             }
