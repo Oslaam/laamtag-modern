@@ -10,7 +10,7 @@ const TREASURY_WALLET = new PublicKey("CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxi
 
 export default function ShopComponent() {
     const { connection } = useConnection();
-    const { publicKey, sendTransaction } = useWallet();
+    const { publicKey, signTransaction } = useWallet();
     const [loading, setLoading] = useState(false);
 
     const buyTickets = async (amount: number, priceInSol: number) => {
@@ -34,7 +34,18 @@ export default function ShopComponent() {
 
             // 2. SEND TRANSACTION
             // For Mobile: sendTransaction handles the heavy lifting
-            const signature = await sendTransaction(transaction, connection);
+            if (!signTransaction) {
+                throw new Error("Wallet does not support signing");
+            }
+
+            //  Sign explicitly
+            const signedTx = await signTransaction(transaction);
+
+            //  Send raw transaction
+            const signature = await connection.sendRawTransaction(
+                signedTx.serialize(),
+                { skipPreflight: false }
+            );
 
             // 3. ROBUST CONFIRMATION (Crucial for Mobile)
             // Instead of just waiting, we use the blockhash strategy to prevent "System Error"

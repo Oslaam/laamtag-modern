@@ -4,8 +4,8 @@ import { logActivity } from '../../../lib/activityLogger';
 import { Connection, LAMPORTS_PER_SOL } from '@solana/web3.js';
 
 // Setup connection
-const RPC_URL = process.env.HELIUS_RPC_URL;
-const connection = new Connection(RPC_URL!);
+const RPC_URL = process.env.HELIUS_RPC_URL || process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+const connection = new Connection(RPC_URL);
 const TREASURY_WALLET = "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc";
 
 // Price logic - Adjust to match your shop.tsx (0.015 SOL per 1 TAG)

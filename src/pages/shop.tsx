@@ -8,7 +8,7 @@ const TREASURY_WALLET = new PublicKey("CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxi
 
 export default function ShopPage() {
     const { connection } = useConnection();
-    const { publicKey, sendTransaction } = useWallet();
+    const { publicKey, signTransaction } = useWallet();
 
     const handlePurchase = async (qty: number, priceInSol: number) => {
         if (!publicKey) return toast.error("Connect wallet first!");
@@ -31,7 +31,18 @@ export default function ShopPage() {
             );
 
             // 3. Send Transaction
-            const signature = await sendTransaction(transaction, connection);
+            if (!signTransaction) {
+                throw new Error("Wallet does not support signing");
+            }
+
+            //  Sign explicitly
+            const signedTx = await signTransaction(transaction);
+
+            //  Send raw transaction
+            const signature = await connection.sendRawTransaction(
+                signedTx.serialize(),
+                { skipPreflight: false }
+            );
 
             toast.loading("Verifying Purchase...", { id: loadId });
 
