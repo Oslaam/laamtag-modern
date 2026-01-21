@@ -2,12 +2,11 @@ import { useState } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { Transaction, SystemProgram, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import SeekerGuard from '../components/SeekerGuard';
-import ShopComponent, { Pack } from '../components/Shop'; // Importing your UI-only component
+import ShopComponent, { Pack } from '../components/Shop';
 import toast, { Toaster } from 'react-hot-toast';
 
 const TREASURY_WALLET = new PublicKey("CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc");
 
-// We define the data here so the logic and data stay together
 const SHOP_PACKS: Pack[] = [
     { amount: 1, price: 0.003, label: 'SCOUT PASS', desc: 'ENTRY ACCESS' },
     { amount: 5, price: 0.015, label: 'RUNNER PACK', desc: 'FAST TRACK START' },
@@ -17,7 +16,6 @@ const SHOP_PACKS: Pack[] = [
     { amount: 500, price: 1.5, label: 'DYNASTY TREASURY', desc: 'ABSOLUTE DOMINANCE' }
 ];
 
-
 export default function ShopPage() {
     const { connection } = useConnection();
     const { publicKey, signTransaction } = useWallet();
@@ -25,12 +23,28 @@ export default function ShopPage() {
 
     const handlePurchase = async (pack: Pack) => {
         if (!publicKey) return toast.error("Connect wallet first!");
+        if (!signTransaction) return toast.error("Wallet does not support signing");
 
         setIsProcessing(true);
         const loadId = toast.loading(`Initiating ${pack.label}...`);
 
         try {
-            const latestBlockhash = await connection.getLatestBlockhash('confirmed');
+            // FIX 1: Check balance BEFORE creating transaction
+            const balance = await connection.getBalance(publicKey);
+            const balanceInSol = balance / LAMPORTS_PER_SOL;
+            const requiredBalance = pack.price + 0.001; // Add buffer for fees
+
+            if (balanceInSol < requiredBalance) {
+                toast.error(
+                    `Insufficient SOL. Need ${requiredBalance.toFixed(4)} SOL (You have ${balanceInSol.toFixed(4)})`,
+                    { id: loadId, duration: 5000 }
+                );
+                setIsProcessing(false);
+                return;
+            }
+
+            // FIX 2: Use 'finalized' instead of 'confirmed'
+            const latestBlockhash = await connection.getLatestBlockhash('finalized');
 
             const transaction = new Transaction({
                 feePayer: publicKey,
@@ -43,24 +57,39 @@ export default function ShopPage() {
                 })
             );
 
-            if (!signTransaction) throw new Error("Wallet does not support signing");
-
             toast.loading("Awaiting Signature...", { id: loadId });
             const signedTx = await signTransaction(transaction);
 
+            // FIX 3: Verify transaction was actually signed
+            if (!signedTx.signatures || signedTx.signatures.length === 0 || !signedTx.signatures[0].signature) {
+                throw new Error("Transaction was not properly signed by wallet");
+            }
+
+            console.log("✅ Transaction signed successfully");
+
+            // FIX 4: Use skipPreflight: true for mobile compatibility
             const signature = await connection.sendRawTransaction(
                 signedTx.serialize(),
-                { skipPreflight: false }
+                {
+                    skipPreflight: true,
+                    maxRetries: 5,
+                    preflightCommitment: 'finalized'
+                }
             );
 
+            console.log("📡 Transaction sent:", signature);
             toast.loading("Verifying on Blockchain...", { id: loadId });
 
+            // FIX 5: Use 'finalized' commitment for confirmation
             await connection.confirmTransaction({
                 signature,
                 blockhash: latestBlockhash.blockhash,
                 lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-            }, 'confirmed');
+            }, 'finalized');
 
+            console.log("✅ Transaction confirmed on blockchain");
+
+            // FIX 6: Better error handling for API call
             const res = await fetch('/api/shop/buy-tickets', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -71,25 +100,41 @@ export default function ShopPage() {
                 }),
             });
 
+            const data = await res.json();
+
             if (res.ok) {
-                toast.success(`Success! Acquired ${pack.amount} Tickets`, { id: loadId });
+                toast.success(`✅ Success! Acquired ${pack.amount} Tickets`, {
+                    id: loadId,
+                    duration: 4000
+                });
                 window.dispatchEvent(new Event('balanceUpdate'));
             } else {
-                toast.error("Database sync failed.", { id: loadId });
+                console.error("❌ API Error:", data);
+                toast.error(data.message || "Database sync failed. Contact support.", {
+                    id: loadId,
+                    duration: 6000
+                });
             }
         } catch (err: any) {
-            console.error("Shop Error:", err);
-            toast.error(
-                err.message?.includes("User rejected")
-                    ? "Transaction Cancelled"
-                    : "Transaction Failed",
-                { id: loadId }
-            );
+            console.error("❌ Shop Error:", err);
+
+            // FIX 7: Better error messages
+            let errorMessage = "Transaction Failed";
+            if (err.message?.includes("User rejected") || err.message?.includes("User declined")) {
+                errorMessage = "Transaction Cancelled";
+            } else if (err.message?.includes("insufficient funds")) {
+                errorMessage = "Insufficient SOL in wallet";
+            } else if (err.message?.includes("not properly signed")) {
+                errorMessage = "Signature failed - Please try again";
+            } else if (err.message) {
+                errorMessage = err.message;
+            }
+
+            toast.error(errorMessage, { id: loadId, duration: 5000 });
         } finally {
             setIsProcessing(false);
         }
     };
-
 
     return (
         <SeekerGuard>
@@ -97,7 +142,6 @@ export default function ShopPage() {
                 <Toaster position="bottom-center" />
 
                 <div className="content-wrapper">
-                    {/* HEADER */}
                     <div style={{ textAlign: 'center', marginBottom: '40px' }}>
                         <h1 className="page-title" style={{ color: '#a855f7' }}>
                             The Armory
@@ -107,16 +151,12 @@ export default function ShopPage() {
                         </p>
                     </div>
 
-                    {/* UI COMPONENT 
-                        We pass the packs, the loading state, and the function
-                    */}
                     <ShopComponent
                         packs={SHOP_PACKS}
                         loading={isProcessing}
                         onBuy={handlePurchase}
                     />
 
-                    {/* FOOTER NOTE */}
                     <div style={{
                         marginTop: '40px',
                         textAlign: 'center',
