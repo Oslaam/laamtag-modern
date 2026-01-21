@@ -19,15 +19,10 @@ export const ContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
     }, []);
 
     const endpoint = useMemo(() => {
-        // 1. First, try to get the variable from Railway
         const url = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
-
-        // 2. If it's missing (usually happens during the Build phase), 
-        //    use your hardcoded URL so the build can finish successfully
         if (!url) {
             return "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
         }
-
         return url;
     }, []);
 
@@ -40,12 +35,10 @@ export const ContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
                 appIdentity: {
                     name: 'LaamTag',
                     uri: 'https://app.uselaamtag.xyz',
-                    icon: 'assets/images/laaamtag-icon.png',
+                    icon: 'https://app.uselaamtag.xyz/laamtag-icon.png',
                 },
                 authorizationResultCache: createDefaultAuthorizationResultCache(),
-                // FIX 1: Must use the WalletAdapterNetwork enum, not a string
                 cluster: WalletAdapterNetwork.Mainnet,
-                // FIX 2: This property is REQUIRED in the TS SDK 
                 onWalletNotFound: async () => {
                     console.warn('Mobile wallet not found');
                 },

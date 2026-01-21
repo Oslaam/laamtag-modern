@@ -18,17 +18,17 @@ const SHOP_PACKS: Pack[] = [
 
 export default function ShopPage() {
     const { connection } = useConnection();
-    const { publicKey, sendTransaction, signTransaction } = useWallet();
+    const { publicKey, sendTransaction } = useWallet();
     const [isProcessing, setIsProcessing] = useState(false);
 
     const handlePurchase = async (pack: Pack) => {
         if (!publicKey) return toast.error("Connect wallet first!");
+        if (!sendTransaction) return toast.error("Wallet not ready");
 
         setIsProcessing(true);
         const loadId = toast.loading(`Initiating ${pack.label}...`);
 
         try {
-            // ✅ Check balance first
             const balance = await connection.getBalance(publicKey);
             const balanceInSol = balance / LAMPORTS_PER_SOL;
             const requiredBalance = pack.price + 0.001;
@@ -42,15 +42,7 @@ export default function ShopPage() {
                 return;
             }
 
-            // 🔥 THE FIX: ALWAYS get blockhash and set it
-            const latestBlockhash = await connection.getLatestBlockhash('finalized');
-
-            // Create transaction with proper setup
-            const transaction = new Transaction();
-            transaction.feePayer = publicKey;
-            transaction.recentBlockhash = latestBlockhash.blockhash;
-
-            transaction.add(
+            const transaction = new Transaction().add(
                 SystemProgram.transfer({
                     fromPubkey: publicKey,
                     toPubkey: TREASURY_WALLET,
@@ -60,74 +52,17 @@ export default function ShopPage() {
 
             toast.loading("Awaiting Signature...", { id: loadId });
 
-            let signature: string;
-
-            // Try sendTransaction first (for mobile wallets), fallback to signTransaction
-            if (sendTransaction) {
-                // 📱 Mobile wallet adapter path (Seeker, Phantom Mobile, etc.)
-                console.log("📱 Using sendTransaction (Mobile Wallet Adapter)");
-
-                signature = await sendTransaction(transaction, connection, {
-                    skipPreflight: true,
-                    maxRetries: 5,
-                });
-
-                console.log("✅ Mobile transaction sent:", signature);
-            } else if (signTransaction) {
-                // 💻 Desktop wallet path (Phantom Desktop, Solflare Desktop, etc.)
-                console.log("💻 Using signTransaction (Desktop Wallet)");
-
-                const signedTx = await signTransaction(transaction);
-
-                if (!signedTx.signatures || signedTx.signatures.length === 0 || !signedTx.signatures[0].signature) {
-                    throw new Error("Transaction was not properly signed by wallet");
-                }
-
-                signature = await connection.sendRawTransaction(
-                    signedTx.serialize(),
-                    {
-                        skipPreflight: true,
-                        maxRetries: 5,
-                    }
-                );
-
-                console.log("✅ Desktop transaction sent:", signature);
-            } else {
-                throw new Error("Wallet does not support transaction signing");
-            }
+            const signature = await sendTransaction(transaction, connection);
 
             toast.loading("Verifying on Blockchain...", { id: loadId });
 
-            // ✅ Wait for confirmation with polling
-            let confirmed = false;
-            let attempts = 0;
-            const maxAttempts = 30;
+            const latestBlockhash = await connection.getLatestBlockhash('confirmed');
+            await connection.confirmTransaction({
+                signature,
+                blockhash: latestBlockhash.blockhash,
+                lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+            }, 'confirmed');
 
-            while (!confirmed && attempts < maxAttempts) {
-                try {
-                    const status = await connection.getSignatureStatus(signature);
-
-                    if (status?.value?.confirmationStatus === 'confirmed' ||
-                        status?.value?.confirmationStatus === 'finalized') {
-                        confirmed = true;
-                        console.log("✅ Transaction confirmed on blockchain");
-                    } else if (status?.value?.err) {
-                        throw new Error("Transaction failed on blockchain");
-                    } else {
-                        attempts++;
-                        await new Promise(resolve => setTimeout(resolve, 1000));
-                    }
-                } catch (err) {
-                    attempts++;
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                }
-            }
-
-            if (!confirmed) {
-                throw new Error("Transaction confirmation timeout. Please check your wallet.");
-            }
-
-            // ✅ Sync with backend
             const res = await fetch('/api/shop/buy-tickets', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -147,8 +82,7 @@ export default function ShopPage() {
                 });
                 window.dispatchEvent(new Event('balanceUpdate'));
             } else {
-                console.error("❌ API Error:", data);
-                toast.error(data.message || "Database sync failed. Contact support.", {
+                toast.error(data.message || "Database sync failed.", {
                     id: loadId,
                     duration: 6000
                 });
@@ -157,19 +91,10 @@ export default function ShopPage() {
             console.error("❌ Shop Error:", err);
 
             let errorMessage = "Transaction Failed";
-            if (err.message?.includes("User rejected") ||
-                err.message?.includes("User declined") ||
-                err.message?.includes("User cancelled")) {
+            if (err.message?.includes("User rejected") || err.message?.includes("User cancelled")) {
                 errorMessage = "Transaction Cancelled";
-            } else if (err.message?.includes("insufficient funds") ||
-                err.message?.includes("Insufficient SOL")) {
-                errorMessage = "Insufficient SOL in wallet";
-            } else if (err.message?.includes("not properly signed")) {
-                errorMessage = "Signature failed - Please try again";
-            } else if (err.message?.includes("timeout")) {
-                errorMessage = "Transaction timeout - Check wallet for status";
-            } else if (err.message?.includes("recentBlockhash required")) {
-                errorMessage = "Configuration error - Please try again";
+            } else if (err.message?.includes("insufficient")) {
+                errorMessage = "Insufficient SOL";
             } else if (err.message) {
                 errorMessage = err.message;
             }
@@ -184,7 +109,6 @@ export default function ShopPage() {
         <SeekerGuard>
             <div className="main-content">
                 <Toaster position="bottom-center" />
-
                 <div className="content-wrapper">
                     <div style={{ textAlign: 'center', marginBottom: '40px' }}>
                         <h1 className="page-title" style={{ color: '#a855f7' }}>
