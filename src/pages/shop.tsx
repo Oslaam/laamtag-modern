@@ -29,6 +29,7 @@ export default function ShopPage() {
         const loadId = toast.loading(`Initiating ${pack.label}...`);
 
         try {
+            // Check balance
             const balance = await connection.getBalance(publicKey);
             const balanceInSol = balance / LAMPORTS_PER_SOL;
             const requiredBalance = pack.price + 0.001;
@@ -42,7 +43,14 @@ export default function ShopPage() {
                 return;
             }
 
-            const transaction = new Transaction().add(
+            // ✅ CRITICAL: Get blockhash FIRST
+            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+
+            // ✅ CRITICAL: Set recentBlockhash and feePayer in constructor
+            const transaction = new Transaction({
+                recentBlockhash: blockhash,
+                feePayer: publicKey,
+            }).add(
                 SystemProgram.transfer({
                     fromPubkey: publicKey,
                     toPubkey: TREASURY_WALLET,
@@ -52,15 +60,16 @@ export default function ShopPage() {
 
             toast.loading("Awaiting Signature...", { id: loadId });
 
-            const signature = await sendTransaction(transaction, connection);
+            const signature = await sendTransaction(transaction, connection, {
+                skipPreflight: false,
+            });
 
             toast.loading("Verifying on Blockchain...", { id: loadId });
 
-            const latestBlockhash = await connection.getLatestBlockhash('confirmed');
             await connection.confirmTransaction({
                 signature,
-                blockhash: latestBlockhash.blockhash,
-                lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+                blockhash,
+                lastValidBlockHeight,
             }, 'confirmed');
 
             const res = await fetch('/api/shop/buy-tickets', {
@@ -95,6 +104,8 @@ export default function ShopPage() {
                 errorMessage = "Transaction Cancelled";
             } else if (err.message?.includes("insufficient")) {
                 errorMessage = "Insufficient SOL";
+            } else if (err.message?.includes("recentBlockhash required")) {
+                errorMessage = "Connection error - Please try again";
             } else if (err.message) {
                 errorMessage = err.message;
             }

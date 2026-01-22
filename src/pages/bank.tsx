@@ -58,7 +58,7 @@ export default function BankPage() {
                             margin: '0 auto 32px',
                             lineHeight: '1.6'
                         }}>
-                            The Banking Terminal is currently undergoing <span style={{ color: '#22d3ee' }}>protocol synchronization</span>. Check back soon for asset bridging and $LAAM staking.
+                            The Banking Terminal is currently undergoing <span style={{ color: '#22d3ee' }}>protocol synchronization</span>. Check back soon for asset bridging and asset staking.
                         </p>
 
                         {/* FAKE PROGRESS BAR */}
