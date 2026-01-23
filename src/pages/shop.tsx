@@ -60,9 +60,7 @@ export default function ShopPage() {
 
             toast.loading("Awaiting Signature...", { id: loadId });
 
-            const signature = await sendTransaction(transaction, connection, {
-                skipPreflight: false,
-            });
+            const signature = await sendTransaction(transaction, connection);
 
             toast.loading("Verifying on Blockchain...", { id: loadId });
 
