@@ -194,68 +194,91 @@ export default function ShooterContainer() {
 
     const goHome = () => router.push('/');
 
-    const handleEngage = () => {
+    const handleEngage = async () => {
         // 1. Safety Checks
+        if (!publicKey) {
+            toast.error("CONNECT WALLET FIRST");
+            return;
+        }
         if (!statsReady) {
             toast.error("LOADING PLAYER DATA...");
             return;
         }
-
         if (isLoading) return;
 
-        console.log("REACT: Engage Clicked - Initializing Systems");
-
-        // 2. Setup State
-        sceneReadyRef.current = false;
         setIsLoading(true);
 
-        let activeGame = phaserGame.current;
-
-        // 3. Start Phaser if it isn't running
-        if (!activeGame) {
-            activeGame = StartGame("game-container", {
-                level: stats.shooterLevel,
-                stage: stats.shooterStage,
-                stats: {
-                    ...stats,
-                    walletAddress: publicKey?.toString()
-                }
+        try {
+            // --- NEW: TAG PAYMENT LOGIC ---
+            const payRes = await fetch('/api/games/shooter/pay-to-play', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ walletAddress: publicKey.toString() })
             });
-            phaserGame.current = activeGame;
-        }
 
-        // 4. Wait for the Scene to tell React it is ready
-        let attempts = 0;
-        const readyCheck = setInterval(() => {
-            attempts++;
+            const payData = await payRes.json();
 
-            // This becomes true when ShooterScene calls EventBus.emit('current-scene-ready')
-            if (sceneReadyRef.current) {
-                console.log("REACT RECEIVING: Scene Ready - Sending Start Signal");
-
-                const statsWithWallet = {
-                    ...stats,
-                    walletAddress: publicKey?.toString()
-                };
-
-                // Send data and start signals
-                EventBus.emit('apply-upgrades', statsWithWallet);
-                EventBus.emit('start-game');
-
-                // UI Updates
-                setGameStarted(true);
+            if (!payRes.ok) {
+                toast.error(payData.error || "PAYMENT FAILED");
                 setIsLoading(false);
-                clearInterval(readyCheck);
                 return;
             }
 
-            // Timeout after ~9 seconds
-            if (attempts > 60) {
-                setIsLoading(false);
-                clearInterval(readyCheck);
-                toast.error("LOAD ERROR: PLEASE REFRESH PAGE");
+            // Update local state so the UI reflects the -5 TAG immediately
+            setStats(prev => ({ ...prev, tag: prev.tag - 5 }));
+            toast.success("5 TAG DEDUCTED - SYSTEMS ONLINE");
+            // --- END PAYMENT LOGIC ---
+
+            console.log("REACT: Engage Clicked - Initializing Systems");
+            sceneReadyRef.current = false;
+
+            let activeGame = phaserGame.current;
+
+            // Start Phaser if it isn't running
+            if (!activeGame) {
+                activeGame = StartGame("game-container", {
+                    level: stats.shooterLevel,
+                    stage: stats.shooterStage,
+                    stats: {
+                        ...stats,
+                        walletAddress: publicKey?.toString()
+                    }
+                });
+                phaserGame.current = activeGame;
             }
-        }, 150);
+
+            // Wait for the Scene to tell React it is ready
+            let attempts = 0;
+            const readyCheck = setInterval(() => {
+                attempts++;
+                if (sceneReadyRef.current) {
+                    const statsWithWallet = {
+                        ...stats,
+                        tag: stats.tag - 5, // Use updated tag count
+                        walletAddress: publicKey?.toString()
+                    };
+
+                    EventBus.emit('apply-upgrades', statsWithWallet);
+                    EventBus.emit('start-game');
+
+                    setGameStarted(true);
+                    setIsLoading(false);
+                    clearInterval(readyCheck);
+                    return;
+                }
+
+                if (attempts > 60) {
+                    setIsLoading(false);
+                    clearInterval(readyCheck);
+                    toast.error("LOAD ERROR: PLEASE REFRESH PAGE");
+                }
+            }, 150);
+
+        } catch (err) {
+            console.error("Engage Error:", err);
+            toast.error("CONNECTION ERROR");
+            setIsLoading(false);
+        }
     };
 
 
@@ -371,7 +394,7 @@ export default function ShooterContainer() {
                     </div>
                 )}
 
-                {/* Entry Screen - Inspired by Ref 1 Reactor Core */}
+                {/* Entry Screen - Updated with Abort Button */}
                 {!gameStarted && (
                     <div style={{ position: 'absolute', inset: 0, zIndex: 20000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'radial-gradient(circle, #111 0%, #000 100%)' }}>
                         <div style={{ position: 'relative', marginBottom: '40px' }}>
@@ -380,25 +403,55 @@ export default function ShooterContainer() {
                                 VOID<br /><span style={{ color: '#fff' }}>SHOOTER</span>
                             </h1>
                         </div>
-                        <button
-                            onClick={handleEngage}
-                            disabled={isLoading}
-                            style={{
-                                padding: '20px 60px',
-                                background: isLoading ? '#1f2937' : '#991b1b',
-                                color: '#fff',
-                                borderRadius: '4px',
-                                border: 'none',
-                                fontWeight: 900,
-                                fontSize: '24px',
-                                letterSpacing: '4px',
-                                boxShadow: isLoading ? 'none' : '0 8px 0 #450a0a',
-                                transform: isLoading ? 'translateY(4px)' : 'none',
-                                transition: 'all 0.1s'
-                            }}
-                        >
-                            {isLoading ? "INITIALIZING..." : "ENGAGE"}
-                        </button>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' }}>
+                            <button
+                                onClick={handleEngage}
+                                disabled={isLoading}
+                                style={{
+                                    padding: '20px 60px',
+                                    background: isLoading ? '#1f2937' : '#991b1b',
+                                    color: '#fff',
+                                    borderRadius: '4px',
+                                    border: 'none',
+                                    fontWeight: 900,
+                                    fontSize: '24px',
+                                    letterSpacing: '4px',
+                                    boxShadow: isLoading ? 'none' : '0 8px 0 #450a0a',
+                                    transform: isLoading ? 'translateY(4px)' : 'none',
+                                    transition: 'all 0.1s',
+                                    cursor: isLoading ? 'not-allowed' : 'pointer'
+                                }}
+                            >
+                                {isLoading ? "INITIALIZING..." : "ENGAGE [5 TAG]"}
+                            </button>
+
+                            {/* BACK BUTTON TO RETURN TO GAMES LIST */}
+                            <button
+                                onClick={() => window.location.href = '/games'}
+                                style={{
+                                    background: 'transparent',
+                                    color: 'rgba(255,255,255,0.4)',
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    padding: '8px 24px',
+                                    borderRadius: '4px',
+                                    fontSize: '10px',
+                                    fontWeight: 900,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '2px',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.color = '#fff'}
+                                onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.4)'}
+                            >
+                                ← Abort Mission / Return to Terminal
+                            </button>
+                        </div>
+
+                        <p style={{ marginTop: '20px', color: '#444', fontSize: '10px', fontFamily: 'monospace', fontWeight: 900 }}>
+                            COST PER SORTIE: 5.00 TAG TICKETS
+                        </p>
                     </div>
                 )}
 
@@ -441,14 +494,11 @@ export default function ShooterContainer() {
                             ))}
                         </div>
                     </div>
-                    /* Locate the EXIT_TERMINAL button at the bottom of your shopPanel in ShooterContainer.tsx */
 
                     <button
                         onClick={() => {
                             setIsShopOpen(false);
-                            // This is the missing link: It triggers startGameLogic() in the current scene
                             EventBus.emit('resume-stage');
-
                         }}
                         style={{
                             position: 'absolute', bottom: 0, width: '100%', padding: '20px',
@@ -461,7 +511,7 @@ export default function ShooterContainer() {
                     </button>
                 </div>
 
-                {/* Game Over Overlay - High contrast "Terminated" */}
+                {/* Game Over Overlay */}
                 {isGameOver && (
                     <div style={{ position: 'absolute', inset: 0, zIndex: 30000, background: 'rgba(0,0,0,0.95)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(10px)' }}>
                         <h2 style={{ color: '#991b1b', fontSize: '72px', fontWeight: 900, fontStyle: 'italic', marginBottom: '20px', letterSpacing: '-4px' }}>TERMINATED</h2>
@@ -471,7 +521,7 @@ export default function ShooterContainer() {
                             disabled={isRestarting}
                             style={{
                                 background: isRestarting ? '#333' : '#fff',
-                                color: isRestarting ? '#666' : '#000',
+                                color: isRestarting ? '#000' : '#000',
                                 padding: '16px 40px',
                                 borderRadius: '4px',
                                 fontWeight: 900,
