@@ -35,7 +35,7 @@ export const ContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
                 appIdentity: {
                     name: 'LaamTag',
                     uri: 'https://app.uselaamtag.xyz',
-                    icon: 'https://app.uselaamtag.xyz/laaamtag512-icon.png',
+                    icon: '/laaamtag512-icon.png',
                 },
                 authorizationResultCache: createDefaultAuthorizationResultCache(),
                 cluster: WalletAdapterNetwork.Mainnet,
