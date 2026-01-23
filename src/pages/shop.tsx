@@ -1,9 +1,14 @@
 import { useState } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { Transaction, SystemProgram, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
+import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
+import { transferSol } from '@metaplex-foundation/mpl-toolbox';
+import { publicKey as umiPublicKey, sol } from '@metaplex-foundation/umi'; // Renamed for clarity
+import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'; // Added PublicKey class back
 import SeekerGuard from '../components/SeekerGuard';
 import ShopComponent, { Pack } from '../components/Shop';
 import toast, { Toaster } from 'react-hot-toast';
+
 
 const TREASURY_WALLET = new PublicKey("CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc");
 
@@ -21,94 +26,69 @@ export default function ShopPage() {
     const { publicKey, sendTransaction } = useWallet();
     const [isProcessing, setIsProcessing] = useState(false);
 
+    const wallet = useWallet();
+
+    const umi = createUmi(connection.rpcEndpoint).use(
+        walletAdapterIdentity(wallet)
+    );
+
+
     const handlePurchase = async (pack: Pack) => {
         if (!publicKey) return toast.error("Connect wallet first!");
-        if (!sendTransaction) return toast.error("Wallet not ready");
 
         setIsProcessing(true);
         const loadId = toast.loading(`Initiating ${pack.label}...`);
 
         try {
-            // Check balance
+            // 1. Balance Check
             const balance = await connection.getBalance(publicKey);
-            const balanceInSol = balance / LAMPORTS_PER_SOL;
-            const requiredBalance = pack.price + 0.001;
+            const requiredLamports = pack.price * LAMPORTS_PER_SOL;
 
-            if (balanceInSol < requiredBalance) {
-                toast.error(
-                    `Insufficient SOL. Need ${requiredBalance.toFixed(4)} SOL (You have ${balanceInSol.toFixed(4)})`,
-                    { id: loadId, duration: 5000 }
-                );
+            if (balance < (requiredLamports + 5000)) { // Price + buffer for fees
+                toast.error("Insufficient SOL", { id: loadId });
                 setIsProcessing(false);
                 return;
             }
 
-            // ✅ CRITICAL: Get blockhash FIRST
-            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
-
-            // ✅ CRITICAL: Set recentBlockhash and feePayer in constructor
-            const transaction = new Transaction({
-                recentBlockhash: blockhash,
-                feePayer: publicKey,
-            }).add(
-                SystemProgram.transfer({
-                    fromPubkey: publicKey,
-                    toPubkey: TREASURY_WALLET,
-                    lamports: Math.round(pack.price * LAMPORTS_PER_SOL),
-                })
-            );
-
             toast.loading("Awaiting Signature...", { id: loadId });
 
-            const signature = await sendTransaction(transaction, connection,);
+            // 2. The Umi Transfer (Seeker Friendly)
+            const result = await transferSol(umi, {
+                // FIX: Use umiPublicKey function and TREASURY_WALLET string
+                destination: umiPublicKey("CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc"),
+                // FIX: Use the sol() helper instead of a raw number
+                amount: sol(pack.price),
+            }).sendAndConfirm(umi);
 
-            toast.loading("Verifying on Blockchain...", { id: loadId });
+            // 3. Convert Umi Signature (Uint8Array) to String for your API
+            // base58 is the standard format Solana APIs expect
+            const bs58 = (await import('bs58')).default;
+            const signatureString = bs58.encode(result.signature);
 
-            await connection.confirmTransaction({
-                signature,
-                blockhash,
-                lastValidBlockHeight,
-            }, 'confirmed');
+            toast.loading("Updating Database...", { id: loadId });
 
+            // 4. Send to your API
             const res = await fetch('/api/shop/buy-tickets', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     walletAddress: publicKey.toString(),
                     amount: pack.amount,
-                    signature,
+                    signature: signatureString, // Send the string, not the raw bytes
                 }),
             });
 
             const data = await res.json();
 
             if (res.ok) {
-                toast.success(`✅ Success! Acquired ${pack.amount} Tickets`, {
-                    id: loadId,
-                    duration: 4000
-                });
+                toast.success(`✅ Success! Acquired ${pack.amount} Tickets`, { id: loadId });
                 window.dispatchEvent(new Event('balanceUpdate'));
             } else {
-                toast.error(data.message || "Database sync failed.", {
-                    id: loadId,
-                    duration: 6000
-                });
+                throw new Error(data.message || "Database sync failed");
             }
         } catch (err: any) {
             console.error("❌ Shop Error:", err);
-
-            let errorMessage = "Transaction Failed";
-            if (err.message?.includes("User rejected") || err.message?.includes("User cancelled")) {
-                errorMessage = "Transaction Cancelled";
-            } else if (err.message?.includes("insufficient")) {
-                errorMessage = "Insufficient SOL";
-            } else if (err.message?.includes("recentBlockhash required")) {
-                errorMessage = "Connection error - Please try again";
-            } else if (err.message) {
-                errorMessage = err.message;
-            }
-
-            toast.error(errorMessage, { id: loadId, duration: 5000 });
+            toast.error(err.message || "Transaction Failed", { id: loadId });
         } finally {
             setIsProcessing(false);
         }
