@@ -16,7 +16,7 @@ const MotionDiv = motion.div as any;
 const MotionSvg = motion.svg as any;
 
 const ADMIN_WALLETS = [
-  "E4cHwRYWTznNjTvchSkZVXH8LWqdWbLekVXWjzmite6M", // Your Address
+  "E4cHwRYWTznNjTvchSkZVXH8LWqdWbLekVXWjzmite6M",
   "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc"
 ];
 
