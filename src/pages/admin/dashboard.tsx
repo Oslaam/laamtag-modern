@@ -9,9 +9,8 @@ import { bs58 } from '@project-serum/anchor/dist/cjs/utils/bytes';
 import toast, { Toaster } from 'react-hot-toast';
 import confetti from 'canvas-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, MessageSquare, ExternalLink, ShieldAlert } from 'lucide-react';
+import { CheckCircle2, MessageSquare, ExternalLink, ShieldAlert, Clock, XCircle } from 'lucide-react';
 
-// --- THE FIX: Create untyped versions of motion components ---
 const MotionDiv = motion.div as any;
 const MotionSvg = motion.svg as any;
 
@@ -23,9 +22,10 @@ const ADMIN_WALLETS = [
 export default function AdminDashboard() {
   const { publicKey, signMessage } = useWallet();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'QUESTS' | 'SUPPORT'>('QUESTS');
+  const [activeTab, setActiveTab] = useState<'QUESTS' | 'SUPPORT' | 'HISTORY'>('QUESTS');
   const [submissions, setSubmissions] = useState([]);
   const [tickets, setTickets] = useState([]);
+  const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [showSuccessUI, setShowSuccessUI] = useState(false);
@@ -45,31 +45,34 @@ export default function AdminDashboard() {
     }
   }, [publicKey, router]);
 
-const fetchData = async () => {
-  if (!publicKey) return;
-  setLoading(true);
-  try {
-    const headers = { 'x-admin-wallet': publicKey.toString() };
+  const fetchData = async () => {
+    if (!publicKey) return;
+    setLoading(true);
+    try {
+      const headers = { 'x-admin-wallet': publicKey.toString() };
+      
+      // Quests
+      const questRes = await fetch('/api/admin/pending', { headers });
+      const questData = await questRes.json();
+      setSubmissions(questData.submissions || []);
 
-    // Fetch Quests
-    const questRes = await fetch('/api/admin/pending', { headers });
-    const questData = await questRes.json();
-    setSubmissions(questData.submissions || []);
+      // Tickets
+      const ticketRes = await fetch('/api/admin/tickets', { headers });
+      const ticketData = await ticketRes.json();
+      setTickets(Array.isArray(ticketData) ? ticketData : []);
 
-    // Fetch Support Tickets (Change this line to use headers too)
-    const ticketRes = await fetch('/api/admin/tickets', { headers });
-    const ticketData = await ticketRes.json();
-    
-    // Safety check: if ticketData is an error object, set to empty array
-    setTickets(Array.isArray(ticketData) ? ticketData : []);
-    
-  } catch (err) {
-    console.error("Fetch error:", err);
-    toast.error("Failed to load terminal data");
-  } finally {
-    setLoading(false);
-  }
-};
+      // History
+      const historyRes = await fetch('/api/admin/history', { headers });
+      const historyData = await historyRes.json();
+      setHistory(historyData.history || []);
+
+    } catch (err) {
+      console.error("Fetch error:", err);
+      toast.error("Failed to load terminal data");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleQuestAction = async (id: string, action: 'APPROVE' | 'REJECT') => {
     if (!publicKey || !signMessage) return toast.error("Connect Wallet!");
@@ -168,7 +171,6 @@ const fetchData = async () => {
       </AnimatePresence>
 
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
         <div className="flex justify-between items-center mb-10 border-b border-white/5 pb-10">
           <div className="flex items-center gap-6">
             <Link href="/" className="group flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-2 rounded-xl hover:bg-white hover:text-black transition-all">
@@ -177,9 +179,7 @@ const fetchData = async () => {
               </svg>
               <span className="text-[10px] font-black uppercase tracking-widest">Close Terminal</span>
             </Link>
-
             <div className="h-8 w-[1px] bg-white/10" />
-
             <div>
               <h1 className="text-3xl font-black italic text-yellow-500 uppercase tracking-tighter">Terminal</h1>
               <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.3em] mt-1">Verification Node 01</p>
@@ -188,19 +188,15 @@ const fetchData = async () => {
           <WalletMultiButton />
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-4 mb-8 bg-gray-900/30 p-2 rounded-2xl border border-white/5">
-          <button
-            onClick={() => setActiveTab('QUESTS')}
-            className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'QUESTS' ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20' : 'text-gray-500 hover:text-white'}`}
-          >
-            Pending Quests ({submissions.length})
+          <button onClick={() => setActiveTab('QUESTS')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'QUESTS' ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20' : 'text-gray-500 hover:text-white'}`}>
+            Pending ({submissions.length})
           </button>
-          <button
-            onClick={() => setActiveTab('SUPPORT')}
-            className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'SUPPORT' ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20' : 'text-gray-500 hover:text-white'}`}
-          >
-            Support Tickets ({tickets.length})
+          <button onClick={() => setActiveTab('SUPPORT')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'SUPPORT' ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20' : 'text-gray-500 hover:text-white'}`}>
+            Tickets ({tickets.length})
+          </button>
+          <button onClick={() => setActiveTab('HISTORY')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'HISTORY' ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20' : 'text-gray-500 hover:text-white'}`}>
+            History ({history.length})
           </button>
         </div>
 
@@ -211,86 +207,85 @@ const fetchData = async () => {
           </div>
         ) : (
           <div className="grid gap-4">
-            {activeTab === 'QUESTS' ? (
+            {activeTab === 'QUESTS' && (
               submissions.map((s: any) => (
-                <MotionDiv
-                  layout
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  key={s.id}
-                  className="p-6 border border-gray-800 rounded-3xl bg-gray-900/40 flex justify-between items-center hover:border-yellow-500/30 transition-all group"
-                >
-                  <div>
+                <MotionDiv layout initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} key={s.id} className="p-6 border border-gray-800 rounded-3xl bg-gray-900/40 flex justify-between items-center hover:border-yellow-500/30 transition-all group">
+                  <div className="flex-1">
                     <div className="flex items-center gap-3 mb-1">
                       <p className="text-white font-black text-xl italic uppercase tracking-tight">{s.quest.title}</p>
                       <span className="bg-yellow-500/10 text-yellow-500 text-[10px] font-black px-2 py-0.5 rounded-md">+{s.quest.reward} LAAM</span>
                     </div>
                     <div className="flex gap-2 mb-3">
                       <p className="text-[10px] text-gray-500 font-mono bg-black/40 px-2 py-1 rounded">USER: {s.userId.slice(0, 4)}...{s.userId.slice(-4)}</p>
-                      <p className="text-[10px] text-cyan-500 font-mono bg-cyan-500/10 px-2 py-1 rounded">CURRENT: {s.user?.laamPoints || 0} PTS</p>
+                      <span className="text-[9px] font-black bg-white/5 border border-white/10 px-2 py-1 rounded text-gray-400 uppercase tracking-tighter">Type: {s.quest.type.replace('social_', '')}</span>
                     </div>
                     {s.proofLink && (
-                      <a href={s.proofLink} target="_blank" rel="noreferrer" className="text-cyan-400 text-[10px] font-black italic hover:text-white transition-colors flex items-center gap-1 uppercase tracking-widest">
-                        Verify Link <ExternalLink size={12} />
-                      </a>
+                      <div className="mt-2">
+                        {s.quest.type === 'social_username' ? (
+                          <div className="flex items-center gap-2 bg-yellow-500/5 border border-yellow-500/20 p-3 rounded-xl max-w-fit">
+                            <span className="text-yellow-500 font-black text-[10px] uppercase tracking-widest">Username:</span>
+                            <code className="text-white font-bold text-sm">{s.proofLink.startsWith('@') ? s.proofLink : `@${s.proofLink}`}</code>
+                            <button onClick={() => { navigator.clipboard.writeText(s.proofLink); toast.success("Copied!"); }} className="ml-4 text-[9px] bg-white/10 px-2 py-1 rounded hover:bg-white/20 transition-all">Copy</button>
+                          </div>
+                        ) : (
+                          <a href={s.proofLink.startsWith('http') ? s.proofLink : `https://${s.proofLink}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 bg-cyan-500/10 border border-cyan-500/20 px-4 py-2 rounded-xl text-cyan-400 text-[10px] font-black italic hover:bg-cyan-500 hover:text-white transition-all uppercase tracking-widest group">
+                            Verify Social Link <ExternalLink size={12} className="group-hover:translate-x-1 transition-transform" />
+                          </a>
+                        )}
+                      </div>
                     )}
                   </div>
-                  <div className="flex gap-3">
+                  <div className="flex gap-3 ml-6">
                     <button onClick={() => handleQuestAction(s.id, 'REJECT')} className="border border-red-500/30 text-red-500 px-6 py-3 rounded-2xl text-[10px] font-black uppercase hover:bg-red-500 hover:text-white transition-all active:scale-95">Reject</button>
                     <button onClick={() => handleQuestAction(s.id, 'APPROVE')} className="bg-white text-black px-6 py-3 rounded-2xl text-[10px] font-black uppercase hover:bg-yellow-500 transition-all active:scale-95 shadow-lg shadow-white/5">Approve</button>
                   </div>
                 </MotionDiv>
               ))
-            ) : (
+            )}
+
+            {activeTab === 'HISTORY' && (
+              history.map((h: any) => (
+                <div key={h.id} className="p-6 border border-white/5 rounded-3xl bg-gray-900/20 flex justify-between items-center opacity-70 hover:opacity-100 transition-opacity">
+                   <div>
+                    <div className="flex items-center gap-3 mb-1">
+                      <p className="text-gray-300 font-bold italic uppercase tracking-tight">{h.quest.title}</p>
+                      <span className={`text-[8px] font-black px-2 py-0.5 rounded-md ${h.status === 'APPROVED' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>{h.status}</span>
+                    </div>
+                    <p className="text-[10px] text-gray-500 font-mono">USER: {h.user.walletAddress.slice(0, 6)}... • {new Date(h.updatedAt).toLocaleString()}</p>
+                  </div>
+                  {h.status === 'APPROVED' ? <CheckCircle2 className="text-green-500/30" size={24} /> : <XCircle className="text-red-500/30" size={24} />}
+                </div>
+              ))
+            )}
+
+            {activeTab === 'SUPPORT' && (
               tickets.map((t: any) => (
-                <MotionDiv
-                  layout
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  key={t.id}
-                  className="p-6 border border-gray-800 rounded-3xl bg-gray-900/40 flex flex-col md:flex-row justify-between gap-6 hover:border-yellow-500/30 transition-all"
-                >
+                <MotionDiv layout initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} key={t.id} className="p-6 border border-gray-800 rounded-3xl bg-gray-900/40 flex flex-col md:flex-row justify-between gap-6 hover:border-yellow-500/30 transition-all">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <span className={`text-[9px] font-black px-2 py-1 rounded ${t.type === 'Complaint' ? 'bg-red-500/10 text-red-500' : 'bg-blue-500/10 text-blue-500'} uppercase`}>
-                        {t.type}
-                      </span>
+                      <span className={`text-[9px] font-black px-2 py-1 rounded ${t.type === 'Complaint' ? 'bg-red-500/10 text-red-500' : 'bg-blue-500/10 text-blue-500'} uppercase`}>{t.type}</span>
                       <span className="text-gray-600 text-[10px] font-mono">{new Date(t.createdAt).toLocaleString()}</span>
                     </div>
                     <h3 className="text-xl font-bold mb-2 text-white italic">{t.title}</h3>
                     <p className="text-gray-400 text-sm mb-4 bg-black/40 p-4 rounded-2xl border border-white/5">{t.description}</p>
-
                     <div className="flex flex-wrap gap-4 text-[9px] uppercase font-black text-gray-500 tracking-widest">
                       <p>Name: <span className="text-white">{t.name}</span></p>
                       <p>Wallet: <span className="text-yellow-500 font-mono">{t.walletAddress.slice(0, 6)}...</span></p>
                     </div>
                   </div>
-
                   <div className="flex flex-col justify-center gap-2 min-w-[160px]">
                     {t.status === 'Pending' ? (
-                      <button
-                        onClick={() => updateTicketStatus(t.id, 'Resolved')}
-                        className="bg-yellow-500 text-black py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-white transition-all flex items-center justify-center gap-2"
-                      >
-                        <CheckCircle2 size={14} /> Resolve
-                      </button>
+                      <button onClick={() => updateTicketStatus(t.id, 'Resolved')} className="bg-yellow-500 text-black py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-white transition-all flex items-center justify-center gap-2"><CheckCircle2 size={14} /> Resolve</button>
                     ) : (
-                      <div className="bg-green-500/10 text-green-500 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest text-center border border-green-500/20">
-                        Resolved
-                      </div>
+                      <div className="bg-green-500/10 text-green-500 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest text-center border border-green-500/20">Resolved</div>
                     )}
-                    <a
-                      href={`mailto:${t.email}`}
-                      className="bg-white/5 text-white border border-white/10 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest text-center hover:bg-white hover:text-black transition-all flex items-center justify-center gap-2"
-                    >
-                      <MessageSquare size={14} /> Reply
-                    </a>
+                    <a href={`mailto:${t.email}`} className="bg-white/5 text-white border border-white/10 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest text-center hover:bg-white hover:text-black transition-all flex items-center justify-center gap-2"><MessageSquare size={14} /> Reply</a>
                   </div>
                 </MotionDiv>
               ))
             )}
 
-            {(activeTab === 'QUESTS' ? submissions.length : tickets.length) === 0 && (
+            {(activeTab === 'QUESTS' ? submissions.length : activeTab === 'SUPPORT' ? tickets.length : history.length) === 0 && (
               <div className="text-center py-20 border-2 border-dashed border-gray-900 rounded-[40px]">
                 <p className="text-gray-600 font-black italic uppercase tracking-widest text-[10px]">Terminal clear. No pending transmissions.</p>
               </div>

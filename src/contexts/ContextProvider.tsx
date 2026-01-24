@@ -56,7 +56,8 @@ export const ContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
     return (
         <ConnectionProvider endpoint={endpoint} config={{ commitment: 'confirmed' }}>
-            <WalletProvider wallets={wallets} onError={onError} autoConnect={false}>
+            {/* autoConnect changed to true for APK persistence */}
+            <WalletProvider wallets={wallets} onError={onError} autoConnect={true}>
                 <WalletModalProvider>
                     {children}
                 </WalletModalProvider>

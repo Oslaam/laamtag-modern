@@ -24,13 +24,14 @@ model User {
   // Game Progress
   shooterLevel   Int      @default(1)
   shooterStage   Int      @default(1)
-  
   // Stats (Weapon levels)
   weaponLevel        Int              @default(1)
   shieldLevel        Int              @default(0)
   shoeLevel          Int              @default(1)
   lifeLevel          Int              @default(1)
   currentStage       Int              @default(1)
+  lastLaamCheckIn DateTime?
+  lastTagCheckIn  DateTime?
 }
 
 model Activity {
@@ -52,12 +53,12 @@ model PendingReward {
   isClaimed     Boolean  @default(false)
   createdAt     DateTime @default(now())
 }
-
 model Quest {
   id           String      @id @default(uuid())
   title        String
   reward       Int
   type         String      @default("basic")
+  link         String?  
   limit        Int?
   claimedCount Int         @default(0)
   users        UserQuest[]

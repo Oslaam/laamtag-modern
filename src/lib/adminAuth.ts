@@ -12,23 +12,24 @@ export const isWalletAdmin = (address: string) => {
 
 // This helper is used by your API routes (like pending.ts)
 export const isAdmin = async (req: NextApiRequest) => {
-  const userWallet = req.headers['x-admin-wallet'] as string;
+  // Check both headers and query params for flexibility
+  const userWallet = (req.headers['x-admin-wallet'] || req.query.adminAddress) as string;
   if (!userWallet) return false;
   return isWalletAdmin(userWallet);
 };
 
 export function verifyAdminSignature(
-  address: string, 
-  signature: string, 
+  address: string,
+  signature: string,
   message: string
 ): boolean {
   if (!isWalletAdmin(address)) return false;
-  
+
   try {
     const messageBytes = new TextEncoder().encode(message);
     const signatureBytes = bs58.decode(signature);
     const publicKeyBytes = new PublicKey(address).toBytes();
-    
+
     return nacl.sign.detached.verify(messageBytes, signatureBytes, publicKeyBytes);
   } catch (e) {
     console.error("Auth Signature Error:", e);
