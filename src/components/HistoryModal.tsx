@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { X, TrendingUp, Zap, History } from 'lucide-react';
+import { X, TrendingUp, Zap, History, Clock } from 'lucide-react';
 
-type FilterType = 'ALL' | 'WINS' | 'COSTS' | 'STAKING';
+// Added 'NFT' to the types
+type FilterType = 'ALL' | 'WINS' | 'COSTS' | 'STAKING' | 'NFT';
 
 export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
     const { publicKey } = useWallet();
@@ -28,9 +29,10 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
     useEffect(() => {
         const filtered = rawHistory.filter(item => {
             if (activeFilter === 'ALL') return true;
-            if (activeFilter === 'WINS') return item.type.includes('WIN') || item.type.includes('REWARD');
+            if (activeFilter === 'WINS') return item.type.includes('WIN');
             if (activeFilter === 'COSTS') return item.type.includes('COST');
             if (activeFilter === 'STAKING') return item.type.includes('STAKING');
+            if (activeFilter === 'NFT') return item.type.includes('NFT'); // New Filter
             return true;
         });
 
@@ -61,52 +63,41 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
                 border: '1px solid rgba(255,255,255,0.1)'
             }}>
 
-                {/* HEADER SECTION */}
+                {/* HEADER */}
                 <div style={{ padding: '24px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                         <div>
                             <h2 style={{ color: '#eab308', margin: 0, fontSize: '14px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '2px' }}>
                                 Master Ledger
                             </h2>
-                            <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', margin: 0, fontWeight: 900 }}>LIVE SECTOR DATA</p>
+                            <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', margin: 0, fontWeight: 900 }}>TRANSACTION LOGS</p>
                         </div>
                         <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '8px', padding: '8px', color: '#fff', cursor: 'pointer' }}>
                             <X size={18} />
                         </button>
                     </div>
 
-                    {/* MINI STATS GRID */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
-                        <div style={{ background: 'rgba(234, 179, 8, 0.05)', border: '1px solid rgba(234, 179, 8, 0.1)', padding: '12px', borderRadius: '12px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                                <TrendingUp size={10} color="#eab308" />
-                                <span style={{ fontSize: '8px', fontWeight: 900, color: '#eab308', textTransform: 'uppercase' }}>Today</span>
-                            </div>
-                            <p style={{ fontSize: '18px', fontWeight: 900, margin: 0 }}>+{stats.todayEarned.toLocaleString()}</p>
-                        </div>
-                        <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.05)', padding: '12px', borderRadius: '12px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                                <Zap size={10} color="#fff" />
-                                <span style={{ fontSize: '8px', fontWeight: 900, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>Streak</span>
-                            </div>
-                            <p style={{ fontSize: '18px', fontWeight: 900, margin: 0 }}>{stats.streak}D</p>
-                        </div>
-                    </div>
-
-                    {/* FILTER TABS - Matching Games Selector Pattern */}
-                    <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                        {(['ALL', 'WINS', 'COSTS', 'STAKING'] as FilterType[]).map((tab) => (
+                    {/* FILTER TABS */}
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(5, 1fr)',
+                        gap: '4px',
+                        background: 'rgba(0,0,0,0.3)',
+                        padding: '4px',
+                        borderRadius: '12px',
+                        border: '1px solid rgba(255,255,255,0.05)'
+                    }}>
+                        {(['ALL', 'WINS', 'COSTS', 'STAKING', 'NFT'] as FilterType[]).map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveFilter(tab)}
                                 style={{
-                                    flex: 1,
                                     background: activeFilter === tab ? '#eab308' : 'transparent',
                                     color: activeFilter === tab ? '#000' : 'rgba(255,255,255,0.4)',
                                     border: 'none',
                                     padding: '8px 0',
                                     borderRadius: '8px',
-                                    fontSize: '8px',
+                                    fontSize: '7px',
                                     fontWeight: 900,
                                     cursor: 'pointer',
                                     transition: 'all 0.2s'
@@ -126,7 +117,7 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
                         </div>
                     ) : Object.keys(groupedHistory).length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '40px' }}>
-                            <p className="terminal-desc" style={{ fontSize: '10px' }}>NO RECORDS IN THIS SECTOR</p>
+                            <p className="terminal-desc" style={{ fontSize: '10px' }}>NO RECORDS FOUND</p>
                         </div>
                     ) : (
                         Object.keys(groupedHistory).map((date) => (
@@ -146,32 +137,36 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
                                             border: '1px solid rgba(255,255,255,0.05)'
                                         }}>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                <span style={{
-                                                    fontSize: '7px',
-                                                    fontWeight: 900,
-                                                    padding: '2px 6px',
-                                                    borderRadius: '4px',
-                                                    width: 'fit-content',
-                                                    background: item.type.includes('WIN') ? 'rgba(34, 197, 94, 0.1)' : item.type.includes('COST') ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
-                                                    color: item.type.includes('WIN') ? '#22c55e' : item.type.includes('COST') ? '#ef4444' : '#3b82f6'
-                                                }}>
-                                                    {item.type.replace('_', ' ')}
-                                                </span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <span style={{
+                                                        fontSize: '7px',
+                                                        fontWeight: 900,
+                                                        padding: '2px 6px',
+                                                        borderRadius: '4px',
+                                                        background: item.type.includes('NFT') ? 'rgba(168, 85, 247, 0.1)' : item.type.includes('WIN') ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                                        color: item.type.includes('NFT') ? '#a855f7' : item.type.includes('WIN') ? '#22c55e' : '#ef4444'
+                                                    }}>
+                                                        {item.type.replace('_', ' ')}
+                                                    </span>
+                                                    <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                                        <Clock size={8} />
+                                                        {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                </div>
                                                 <p style={{ fontSize: '10px', fontWeight: 900, color: '#fff', margin: 0 }}>
-                                                    {item.asset} {item.type.includes('COST') ? 'EXPENSE' : 'INCOME'}
+                                                    {item.asset} {item.amount >= 0 ? 'INCOME' : 'EXPENSE'}
                                                 </p>
                                             </div>
                                             <div style={{ textAlign: 'right' }}>
                                                 <p style={{
                                                     fontSize: '13px',
                                                     fontWeight: 900,
-                                                    fontStyle: 'italic',
                                                     margin: 0,
                                                     color: item.amount >= 0 ? '#22c55e' : '#ef4444'
                                                 }}>
                                                     {item.amount >= 0 ? '+' : ''}{item.amount}
                                                 </p>
-                                                <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', margin: 0 }}>{item.asset}</p>
+                                                <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', margin: 0 }}>LAAM</p>
                                             </div>
                                         </div>
                                     ))}

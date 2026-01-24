@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import axios from "axios";
+import toast from 'react-hot-toast';
 import { Minus, Plus } from "lucide-react";
 import SeekerGuard from "../components/SeekerGuard";
 
@@ -137,21 +138,28 @@ const Mint: NextPage = () => {
       const successCount = results.filter(r => r.success).length;
 
       if (successCount > 0) {
-        // --- DATABASE SYNC START ---
-        // This tells your new API route to update 'personalMinted' in Prisma
-        try {
-          await axios.post('/api/user/update-mints', {
-            walletAddress: publicKey.toBase58(),
-            amount: successCount
-          });
-        } catch (dbErr) {
-          console.error("Blockchain success, but Database failed to update:", dbErr);
-          // Note: The NFT is minted on Solana, but we failed to record it in our DB.
-        }
-        // --- DATABASE SYNC END ---
+        // Update personalMinted count
+        await axios.post('/api/user/update-mints', {
+          walletAddress: publicKey.toBase58(),
+          amount: successCount
+        });
 
-        alert(`🎉 IDENTITY SECURED: ${successCount} ${successCount > 1 ? 'UNITS' : 'UNIT'} ADDED TO VAULT`);
-        fetchStatus(); // This refreshes the UI to show the new count
+        // Trigger the 1000 LAAM per NFT reward
+        try {
+          const rewardRes = await axios.post('/api/user/reward-nft', {
+            address: publicKey.toBase58(),
+            mintCount: successCount
+          });
+
+          if (rewardRes.data.success) {
+            alert(`🎉 SUCCESS! Minted ${successCount} NFT(s) and earned ${rewardRes.data.earned} LAAM!`);
+          }
+        } catch (rewardErr) {
+          console.error("Reward injection failed:", rewardErr);
+          alert(`Minted ${successCount} NFT(s), but points will be synced later.`);
+        }
+
+        fetchStatus();
       }
     } catch (err: any) {
       alert(err.message || "Mint process failed");

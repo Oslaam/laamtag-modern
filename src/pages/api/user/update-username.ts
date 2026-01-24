@@ -14,10 +14,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ message: 'Missing required fields' });
   }
 
-  // Basic validation: No special characters, max 15 chars
+  // 1. Clean the name
   const cleanUsername = username.replace(/[^a-zA-Z0-9]/g, '').slice(0, 15);
 
+  if (cleanUsername.length < 3) {
+    return res.status(400).json({ message: 'Username too short' });
+  }
+
   try {
+    // 2. CHECK: Is someone else already using this name?
+    const existing = await prisma.user.findFirst({
+      where: {
+        username: { equals: cleanUsername, mode: 'insensitive' },
+        NOT: { walletAddress: walletAddress } // Ignore if the owner is the one saving it
+      }
+    });
+
+    if (existing) {
+      return res.status(400).json({ message: 'Username already taken' });
+    }
+
+    // 3. UPDATE: Safe to save
     const updatedUser = await prisma.user.update({
       where: { walletAddress: walletAddress },
       data: { username: cleanUsername },

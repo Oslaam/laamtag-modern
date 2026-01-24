@@ -1,13 +1,13 @@
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Coins, Trophy, ShieldCheck, UserPen, Save, Loader2 } from 'lucide-react';
+import { ArrowLeft, Coins, Trophy, ShieldCheck, Save, Loader2, History } from 'lucide-react';
 import NftGallery from '../components/NftGallery';
+import HistoryModal from '../components/HistoryModal';
 import toast from 'react-hot-toast';
 
 export default function ProfilePage() {
   const { publicKey } = useWallet();
-  // Added 'username' to the state type
   const [userData, setUserData] = useState<{
     laamPoints: number;
     rank: string;
@@ -17,20 +17,53 @@ export default function ProfilePage() {
 
   const [newUsername, setNewUsername] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
+  // States for Availability and Validation
+  const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
+  const [isValidating, setIsValidating] = useState(false);
+
+  // 1. INITIAL FETCH: Ensures the saved username shows up permanently on load
   useEffect(() => {
     if (!publicKey) return;
     fetch(`/api/user/${publicKey.toString()}`)
       .then(res => res.json())
       .then(statsData => {
         setUserData(statsData || null);
-        if (statsData?.username) setNewUsername(statsData.username);
+        if (statsData?.username) {
+          setNewUsername(statsData.username); // Fills the box permanently
+        }
       })
       .catch(err => console.error("Profile fetch error", err));
   }, [publicKey]);
 
+  // 2. AVAILABILITY CHECK: Only checks if the name is 3+ chars and different from current
+  useEffect(() => {
+    const checkName = async () => {
+      if (!newUsername || newUsername === userData?.username || newUsername.length < 3) {
+        setIsAvailable(null);
+        return;
+      }
+
+      setIsValidating(true);
+      try {
+        const res = await fetch(`/api/user/check-username?username=${newUsername}`);
+        const data = await res.json();
+        setIsAvailable(data.available);
+      } catch (err) {
+        console.error("Check error", err);
+      } finally {
+        setIsValidating(false);
+      }
+    };
+
+    const timeoutId = setTimeout(checkName, 500);
+    return () => clearTimeout(timeoutId);
+  }, [newUsername, userData?.username]);
+
+  // 3. SAVE LOGIC
   const handleUpdateUsername = async () => {
-    if (!publicKey || !newUsername.trim()) return;
+    if (!publicKey || newUsername.length < 3) return;
     setIsUpdating(true);
 
     try {
@@ -43,10 +76,14 @@ export default function ProfilePage() {
         })
       });
 
+      const updatedData = await res.json();
+
       if (res.ok) {
-        toast.success("IDENTITY UPDATED IN DATABASE");
-        // Update local state so header reflects change
-        setUserData(prev => prev ? { ...prev, username: newUsername } : null);
+        toast.success("IDENTITY UPDATED");
+        // Update local state so the Save button disables again
+        setUserData(prev => prev ? { ...prev, username: updatedData.username } : null);
+        setNewUsername(updatedData.username);
+        setIsAvailable(null);
       } else {
         toast.error("UPDATE REJECTED");
       }
@@ -57,26 +94,58 @@ export default function ProfilePage() {
     }
   };
 
+  // HELPER: Logic to decide if the button should be clickable
+  // Button is disabled IF: 
+  // - Already updating
+  // - Validating (checking API)
+  // - Name is too short
+  // - Name is the SAME as what's already saved
+  // - Name is TAKEN (isAvailable === false)
+  const isSaveDisabled =
+    isUpdating ||
+    isValidating ||
+    newUsername.length < 3 ||
+    newUsername === userData?.username ||
+    isAvailable === false;
+
   return (
     <div className="main-content">
       <div className="content-wrapper">
 
         {/* HEADER SECTION */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '40px'
-        }}>
-          <Link href="/" style={{
-            background: 'rgba(255,255,255,0.05)',
-            padding: '12px',
-            borderRadius: '12px',
-            color: '#fff',
-            border: '1px solid rgba(255,255,255,0.1)'
-          }}>
-            <ArrowLeft size={20} />
-          </Link>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <Link href="/" style={{
+              background: 'rgba(255,255,255,0.05)',
+              padding: '12px',
+              borderRadius: '12px',
+              color: '#fff',
+              border: '1px solid rgba(255,255,255,0.1)',
+              display: 'flex',
+              alignItems: 'center'
+            }}>
+              <ArrowLeft size={20} />
+            </Link>
+
+            <button
+              onClick={() => setIsHistoryOpen(true)}
+              style={{
+                background: 'rgba(234, 179, 8, 0.1)',
+                padding: '12px',
+                borderRadius: '12px',
+                color: '#eab308',
+                border: '1px solid rgba(234, 179, 8, 0.3)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <History size={20} />
+              <span style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' }}>Ledger</span>
+            </button>
+          </div>
+
           <div style={{ textAlign: 'right' }}>
             <p className="terminal-desc" style={{ color: '#eab308', margin: 0 }}>
               {userData?.username || 'SEEKER'} PROFILE
@@ -121,36 +190,49 @@ export default function ProfilePage() {
             Modify Operator Callsign
           </p>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <input
-              type="text"
-              value={newUsername}
-              onChange={(e) => setNewUsername(e.target.value)}
-              placeholder="ENTER NEW NAME..."
-              maxLength={15}
-              style={{
-                flex: 1,
-                background: 'rgba(0,0,0,0.5)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: '8px',
-                padding: '10px 15px',
-                color: '#fff',
-                fontSize: '12px',
-                fontFamily: 'monospace',
-                outline: 'none'
-              }}
-            />
+            <div style={{ position: 'relative', flex: 1 }}>
+              <input
+                type="text"
+                value={newUsername}
+                onChange={(e) => setNewUsername(e.target.value)}
+                placeholder="ENTER NEW NAME..."
+                maxLength={15}
+                style={{
+                  width: '100%',
+                  background: 'rgba(0,0,0,0.5)',
+                  border: `1px solid ${isAvailable === true ? '#22c55e' :
+                      isAvailable === false ? '#ef4444' : 'rgba(255,255,255,0.1)'
+                    }`,
+                  borderRadius: '8px',
+                  padding: '10px 15px',
+                  color: '#fff',
+                  fontSize: '12px',
+                  fontFamily: 'monospace',
+                  outline: 'none'
+                }}
+              />
+
+              <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '8px', fontWeight: 900 }}>
+                {isValidating && <span className="animate-pulse" style={{ color: '#eab308' }}>CHECKING...</span>}
+                {!isValidating && isAvailable === true && <span style={{ color: '#22c55e' }}>AVAILABLE</span>}
+                {!isValidating && isAvailable === false && <span style={{ color: '#ef4444' }}>TAKEN</span>}
+                {!isValidating && newUsername.length > 0 && newUsername.length < 3 && <span style={{ color: 'rgba(255,255,255,0.3)' }}>TOO SHORT</span>}
+              </div>
+            </div>
+
             <button
               onClick={handleUpdateUsername}
-              disabled={isUpdating}
+              disabled={isSaveDisabled}
               className="terminal-button"
               style={{
-                background: '#fff',
-                color: '#000',
+                background: isSaveDisabled ? 'rgba(255,255,255,0.05)' : '#fff',
+                color: isSaveDisabled ? 'rgba(255,255,255,0.2)' : '#000',
                 padding: '0 20px',
                 fontSize: '10px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px'
+                gap: '8px',
+                cursor: isSaveDisabled ? 'not-allowed' : 'pointer'
               }}
             >
               {isUpdating ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
@@ -203,6 +285,11 @@ export default function ProfilePage() {
             <NftGallery />
           </div>
         </div>
+
+        <HistoryModal
+          isOpen={isHistoryOpen}
+          onClose={() => setIsHistoryOpen(false)}
+        />
 
       </div>
     </div>
