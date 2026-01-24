@@ -12,7 +12,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
-        // 1. SAVE TO DATABASE
+        // 1. SAVE TO DATABASE (This happens first and is very fast)
         const ticket = await prisma.supportTicket.create({
             data: {
                 walletAddress: walletAddress || 'Anonymous',
@@ -25,7 +25,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             }
         });
 
-        // 2. SETUP EMAIL TRANSPORTER
+        // 2. SEND SUCCESS TO USER IMMEDIATELY
+        // This stops the loading spinner on the frontend right now!
+        res.status(200).json({ success: true, ticketId: ticket.id });
+
+        // 3. BACKGROUND WORK (Starts after the response is sent)
         const transporter = nodemailer.createTransport({
             host: "mail.privateemail.com",
             port: 465,
@@ -37,8 +41,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             tls: { rejectUnauthorized: false }
         });
 
-        // 3. INTERNAL ALERT (Sent to YOU)
-        await transporter.sendMail({
+        // We do NOT use 'await' here so the server finishes the request 
+        // while the emails send in the background.
+
+        // Internal Alert (Sent to YOU)
+        transporter.sendMail({
             from: `"Vault Support" <${process.env.EMAIL_USER}>`,
             to: process.env.EMAIL_USER,
             replyTo: email,
@@ -58,12 +65,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     </div>
                 </div>
             `,
-        });
+        }).catch(err => console.error("Admin Email Background Error:", err));
 
-        // 4. AUTO-RESPONDER (Sent to the USER)
-        await transporter.sendMail({
+        // Auto-Responder (Sent to the USER)
+        transporter.sendMail({
             from: `"Laamtag Vault" <${process.env.EMAIL_USER}>`,
-            to: email, // The user's email address
+            to: email,
             subject: `Ticket Received: ${title}`,
             html: `
                 <div style="font-family: sans-serif; max-width: 600px; margin: auto; background-color: #000; color: #fff; border: 1px solid #333; border-radius: 15px; padding: 40px; text-align: center;">
@@ -79,15 +86,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     <p style="font-size: 10px; color: #444;">LAAMTAG VAULT SYSTEM // SECURE CONNECTION</p>
                 </div>
             `
-        });
-
-        return res.status(200).json({ success: true, ticketId: ticket.id });
+        }).catch(err => console.error("User Email Background Error:", err));
 
     } catch (error: any) {
-        console.error("FULL EMAIL ERROR:", error.message);
-        return res.status(200).json({
-            success: true,
-            warning: "Archived in terminal, email dispatch failed."
-        });
+        console.error("API ERROR:", error.message);
+        // We check if headersSent is false so we don't try to send 2 responses
+        if (!res.headersSent) {
+            return res.status(500).json({ error: "Failed to log transmission" });
+        }
     }
 }

@@ -75,6 +75,18 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
             return;
         };
 
+        if (isAdmin) {
+            const tRes = await fetch('/api/admin/tickets', {
+                headers: { 'x-admin-wallet': publicKey.toString() }
+            });
+            if (tRes.ok) {
+                const tData = await tRes.json();
+                // Filter only the pending ones
+                const count = tData.filter((t: any) => t.status === 'Pending').length;
+                setPendingCount(count);
+            }
+        }
+
         try {
             const solBalance = await connection.getBalance(publicKey);
             const res = await fetch(`/api/user/${publicKey.toString()}`);

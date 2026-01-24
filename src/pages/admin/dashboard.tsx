@@ -45,27 +45,31 @@ export default function AdminDashboard() {
     }
   }, [publicKey, router]);
 
-  const fetchData = async () => {
-    if (!publicKey) return;
-    setLoading(true);
-    try {
-      // Fetch Quests
-      const questRes = await fetch('/api/admin/pending', {
-        headers: { 'x-admin-wallet': publicKey.toString() }
-      });
-      const questData = await questRes.json();
-      setSubmissions(questData.submissions || []);
+const fetchData = async () => {
+  if (!publicKey) return;
+  setLoading(true);
+  try {
+    const headers = { 'x-admin-wallet': publicKey.toString() };
 
-      // Fetch Support Tickets
-      const ticketRes = await fetch(`/api/admin/tickets?adminAddress=${publicKey.toString()}`);
-      const ticketData = await ticketRes.json();
-      setTickets(ticketData || []);
-    } catch (err) {
-      toast.error("Failed to load terminal data");
-    } finally {
-      setLoading(false);
-    }
-  };
+    // Fetch Quests
+    const questRes = await fetch('/api/admin/pending', { headers });
+    const questData = await questRes.json();
+    setSubmissions(questData.submissions || []);
+
+    // Fetch Support Tickets (Change this line to use headers too)
+    const ticketRes = await fetch('/api/admin/tickets', { headers });
+    const ticketData = await ticketRes.json();
+    
+    // Safety check: if ticketData is an error object, set to empty array
+    setTickets(Array.isArray(ticketData) ? ticketData : []);
+    
+  } catch (err) {
+    console.error("Fetch error:", err);
+    toast.error("Failed to load terminal data");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleQuestAction = async (id: string, action: 'APPROVE' | 'REJECT') => {
     if (!publicKey || !signMessage) return toast.error("Connect Wallet!");
