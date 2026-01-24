@@ -10,12 +10,12 @@ datasource db {
 model User {
   walletAddress      String           @id @unique
   username      String?
-  laamPoints         Int              @default(0)
+  laamPoints         Float              @default(0)
   rank               String           @default("Bronze")
   lastCheckIn        DateTime?
   streakCount        Int              @default(0)
   personalMinted     Int              @default(0)
-  tagTickets         Int              @default(0)
+  tagTickets         Float              @default(0)
   totalTagPurchased  Int              @default(0)
   isAdmin            Boolean          @default(false)
   quests             UserQuest[]

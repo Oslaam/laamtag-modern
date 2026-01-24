@@ -5,37 +5,61 @@ import SeekerGuard from '../components/SeekerGuard';
 import axios from 'axios';
 import { Lock, Zap, Clock, History } from 'lucide-react';
 import { stakeNftOnChain } from '../lib/stakeNftTask';
+import { unstakeNftOnChain } from '../lib/unstakeNftTask';
 
-// The live ticker for rewards
+
+// The live ticker for rewards with 48h Countdown logic
 const RewardTicker = ({ stakedAt }: { stakedAt: string }) => {
     const [rewards, setRewards] = useState({ laam: 0, tag: 0 });
-    const LAAM_PER_SEC = 500 / 86400;
-    const TAG_PER_SEC = 20 / 86400;
+    const [timeLeft, setTimeLeft] = useState<string | null>(null);
 
     useEffect(() => {
         const interval = setInterval(() => {
             const now = Date.now();
             const start = new Date(stakedAt).getTime();
-            const secondsElapsed = Math.max(0, Math.floor((now - start) / 1000) - (48 * 3600));
+            const lockDuration = 48 * 3600 * 1000; // 48 Hours in ms
+            const elapsed = now - start;
 
-            setRewards({
-                laam: secondsElapsed * LAAM_PER_SEC,
-                tag: secondsElapsed * TAG_PER_SEC
-            });
+            if (elapsed < lockDuration) {
+                const remaining = lockDuration - elapsed;
+                const hours = Math.floor(remaining / (3600 * 1000));
+                const mins = Math.floor((remaining % (3600 * 1000)) / (60 * 1000));
+                setTimeLeft(`LOCKED: ${hours}h ${mins}m left`);
+                setRewards({ laam: 0, tag: 0 });
+            } else {
+                setTimeLeft(null);
+                const secondsElapsed = Math.floor((now - start) / 1000) - (48 * 3600);
+
+                setRewards({
+                    laam: secondsElapsed * (500 / 86400),
+                    tag: secondsElapsed * (20 / 86400)
+                });
+            }
         }, 1000);
         return () => clearInterval(interval);
     }, [stakedAt]);
 
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '12px' }}>
-            <div style={{ background: 'rgba(0,0,0,0.3)', padding: '8px', borderRadius: '12px', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
-                <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)', margin: 0, fontWeight: 900 }}>LAAM ACCRUED</p>
-                <p style={{ color: '#eab308', fontWeight: 900, fontSize: '14px', margin: 0, fontFamily: 'monospace' }}>{rewards.laam.toFixed(4)}</p>
-            </div>
-            <div style={{ background: 'rgba(0,0,0,0.3)', padding: '8px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)', margin: 0, fontWeight: 900 }}>TAG ACCRUED</p>
-                <p style={{ color: '#fff', fontWeight: 900, fontSize: '14px', margin: 0, fontFamily: 'monospace' }}>{rewards.tag.toFixed(4)}</p>
-            </div>
+        <div style={{ marginTop: '12px' }}>
+            {timeLeft ? (
+                <div style={{ background: 'rgba(255, 68, 68, 0.1)', padding: '8px', borderRadius: '8px', border: '1px solid rgba(255, 68, 68, 0.2)' }}>
+                    <p style={{ color: '#ff4444', fontSize: '10px', fontWeight: 900, margin: 0, textAlign: 'center' }}>
+                        <Clock size={10} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                        {timeLeft}
+                    </p>
+                </div>
+            ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <div style={{ background: 'rgba(0,0,0,0.3)', padding: '8px', borderRadius: '12px', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
+                        <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)', margin: 0, fontWeight: 900 }}>LAAM ACCRUED</p>
+                        <p style={{ color: '#eab308', fontWeight: 900, fontSize: '14px', margin: 0, fontFamily: 'monospace' }}>{rewards.laam.toFixed(4)}</p>
+                    </div>
+                    <div style={{ background: 'rgba(0,0,0,0.3)', padding: '8px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)', margin: 0, fontWeight: 900 }}>TAG ACCRUED</p>
+                        <p style={{ color: '#fff', fontWeight: 900, fontSize: '14px', margin: 0, fontFamily: 'monospace' }}>{rewards.tag.toFixed(4)}</p>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -70,6 +94,26 @@ export default function VaultPage() {
 
     useEffect(() => { loadData(); }, [publicKey]);
 
+    const handleClaim = async (nft: any) => {
+        setLoading(true);
+        try {
+            const res = await axios.post('/api/staking/sync', {
+                walletAddress: publicKey?.toBase58()
+            });
+            if (res.data.depositedLaam > 0) {
+                // UPDATE: Added Math.floor to alert for whole numbers
+                alert(`SUCCESS: ${Math.floor(res.data.depositedLaam)} LAAM & ${Math.floor(res.data.depositedTag)} TAG DEPOSITED!`);
+            } else {
+                alert("No rewards ready yet. (Must be 48h after stake and 24h since last claim)");
+            }
+            await loadData();
+        } catch (err) {
+            alert("Sync/Claim failed.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleAction = async (nft: any) => {
         setLoading(true);
         try {
@@ -83,14 +127,14 @@ export default function VaultPage() {
                     });
                 }
             } else {
-                await axios.post('/api/staking/unstake', {
-                    walletAddress: publicKey?.toBase58(),
-                    mintAddress: nft.mint
-                });
+                const result = await unstakeNftOnChain(wallet, nft.mint);
+                if (result.success) {
+                    alert("NFT successfully released to your wallet!");
+                }
             }
             await loadData();
         } catch (err: any) {
-            alert(err.response?.data?.message || "Action failed.");
+            alert(err.message || "Action failed.");
         } finally {
             setLoading(false);
         }
@@ -101,14 +145,12 @@ export default function VaultPage() {
             <div className="main-content">
                 <Head><title>LAAMTAG | Staking Arena</title></Head>
                 <div className="content-wrapper">
-                    
-                    {/* HEADER */}
+
                     <div style={{ textAlign: 'center', marginBottom: '40px' }}>
                         <h1 className="page-title">The <span style={{ color: '#eab308' }}>Vault</span></h1>
                         <p className="terminal-desc" style={{ fontSize: '10px' }}>PROTOCOL: ASSET_LOCK_V2</p>
                     </div>
 
-                    {/* TOP STATS GRID */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '24px' }}>
                         <div className="terminal-card" style={{ padding: '16px', textAlign: 'center' }}>
                             <Lock size={16} color="#eab308" style={{ margin: '0 auto 8px' }} />
@@ -117,12 +159,12 @@ export default function VaultPage() {
                         </div>
                         <div className="terminal-card" style={{ padding: '16px', textAlign: 'center' }}>
                             <Zap size={16} color="#a855f7" style={{ margin: '0 auto 8px' }} />
-                            <p style={{ fontSize: '18px', fontWeight: 900, margin: 0 }}>{totalClaimed.laam.toFixed(0)}</p>
+                            {/* UPDATE: Use Math.floor for the display balance */}
+                            <p style={{ fontSize: '18px', fontWeight: 900, margin: 0 }}>{Math.floor(totalClaimed.laam)}</p>
                             <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)', fontWeight: 900 }}>TOTAL LAAM EARNED</p>
                         </div>
                     </div>
 
-                    {/* NFT LIST */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                         {nfts.map((nft) => {
                             const stakeData = rawStakes.find(s => s.mintAddress === nft.mint);
@@ -138,20 +180,38 @@ export default function VaultPage() {
                                             {nft.staked && stakeData ? <RewardTicker stakedAt={stakeData.stakedAt} /> : <p style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', marginTop: '4px' }}>READY TO LOCK</p>}
                                         </div>
                                     </div>
-                                    <button
-                                        disabled={loading}
-                                        onClick={() => handleAction(nft)}
-                                        className="primary-btn"
-                                        style={{ marginTop: '12px', padding: '10px', fontSize: '11px', background: nft.staked ? 'rgba(255,255,255,0.05)' : '#eab308', color: nft.staked ? '#fff' : '#000' }}
-                                    >
-                                        {loading ? "PROCESING..." : nft.staked ? "UNLOCK & CLAIM" : "LOCK ASSET"}
-                                    </button>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+                                        {nft.staked && (
+                                            <button
+                                                disabled={loading}
+                                                onClick={() => handleClaim(nft)}
+                                                className="secondary-btn"
+                                                style={{ padding: '10px', fontSize: '11px', background: '#a855f7', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                            >
+                                                {loading ? "PROCESSING..." : "CLAIM ACCRUED REWARDS"}
+                                            </button>
+                                        )}
+
+                                        <button
+                                            disabled={loading}
+                                            onClick={() => handleAction(nft)}
+                                            className="primary-btn"
+                                            style={{
+                                                padding: '10px',
+                                                fontSize: '11px',
+                                                background: nft.staked ? 'rgba(255,255,255,0.05)' : '#eab308',
+                                                color: nft.staked ? '#fff' : '#000'
+                                            }}
+                                        >
+                                            {loading ? "PROCESSING..." : nft.staked ? "UNSTAKE NFT (RELEASE)" : "LOCK ASSET"}
+                                        </button>
+                                    </div>
                                 </div>
                             );
                         })}
                     </div>
 
-                    {/* HISTORY TABLE */}
                     <div className="terminal-card" style={{ marginTop: '40px', padding: '20px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                             <History size={16} color="#eab308" />
@@ -161,7 +221,8 @@ export default function VaultPage() {
                             {history.slice(0, 5).map((item) => (
                                 <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '8px' }}>
                                     <span style={{ opacity: 0.5 }}>{new Date(item.unstakedAt).toLocaleDateString()}</span>
-                                    <span style={{ fontWeight: 900, color: '#eab308' }}>+{item.laamEarned.toFixed(0)} LAAM</span>
+                                    {/* UPDATE: Use Math.floor for history items to keep them as whole numbers */}
+                                    <span style={{ fontWeight: 900, color: '#eab308' }}>+{Math.floor(item.laamEarned)} LAAM</span>
                                 </div>
                             ))}
                         </div>
