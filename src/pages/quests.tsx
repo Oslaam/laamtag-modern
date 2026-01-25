@@ -1,21 +1,30 @@
 'use client';
 
 import { useWallet } from '@solana/wallet-adapter-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import SeekerGuard from '../components/SeekerGuard';
+
+// Helper to check if the timestamp happened today (Calendar reset)
+const isAlreadyClaimedToday = (lastCheckInDate: string | Date | null) => {
+  if (!lastCheckInDate) return false;
+  const lastDate = new Date(lastCheckInDate);
+  const now = new Date();
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return lastDate >= todayMidnight;
+};
 
 export default function QuestsPage() {
   const { publicKey } = useWallet();
   const [dbQuests, setDbQuests] = useState([]);
   const [questStatuses, setQuestStatuses] = useState<Record<string, string>>({});
-  const [userCheckins, setUserCheckins] = useState({ laam: null, tag: null });
+  const [userCheckins, setUserCheckins] = useState<{ laam: Date | null, tag: Date | null }>({ laam: null, tag: null });
   const [isClaiming, setIsClaiming] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState("");
   const [clickedQuests, setClickedQuests] = useState<Record<string, boolean>>({});
   const [proofLinks, setProofLinks] = useState<Record<string, string>>({});
 
-  const fetchQuests = async () => {
+  const fetchQuests = useCallback(async () => {
     try {
       const res = await fetch('/api/get-quests');
       const data = await res.json();
@@ -33,26 +42,39 @@ export default function QuestsPage() {
         const userRes = await fetch(`/api/user/get-profile?address=${publicKey.toString()}`);
         if (userRes.ok) {
           const userData = await userRes.json();
-          setUserCheckins({ laam: userData.lastLaamCheckIn, tag: userData.lastTagCheckIn });
+          setUserCheckins({
+            laam: userData.lastLaamCheckIn,
+            tag: userData.lastTagCheckIn
+          });
         }
       }
     } catch (err) { console.error(err); }
-  };
+  }, [publicKey]);
 
-  useEffect(() => { fetchQuests(); }, [publicKey]);
+  useEffect(() => { fetchQuests(); }, [fetchQuests]);
 
   useEffect(() => {
     const timer = setInterval(() => {
       const now = new Date();
-      const resetTime = new Date().setHours(23, 59, 59, 999);
-      const diff = resetTime - now.getTime();
-      const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
-      const m = Math.floor((diff / 1000 / 60) % 60);
+      const resetTime = new Date();
+      resetTime.setHours(23, 59, 59, 999);
+
+      let diff = resetTime.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        fetchQuests();
+        toast.success("SYSTEM RESET: New Quests Available!", { icon: '🚀' });
+        resetTime.setDate(resetTime.getDate() + 1);
+        diff = resetTime.getTime() - now.getTime();
+      }
+
+      const h = Math.floor(diff / (1000 * 60 * 60));
+      const m = Math.floor((diff / (1000 * 60)) % 60);
       const s = Math.floor((diff / 1000) % 60);
       setTimeLeft(`${h}h ${m}m ${s}s`);
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [fetchQuests]);
 
   const claimDaily = async (assetType: 'LAAM' | 'TAG') => {
     if (!publicKey) return toast.error("Connect wallet!");
@@ -130,8 +152,8 @@ export default function QuestsPage() {
     setClickedQuests(prev => ({ ...prev, [questId]: true }));
   };
 
-  const isLaamClaimed = userCheckins.laam && (new Date().getTime() - new Date(userCheckins.laam).getTime()) < 86400000;
-  const isTagClaimed = userCheckins.tag && (new Date().getTime() - new Date(userCheckins.tag).getTime()) < 86400000;
+  const isLaamClaimed = isAlreadyClaimedToday(userCheckins.laam);
+  const isTagClaimed = isAlreadyClaimedToday(userCheckins.tag);
 
   const availableQuests = dbQuests.filter((q: any) =>
     q.type !== 'daily' &&

@@ -27,10 +27,6 @@ export default function ShooterContainer() {
     const [isRestarting, setIsRestarting] = useState(false);
     const [statsReady, setStatsReady] = useState(false);
 
-    // --- AUTO-SPIN / LONG PRESS STATE ---
-    const [isAutoSpin, setIsAutoSpin] = useState(false);
-    const longPressTimer = useRef<NodeJS.Timeout | null>(null);
-
     const [stats, setStats] = useState({
         laam: 0,
         tag: 0,
@@ -89,12 +85,6 @@ export default function ShooterContainer() {
 
         const handleGameOver = () => {
             setIsGameOver(true);
-            // If auto-spin is on, trigger a restart after a short delay
-            if (isAutoSpin) {
-                setTimeout(() => {
-                    handleEngage();
-                }, 1500);
-            }
         };
 
         const handleVictory = () => setIsVictory(true);
@@ -186,14 +176,13 @@ export default function ShooterContainer() {
                 setIsLoading(false);
             }
         };
-    }, [publicKey, fetchUserData, isAutoSpin]);
+    }, [publicKey, fetchUserData]);
 
     const goHome = () => router.push('/');
 
     const handleEngage = async () => {
         if (!publicKey) {
             toast.error("CONNECT WALLET FIRST");
-            setIsAutoSpin(false);
             return;
         }
         if (!statsReady) {
@@ -216,7 +205,6 @@ export default function ShooterContainer() {
             if (!payRes.ok) {
                 toast.error(payData.error || "INSUFFICIENT TAG");
                 setIsLoading(false);
-                setIsAutoSpin(false); // Stop auto-spin if payment fails
                 return;
             }
 
@@ -237,7 +225,6 @@ export default function ShooterContainer() {
                 });
                 phaserGame.current = activeGame;
             } else if (isGameOver || isVictory) {
-                // If game was already running but ended, restart the scene
                 const scene = phaserGame.current.scene.scenes[0];
                 scene.scene.restart({
                     stats: { ...stats, tag: stats.tag - 5, walletAddress: publicKey.toString() },
@@ -269,7 +256,6 @@ export default function ShooterContainer() {
 
                 if (attempts > 60) {
                     setIsLoading(false);
-                    setIsAutoSpin(false);
                     clearInterval(readyCheck);
                     toast.error("LOAD ERROR: PLEASE REFRESH PAGE");
                 }
@@ -279,21 +265,6 @@ export default function ShooterContainer() {
             console.error("Engage Error:", err);
             toast.error("CONNECTION ERROR");
             setIsLoading(false);
-            setIsAutoSpin(false);
-        }
-    };
-
-    // --- LONG PRESS HANDLERS ---
-    const startPress = () => {
-        longPressTimer.current = setTimeout(() => {
-            setIsAutoSpin(true);
-            toast.success("AUTO-DEPLOY ACTIVATED", { icon: '🤖' });
-        }, 1000);
-    };
-
-    const endPress = () => {
-        if (longPressTimer.current) {
-            clearTimeout(longPressTimer.current);
         }
     };
 
@@ -372,11 +343,6 @@ export default function ShooterContainer() {
 
                 {gameStarted && (
                     <div style={{ position: 'absolute', top: '16px', right: '100px', zIndex: 10000, display: 'flex', gap: '12px' }}>
-                        {isAutoSpin && (
-                            <div style={{ background: '#991b1b', color: '#fff', padding: '6px 12px', borderRadius: '4px', fontSize: '10px', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                <RotateCcw size={10} className={styles.spinning} /> AUTO_MODE
-                            </div>
-                        )}
                         <div style={{ background: 'rgba(0,0,0,0.8)', border: '1px solid #eab308', padding: '6px 16px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '8px', backdropFilter: 'blur(8px)' }}>
                             <Ticket size={12} style={{ color: '#eab308' }} />
                             <span style={{ color: '#fff', fontWeight: 900, fontSize: '10px', fontFamily: 'monospace' }}>TAG: {(stats?.tag ?? 0).toLocaleString()}</span>
@@ -398,13 +364,7 @@ export default function ShooterContainer() {
                         <button onClick={() => setIsShopOpen(!isShopOpen)} style={{ background: isShopOpen ? '#991b1b' : '#111', border: '1px solid #333', padding: '10px', borderRadius: '8px', color: '#fff', boxShadow: isShopOpen ? 'none' : '0 4px 0 #000', transform: isShopOpen ? 'translateY(2px)' : 'none' }}>
                             <ShoppingCart size={18} />
                         </button>
-                        <button 
-                            onClick={() => {
-                                setIsAutoSpin(false); // Manually clicking restart stops auto-spin
-                                restartGame();
-                            }} 
-                            style={{ background: '#111', border: '1px solid #333', padding: '10px', borderRadius: '8px', color: '#fff', boxShadow: '0 4px 0 #000' }}
-                        >
+                        <button onClick={restartGame} style={{ background: '#111', border: '1px solid #333', padding: '10px', borderRadius: '8px', color: '#fff', boxShadow: '0 4px 0 #000' }}>
                             <RotateCcw size={18} />
                         </button>
                     </div>
@@ -422,28 +382,23 @@ export default function ShooterContainer() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' }}>
                             <button
                                 onClick={handleEngage}
-                                onMouseDown={startPress}
-                                onMouseUp={endPress}
-                                onMouseLeave={endPress}
-                                onTouchStart={startPress}
-                                onTouchEnd={endPress}
                                 disabled={isLoading}
                                 style={{
                                     padding: '20px 60px',
-                                    background: isLoading ? '#1f2937' : (isAutoSpin ? '#eab308' : '#991b1b'),
-                                    color: isAutoSpin ? '#000' : '#fff',
+                                    background: isLoading ? '#1f2937' : '#991b1b',
+                                    color: '#fff',
                                     borderRadius: '4px',
                                     border: 'none',
                                     fontWeight: 900,
                                     fontSize: '24px',
                                     letterSpacing: '4px',
-                                    boxShadow: isLoading ? 'none' : `0 8px 0 ${isAutoSpin ? '#a16207' : '#450a0a'}`,
+                                    boxShadow: isLoading ? 'none' : `0 8px 0 #450a0a`,
                                     transform: isLoading ? 'translateY(4px)' : 'none',
                                     transition: 'all 0.1s',
                                     cursor: isLoading ? 'not-allowed' : 'pointer'
                                 }}
                             >
-                                {isLoading ? "INITIALIZING..." : isAutoSpin ? "AUTO ACTIVE" : "ENGAGE [5 TAG]"}
+                                {isLoading ? "INITIALIZING..." : "ENGAGE [5 TAG]"}
                             </button>
 
                             <button
@@ -467,10 +422,6 @@ export default function ShooterContainer() {
                                 ← Abort Mission / Return to Terminal
                             </button>
                         </div>
-
-                        <p style={{ marginTop: '20px', color: '#444', fontSize: '10px', fontFamily: 'monospace', fontWeight: 900 }}>
-                            {isAutoSpin ? "HOLD TO CANCEL AUTO-MODE" : "HOLD BUTTON FOR AUTO-DEPLOY"}
-                        </p>
                     </div>
                 )}
 
@@ -478,6 +429,7 @@ export default function ShooterContainer() {
                     <Home size={18} />
                 </button>
 
+                {/* Shop Panel Remains Same */}
                 <div className={`${styles.shopPanel} ${isShopOpen ? styles.shopPanelOpen : ''}`} style={{ zIndex: 20001, background: '#080808', borderLeft: '2px solid #1a1a1a' }}>
                     <div style={{ padding: '24px', paddingTop: '80px', height: '100%', overflowY: 'auto' }}>
                         <h3 style={{ color: '#eab308', fontWeight: 900, fontStyle: 'italic', fontSize: '20px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid #1a1a1a', paddingBottom: '10px' }}>
@@ -534,10 +486,7 @@ export default function ShooterContainer() {
                         <h2 style={{ color: '#991b1b', fontSize: '72px', fontWeight: 900, fontStyle: 'italic', marginBottom: '20px', letterSpacing: '-4px' }}>TERMINATED</h2>
 
                         <button
-                            onClick={() => {
-                                setIsAutoSpin(false);
-                                restartGame();
-                            }}
+                            onClick={restartGame}
                             disabled={isRestarting}
                             style={{
                                 background: isRestarting ? '#333' : '#fff',
