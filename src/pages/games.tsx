@@ -123,10 +123,11 @@ export default function GamesPage() {
                                     </div>
                                 ) : activeGame === 'SPIN' ? (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        <LootRow label="Jackpot" value="50,000 LAAM" highlight />
-                                        <LootRow label="Rare Find" value="1000 TAG" />
-                                        <LootRow label="Jackpot" value="1 SOL" highlight />
-                                        <LootRow label="Rare Find" value="100 USDC" />
+                                        <LootRow label="Seeker’s Cache" value="50,000 LAAM" highlight />
+                                        <LootRow label="Hidden Relic" value="1,000 TAG" />
+                                        <LootRow label="Crown Find" value="1 SOL" highlight />
+                                        <LootRow label="Vault Discovery" value="100 USDC" />
+
                                     </div>
                                 ) : (
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
