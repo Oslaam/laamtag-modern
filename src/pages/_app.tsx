@@ -192,8 +192,9 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
                                 </p>
                             </div>
                             <div style={{ display: 'flex', gap: '8px' }}>
-                                <StatBox label="LAAM" value={stats.laam.toLocaleString()} color="#eab308" />
-                                <StatBox label="TAG" value={stats.tag.toLocaleString()} color="#fff" />
+                                {/* ✅ Decimal Fix: Using Math.floor for LAAM and TAG */}
+                                <StatBox label="LAAM" value={Math.floor(stats.laam).toLocaleString()} color="#eab308" />
+                                <StatBox label="TAG" value={Math.floor(stats.tag).toLocaleString()} color="#fff" />
                                 <StatBox label="SOL" value={stats.sol.toFixed(2)} color="#22d3ee" />
                                 <StatBox label="TIER" value={stats.tier} color="#c084fc" />
                             </div>

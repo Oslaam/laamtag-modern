@@ -19,6 +19,7 @@ export default function QuestsPage() {
   const [dbQuests, setDbQuests] = useState([]);
   const [questStatuses, setQuestStatuses] = useState<Record<string, string>>({});
   const [userCheckins, setUserCheckins] = useState<{ laam: Date | null, tag: Date | null }>({ laam: null, tag: null });
+  const [userStreak, setUserStreak] = useState(0); // Added for Streak Logic
   const [isClaiming, setIsClaiming] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState("");
   const [clickedQuests, setClickedQuests] = useState<Record<string, boolean>>({});
@@ -46,6 +47,7 @@ export default function QuestsPage() {
             laam: userData.lastLaamCheckIn,
             tag: userData.lastTagCheckIn
           });
+          setUserStreak(userData.streakCount || 0); // Sync with Prisma field
         }
       }
     } catch (err) { console.error(err); }
@@ -155,6 +157,18 @@ export default function QuestsPage() {
   const isLaamClaimed = isAlreadyClaimedToday(userCheckins.laam);
   const isTagClaimed = isAlreadyClaimedToday(userCheckins.tag);
 
+  // STREAK VISUAL LOGIC
+  const currentWeek = Math.floor(userStreak / 7) + 1;
+  const dayInCycle = ((userStreak - 1) % 7) + 1;
+  const hasClaimedToday = isLaamClaimed || isTagClaimed;
+
+  // Shapes change based on week: Week 1 = Circle, Week 2 = Rounded, Week 3+ = Octagon style
+  const getRadius = () => {
+    if (currentWeek === 1) return '50%';
+    if (currentWeek === 2) return '12px';
+    return '4px';
+  };
+
   const availableQuests = dbQuests.filter((q: any) =>
     q.type !== 'daily' &&
     (!questStatuses[q.id] || questStatuses[q.id] === 'REJECTED')
@@ -167,6 +181,45 @@ export default function QuestsPage() {
       <div className="main-content">
         <Toaster />
         <div className="content-wrapper">
+
+          {/* STREAK VISUAL TRACKER */}
+          <div className="terminal-card" style={{ marginBottom: '32px', border: '1px solid #333' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
+              <span style={{ fontSize: '10px', fontWeight: 900, color: '#eab308' }}>STREAK CYCLE: WEEK {currentWeek}</span>
+              <span style={{ fontSize: '10px', color: '#666' }}>TOTAL STREAK: {userStreak} DAYS</span>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'space-between' }}>
+              {[1, 2, 3, 4, 5, 6, 7].map((day) => {
+                const isCompleted = day < dayInCycle || (day === dayInCycle && hasClaimedToday);
+                const isCurrent = day === dayInCycle && !hasClaimedToday;
+
+                return (
+                  <div key={day} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                    <div style={{
+                      width: '100%',
+                      aspectRatio: '1/1',
+                      maxWidth: '45px',
+                      borderRadius: getRadius(),
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '12px',
+                      fontWeight: 900,
+                      transition: 'all 0.3s ease',
+                      background: isCompleted ? '#22d3ee' : isCurrent ? '#eab308' : '#111',
+                      border: isCurrent ? '2px solid #fff' : '1px solid #333',
+                      color: isCompleted || isCurrent ? '#000' : '#444',
+                      boxShadow: isCurrent ? '0 0 10px rgba(234, 179, 8, 0.4)' : 'none'
+                    }}>
+                      {isCompleted ? '✓' : day}
+                    </div>
+                    <span style={{ fontSize: '8px', color: isCurrent ? '#fff' : '#666' }}>D{day}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
           {/* SECTION: DAILY */}
           <h2 style={headerStyle}><span>Daily Transmissions</span> <span style={{ color: '#ef4444' }}>Reset: {timeLeft}</span></h2>

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { EventBus } from '../game/EventBus';
-import { Play, Pause, RotateCcw, ShoppingCart, Zap, Home, Shield, Wind, Heart, ChevronRight, Ticket } from 'lucide-react';
+import { Play, Pause, RotateCcw, ShoppingCart, Zap, Home, Shield, Wind, Heart, ChevronRight, Ticket, ShoppingBag } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import styles from '../styles/ShooterContainer.module.css';
@@ -35,7 +35,7 @@ export default function ShooterContainer() {
         shoeLevel: 1,
         lifeLevel: 1,
         shooterLevel: 1,
-        shooterStage: 1 
+        shooterStage: 1
     });
 
     const fetchUserData = useCallback(async () => {
@@ -108,7 +108,7 @@ export default function ShooterContainer() {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             walletAddress: publicKey.toString(),
-                            stage: data.stage 
+                            stage: data.stage
                         })
                     });
                 } catch (err) {
@@ -197,7 +197,10 @@ export default function ShooterContainer() {
             const payRes = await fetch('/api/games/shooter/pay-to-play', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ walletAddress: publicKey.toString() })
+                body: JSON.stringify({
+                    walletAddress: publicKey.toString(),
+                    reason: 'VOID_SHOOTER_DEPLOY' // Specific reason for logging
+                })
             });
 
             const payData = await payRes.json();
@@ -208,6 +211,7 @@ export default function ShooterContainer() {
                 return;
             }
 
+            // Sync local state
             setStats(prev => ({ ...prev, tag: prev.tag - 5 }));
             toast.success("5 TAG DEDUCTED - SYSTEMS ONLINE");
 
@@ -220,6 +224,7 @@ export default function ShooterContainer() {
                     stage: stats.shooterStage,
                     stats: {
                         ...stats,
+                        tag: stats.tag - 5,
                         walletAddress: publicKey?.toString()
                     }
                 });
@@ -268,24 +273,58 @@ export default function ShooterContainer() {
         }
     };
 
-    const restartGame = useCallback(() => {
-        if (phaserGame.current && !isRestarting) {
-            setIsRestarting(true);
-            const statsWithWallet = { ...stats, walletAddress: publicKey?.toString() };
-            const scene = phaserGame.current.scene.scenes[0];
-            scene.scene.restart({
-                stats: statsWithWallet,
-                level: stats.shooterLevel,
-                stage: stats.shooterStage
+    const restartGame = useCallback(async () => {
+        if (!publicKey || isRestarting) return;
+
+        setIsRestarting(true);
+
+        try {
+            // Payment for Redeploy
+            const payRes = await fetch('/api/games/shooter/pay-to-play', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    walletAddress: publicKey.toString(),
+                    reason: 'VOID_SHOOTER_REDEPLOY'
+                })
             });
 
-            setTimeout(() => {
-                setIsGameOver(false);
-                setIsVictory(false);
-                setGameStarted(true);
+            const payData = await payRes.json();
+
+            if (!payRes.ok) {
+                toast.error(payData.error || "REDEPLOY FAILED");
                 setIsRestarting(false);
-                EventBus.emit('start-game');
-            }, 800);
+                return;
+            }
+
+            // Deduct locally and notify
+            setStats(prev => ({ ...prev, tag: prev.tag - 5 }));
+            toast.success("REDEPLOYED: 5 TAG DEDUCTED", { icon: '🔄' });
+
+            if (phaserGame.current) {
+                const statsWithWallet = {
+                    ...stats,
+                    tag: stats.tag - 5,
+                    walletAddress: publicKey.toString()
+                };
+                const scene = phaserGame.current.scene.scenes[0];
+                scene.scene.restart({
+                    stats: statsWithWallet,
+                    level: stats.shooterLevel,
+                    stage: stats.shooterStage
+                });
+
+                setTimeout(() => {
+                    setIsGameOver(false);
+                    setIsVictory(false);
+                    setGameStarted(true);
+                    setIsRestarting(false);
+                    EventBus.emit('start-game');
+                }, 800);
+            }
+        } catch (err) {
+            toast.error("CONNECTION ERROR");
+            setIsRestarting(false);
         }
     }, [stats, publicKey, isRestarting]);
 
@@ -341,7 +380,7 @@ export default function ShooterContainer() {
         <div className={styles.container} style={{ backgroundColor: '#050505' }}>
             <div className={`${styles.innerFrame} relative overflow-hidden`} style={{ border: '4px solid #111', boxShadow: 'inset 0 0 100px rgba(0,0,0,0.5)' }}>
 
-                {gameStarted && (
+                {(gameStarted || isGameOver) && (
                     <div style={{ position: 'absolute', top: '16px', right: '100px', zIndex: 10000, display: 'flex', gap: '12px' }}>
                         <div style={{ background: 'rgba(0,0,0,0.8)', border: '1px solid #eab308', padding: '6px 16px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '8px', backdropFilter: 'blur(8px)' }}>
                             <Ticket size={12} style={{ color: '#eab308' }} />
@@ -429,7 +468,6 @@ export default function ShooterContainer() {
                     <Home size={18} />
                 </button>
 
-                {/* Shop Panel Remains Same */}
                 <div className={`${styles.shopPanel} ${isShopOpen ? styles.shopPanelOpen : ''}`} style={{ zIndex: 20001, background: '#080808', borderLeft: '2px solid #1a1a1a' }}>
                     <div style={{ padding: '24px', paddingTop: '80px', height: '100%', overflowY: 'auto' }}>
                         <h3 style={{ color: '#eab308', fontWeight: 900, fontStyle: 'italic', fontSize: '20px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid #1a1a1a', paddingBottom: '10px' }}>
@@ -485,30 +523,55 @@ export default function ShooterContainer() {
                     <div style={{ position: 'absolute', inset: 0, zIndex: 30000, background: 'rgba(0,0,0,0.95)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(10px)' }}>
                         <h2 style={{ color: '#991b1b', fontSize: '72px', fontWeight: 900, fontStyle: 'italic', marginBottom: '20px', letterSpacing: '-4px' }}>TERMINATED</h2>
 
-                        <button
-                            onClick={restartGame}
-                            disabled={isRestarting}
-                            style={{
-                                background: isRestarting ? '#333' : '#fff',
-                                color: '#000',
-                                padding: '16px 40px',
-                                borderRadius: '4px',
-                                fontWeight: 900,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '10px',
-                                fontSize: '18px',
-                                textTransform: 'uppercase',
-                                cursor: isRestarting ? 'not-allowed' : 'pointer',
-                                transition: 'all 0.2s'
-                            }}
-                        >
-                            <RotateCcw
-                                size={20}
-                                className={isRestarting ? styles.spinning : ''}
-                            />
-                            {isRestarting ? "FETCHING DATA..." : "REDEPLOY"}
-                        </button>
+                        <div style={{ display: 'flex', gap: '16px' }}>
+                            <button
+                                onClick={restartGame}
+                                disabled={isRestarting}
+                                style={{
+                                    background: isRestarting ? '#333' : '#fff',
+                                    color: '#000',
+                                    padding: '16px 40px',
+                                    borderRadius: '4px',
+                                    fontWeight: 900,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '10px',
+                                    fontSize: '18px',
+                                    textTransform: 'uppercase',
+                                    cursor: isRestarting ? 'not-allowed' : 'pointer',
+                                    transition: 'all 0.2s',
+                                    boxShadow: '0 0 20px rgba(255,255,255,0.1)'
+                                }}
+                            >
+                                <RotateCcw
+                                    size={20}
+                                    className={isRestarting ? styles.spinning : ''}
+                                />
+                                {isRestarting ? "CONNECTING..." : "REDEPLOY [5 TAG]"}
+                            </button>
+
+                            {stats.tag < 5 && (
+                                <button
+                                    onClick={() => router.push('/shop')}
+                                    style={{
+                                        background: '#eab308',
+                                        color: '#000',
+                                        padding: '16px 30px',
+                                        borderRadius: '4px',
+                                        fontWeight: 900,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '10px',
+                                        fontSize: '18px',
+                                        textTransform: 'uppercase',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <ShoppingBag size={20} />
+                                    BUY TAG
+                                </button>
+                            )}
+                        </div>
                     </div>
                 )}
             </div>

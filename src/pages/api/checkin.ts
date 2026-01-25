@@ -9,46 +9,59 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== 'POST') return res.status(405).end();
   const { walletAddress, asset } = req.body;
   const now = new Date();
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
   try {
     const user = await prisma.user.findUnique({ where: { walletAddress } });
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Determine which field to check based on asset type
-    const field = asset === 'LAAM' ? 'lastLaamCheckIn' : 'lastTagCheckIn';
-    const lastDate = user[field]; // Prisma correctly types this as Date | null
+    // 1. Determine which specific asset field to check
+    const specificField = asset === 'LAAM' ? 'lastLaamCheckIn' : 'lastTagCheckIn';
+    const lastSpecificDate = user[specificField];
 
-    // Check if user already claimed TODAY (Since Midnight)
-    if (lastDate) {
-      const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      if (lastDate >= todayMidnight) {
-        return res.status(400).json({
-          message: `Daily ${asset} already secured for today! Resets at midnight.`
-        });
-      }
+    // 2. Prevent double-claiming the SAME asset today
+    if (lastSpecificDate && new Date(lastSpecificDate) >= todayMidnight) {
+      return res.status(400).json({
+        message: `Daily ${asset} already secured! Resets at midnight.`
+      });
     }
 
-    // Streak logic: Reset streak if it has been more than 48 hours since LAST overall check-in
+    // 3. Check if user already claimed the OTHER asset today
+    // If they did, we don't increment the streak count again, we just give the reward.
     const lastOverallCheckIn = user.lastCheckIn;
-    let newStreak = 1;
-    if (lastOverallCheckIn) {
-      const hoursSinceLast = (now.getTime() - lastOverallCheckIn.getTime()) / (1000 * 60 * 60);
+    const isAlreadyActiveToday = lastOverallCheckIn && new Date(lastOverallCheckIn) >= todayMidnight;
 
-      // If user missed the 48-hour window, they start over at Day 1
-      if (hoursSinceLast < 48) {
-        newStreak = (user.streakCount % 7) + 1;
+    let newStreak = user.streakCount;
+
+    if (!isAlreadyActiveToday) {
+      // First check-in of the calendar day
+      if (lastOverallCheckIn) {
+        const hoursSinceLast = (now.getTime() - new Date(lastOverallCheckIn).getTime()) / (1000 * 60 * 60);
+
+        if (hoursSinceLast < 48) {
+          // Keep the streak going (1 -> 2 -> ... 7 -> 8)
+          // The Frontend % 7 logic handles the visual reset
+          newStreak = user.streakCount + 1;
+        } else {
+          // Missed more than a day, reset to 1
+          newStreak = 1;
+        }
       } else {
+        // First time ever checking in
         newStreak = 1;
       }
     }
 
-    const reward = asset === 'LAAM' ? LAAM_REWARDS[newStreak - 1] : TAG_REWARDS[newStreak - 1];
+    // 4. Calculate reward based on the 7-day cycle index (0 to 6)
+    const cycleIndex = (newStreak - 1) % 7;
+    const reward = asset === 'LAAM' ? LAAM_REWARDS[cycleIndex] : TAG_REWARDS[cycleIndex];
 
+    // 5. Update Database
     const updatedUser = await prisma.user.update({
       where: { walletAddress },
       data: {
         [asset === 'LAAM' ? 'laamPoints' : 'tagTickets']: { increment: reward },
-        [field]: now,
+        [specificField]: now,
         lastCheckIn: now,
         streakCount: newStreak
       }
@@ -60,6 +73,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       success: true,
       reward,
       asset,
+      streakCount: newStreak, // Send back to update UI
       total: asset === 'LAAM' ? updatedUser.laamPoints : updatedUser.tagTickets
     });
 

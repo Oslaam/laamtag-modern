@@ -5,7 +5,8 @@ import { logActivity } from '../../../../lib/activityLogger';
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-    const { walletAddress } = req.body;
+    // Added 'reason' to body to differentiate between START and REDEPLOY
+    const { walletAddress, reason = 'GAME_START_FEE' } = req.body;
     const PLAY_COST = 5;
 
     if (!walletAddress) return res.status(400).json({ error: "Wallet address required" });
@@ -28,8 +29,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 }
             });
 
-            // Log the activity so it shows up in their history
-            await logActivity(walletAddress, 'GAME_START_FEE', -PLAY_COST, 'TAG');
+            // Log the activity using the dynamic reason
+            await logActivity(walletAddress, reason as any, -PLAY_COST, 'TAG');
 
             return {
                 success: true,
