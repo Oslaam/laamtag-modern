@@ -44,27 +44,23 @@ export default function ShooterContainer() {
             const res = await fetch(`/api/user/stats?wallet=${publicKey.toString()}`);
             const data = await res.json();
             if (res.ok && data) {
-                setStats({
+                const fetchedStats = {
                     ...data,
                     laam: data.laamPoints,
                     tag: data.tagTickets,
                     shooterLevel: data.shooterLevel || 1,
                     shooterStage: data.shooterStage || 1
-                });
-                setStatsReady(true);
-
-                const dataWithWallet = {
-                    ...data,
-                    laam: data.laamPoints,
-                    tag: data.tagTickets,
-                    shooterLevel: data.shooterLevel || 1,
-                    shooterStage: data.shooterStage || 1,
-                    walletAddress: publicKey.toString()
                 };
+
+                setStats(fetchedStats);
+                setStatsReady(true); // Now the "Engage" button will unlock
 
                 if (sceneReadyRef.current && phaserGame.current) {
                     setTimeout(() => {
-                        EventBus.emit('apply-upgrades', dataWithWallet);
+                        EventBus.emit('apply-upgrades', {
+                            ...fetchedStats,
+                            walletAddress: publicKey.toString()
+                        });
                     }, 200);
                 }
             }
@@ -72,7 +68,6 @@ export default function ShooterContainer() {
             console.error("Failed to fetch stats:", err);
         }
     }, [publicKey]);
-
     useEffect(() => {
         setIsMounted(true);
         const checkOri = () => setIsLandscape(window.innerWidth > window.innerHeight);
@@ -85,6 +80,9 @@ export default function ShooterContainer() {
 
         const handleGameOver = () => {
             setIsGameOver(true);
+            // Remove the window.location.reload()
+            // Just show the toast and let the UI handle the rest
+            toast.error("MISSION FAILED. SYSTEMS OFFLINE.");
         };
 
         const handleVictory = () => setIsVictory(true);
@@ -199,7 +197,7 @@ export default function ShooterContainer() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     walletAddress: publicKey.toString(),
-                    reason: 'VOID_SHOOTER_DEPLOY' // Specific reason for logging
+                    reason: 'VOID_SHOOTER_DEPLOY'
                 })
             });
 
@@ -211,31 +209,28 @@ export default function ShooterContainer() {
                 return;
             }
 
-            // Sync local state
-            setStats(prev => ({ ...prev, tag: prev.tag - 5 }));
+            const newTagCount = stats.tag - 5;
+            setStats(prev => ({ ...prev, tag: newTagCount }));
             toast.success("5 TAG DEDUCTED - SYSTEMS ONLINE");
 
             sceneReadyRef.current = false;
             let activeGame = phaserGame.current;
 
             if (!activeGame) {
+                // PASSING DATABASE LEVEL/STAGE HERE
                 activeGame = StartGame("game-container", {
                     level: stats.shooterLevel,
                     stage: stats.shooterStage,
                     stats: {
                         ...stats,
-                        tag: stats.tag - 5,
-                        walletAddress: publicKey?.toString()
+                        tag: newTagCount,
+                        walletAddress: publicKey.toString()
                     }
                 });
                 phaserGame.current = activeGame;
             } else if (isGameOver || isVictory) {
-                const scene = phaserGame.current.scene.scenes[0];
-                scene.scene.restart({
-                    stats: { ...stats, tag: stats.tag - 5, walletAddress: publicKey.toString() },
-                    level: stats.shooterLevel,
-                    stage: stats.shooterStage
-                });
+                sceneReadyRef.current = false;
+                EventBus.emit('redeploy-player');
                 setIsGameOver(false);
                 setIsVictory(false);
             }
@@ -246,8 +241,8 @@ export default function ShooterContainer() {
                 if (sceneReadyRef.current) {
                     const statsWithWallet = {
                         ...stats,
-                        tag: stats.tag - 5,
-                        walletAddress: publicKey?.toString()
+                        tag: newTagCount,
+                        walletAddress: publicKey.toString()
                     };
 
                     EventBus.emit('apply-upgrades', statsWithWallet);
@@ -262,7 +257,7 @@ export default function ShooterContainer() {
                 if (attempts > 60) {
                     setIsLoading(false);
                     clearInterval(readyCheck);
-                    toast.error("LOAD ERROR: PLEASE REFRESH PAGE");
+                    toast.error("LOAD ERROR: PLEASE REFRESH");
                 }
             }, 150);
 
@@ -272,7 +267,6 @@ export default function ShooterContainer() {
             setIsLoading(false);
         }
     };
-
     const restartGame = useCallback(async () => {
         if (!publicKey || isRestarting) return;
 

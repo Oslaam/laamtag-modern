@@ -38,12 +38,14 @@ export const StartGame = (
     return new Phaser.Game({
         ...config,
         parent,
-        scene: [Preloader, ShooterScene], // Keep this simple
         callbacks: {
             preBoot: (game) => {
-                // This injects your DB data into the global registry 
-                // so ALL scenes can see it easily without errors.
-                game.registry.set('initialData', data);
+                // Injects DB data or defaults if data is missing
+                game.registry.set('initialData', data || {
+                    level: 1,
+                    stage: 1,
+                    stats: {}
+                });
             }
         }
     });

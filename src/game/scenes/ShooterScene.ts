@@ -36,32 +36,44 @@ export class ShooterScene extends Phaser.Scene {
     private infoText!: Phaser.GameObjects.Text;
     private fireEvent?: Phaser.Time.TimerEvent;
     private isManualReady = false;
+    private levelText!: Phaser.GameObjects.Text;
+    private stageText!: Phaser.GameObjects.Text;
+    private enemyCountText!: Phaser.GameObjects.Text;
+    private joystickBase!: Phaser.GameObjects.Arc;
+    private joystickThumb!: Phaser.GameObjects.Arc;
+    private joystickActive = false;
 
     constructor() {
         super('ShooterScene');
     }
 
     init(data: { stats?: any, level?: number, stage?: number }) {
-        // 1. Properly merge the stats (upgrades) from React/DB
-        if (data.stats) {
+        // 1. Get data from Registry (where the initial DB fetch is stored)
+        const registryData = this.registry.get('initialData');
+
+        // 2. Logic: Prioritize direct data (restarts) then Registry (initial load)
+        if (data && (data.level || data.stats)) {
+            this.level = data.level || 1;
+            this.stage = data.stage || 1;
             this.stats = { ...this.stats, ...data.stats };
+        } else if (registryData) {
+            // MAP DB NAMES (shooterLevel) -> GAME NAMES (level)
+            this.level = registryData.shooterLevel ?? 1;
+            this.stage = registryData.shooterStage ?? 1;
+            this.stats = { ...this.stats, ...registryData };
         }
 
-        // 2. Use the passed level/stage, otherwise keep current, otherwise default to 1
-        // Use ?? (Nullish Coalescing) to ensure 0 doesn't get skipped
-        this.level = data.level ?? this.level ?? 1;
-        this.stage = data.stage ?? this.stage ?? 1;
-
-        // 3. Reset game state flags for the new stage
+        // Reset game state for a fresh run
         this.enemiesKilled = 0;
         this.isGameOver = false;
         this.isBossPhase = false;
         this.isStarted = false;
-        // this.isManualReady remains false until 'start-game' or 'resume-stage' event
+    }
+    saveProgress() {
+        this.syncStageToDatabase();
     }
 
-    // --- DB Sync ---
-    async syncStageToDatabase(stage: number) {
+    async syncStageToDatabase() {
         if (!this.stats.walletAddress) return;
         try {
             await fetch('/api/games/shooter/sync-stage', {
@@ -69,7 +81,8 @@ export class ShooterScene extends Phaser.Scene {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     walletAddress: this.stats.walletAddress,
-                    stage: stage
+                    level: this.level, // Make sure this is sent!
+                    stage: this.stage  // Make sure this is sent!
                 })
             });
         } catch (error) {
@@ -77,63 +90,77 @@ export class ShooterScene extends Phaser.Scene {
         }
     }
 
-    // --- Textures ---
-    preload() {
-        this.createPlaceholderTexture('player', 32, 32, '#3b82f6');
-        this.createPlaceholderTexture('enemy', 32, 32, '#ef4444');
-        this.createPlaceholderTexture('bullet', 8, 8, '#fbbf24');
-        this.createPlaceholderTexture('e_bullet', 8, 8, '#ff00ff');
-        this.createPlaceholderTexture('boss', 64, 64, '#991b1b');
-        this.createPlaceholderTexture('bomb', 16, 16, '#10b981');
-        this.createStarTexture('stars_slow', 2, '#555555');
-        this.createStarTexture('stars_medium', 3, '#888888');
-        this.createStarTexture('stars_fast', 4, '#ffffff');
-    }
+    preload() { }
 
     create() {
         this.isManualReady = false;
         this.cameras.main.setBackgroundColor(0x050510);
 
-        // 1. Background Layers
+        // 1. Star backgrounds
         this.stars1 = this.add.tileSprite(0, 0, this.scale.width, this.scale.height, 'stars_slow').setOrigin(0).setScrollFactor(0).setAlpha(0.5);
         this.stars2 = this.add.tileSprite(0, 0, this.scale.width, this.scale.height, 'stars_medium').setOrigin(0).setScrollFactor(0).setAlpha(0.7);
         this.stars3 = this.add.tileSprite(0, 0, this.scale.width, this.scale.height, 'stars_fast').setOrigin(0).setScrollFactor(0);
 
-        // 2. Initialize Game Objects
+        // 2. Load ship, enemies, and UI
         this.setupGame();
 
-        // 3. Transition Overlay
-        const overlay = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x000000, 0.8).setOrigin(0).setDepth(20000);
+        // 3. Intro Overlay & Boss Warnings
+        const overlay = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x000000, 1).setOrigin(0).setDepth(20000);
         const titleText = this.add.text(this.scale.width / 2, this.scale.height / 2 - 20, `LEVEL ${this.level} - STAGE ${this.stage}`,
             { fontSize: '42px', color: '#eab308', fontStyle: '900 italic', fontFamily: 'monospace' }).setOrigin(0.5).setDepth(20001);
-        const subText = this.add.text(this.scale.width / 2, this.scale.height / 2 + 30,
-            this.stage === 5 ? "WARNING: BOSS SIGNATURE DETECTED" : "INITIALIZING COMBAT PROTOCOL...",
-            { fontSize: '14px', color: '#ffffff', fontFamily: 'monospace' }).setOrigin(0.5).setDepth(20001);
 
+        const isBossStage = this.stage === 5;
+        const subText = this.add.text(this.scale.width / 2, this.scale.height / 2 + 30,
+            isBossStage ? "WARNING: BOSS SIGNATURE DETECTED" : "INITIALIZING COMBAT PROTOCOL...",
+            { fontSize: '14px', color: isBossStage ? '#ff0000' : '#ffffff', fontFamily: 'monospace' }).setOrigin(0.5).setDepth(20001);
+
+        if (isBossStage) {
+            this.tweens.add({ targets: subText, alpha: 0, duration: 200, yoyo: true, repeat: -1 });
+        }
+
+        // 4. Particle Setup
+        this.particleManager = this.add.particles(0, 0, 'flare', {
+            speed: { min: -200, max: 200 },
+            scale: { start: 1.5, end: 0 },
+            blendMode: 'ADD',
+            lifespan: 600,
+            emitting: false
+        });
+
+        // 5. Fade out Intro & Auto-Start Countdown
         this.tweens.add({
             targets: [overlay, titleText, subText],
             alpha: 0,
             duration: 500,
-            delay: 1000,
+            delay: 1500,
             onComplete: () => {
                 overlay.destroy();
                 titleText.destroy();
                 subText.destroy();
+                this.isManualReady = true;
+                this.startGameLogic(); // This triggers the 3-2-1 countdown
             }
         });
 
-        // 4. Event Listeners
+        // 6. --- UPDATED EVENT LISTENERS ---
         EventBus.off('start-game');
         EventBus.off('apply-upgrades');
+        EventBus.off('redeploy-player');
+        EventBus.off('pause-game');
+        EventBus.off('resume-stage');
 
         EventBus.on('start-game', this.startGameLogic, this);
 
-        EventBus.on('start-game', this.startGameLogic, this);
+        EventBus.on('redeploy-player', () => {
+            this.scene.restart({ stats: this.stats, level: this.level, stage: this.stage });
+        });
+
         EventBus.on('pause-game', (pause: boolean) => {
             if (this.isManualReady && this.physics) {
                 pause ? this.physics.pause() : (this.isStarted && this.physics.resume());
             }
         });
+
         EventBus.on('apply-upgrades', (data: any) => {
             if (!this.isManualReady) return;
             if (data.weaponLevel) this.stats.weaponLevel = data.weaponLevel;
@@ -144,70 +171,52 @@ export class ShooterScene extends Phaser.Scene {
             if (this.player && this.player.active) this.applyPowerUpEffect();
         });
 
-        // 5. Cleanup on Shutdown (Crucial for Next.js)
+        EventBus.on('resume-stage', () => {
+            this.isManualReady = true;
+            this.isStarted = true;
+            if (this.physics) this.physics.resume();
+        }, this);
+
+        // 7. Mark as ready for React
+        this.time.delayedCall(100, () => {
+            EventBus.emit('current-scene-ready', this);
+        });
+
+        // 8. Cleanup on shutdown
         this.events.on('shutdown', () => {
             this.isManualReady = false;
             EventBus.off('start-game');
             EventBus.off('pause-game');
             EventBus.off('apply-upgrades');
+            EventBus.off('redeploy-player');
             EventBus.off('resume-stage');
-        });
-
-        EventBus.on('resume-stage', () => {
-            this.isManualReady = true;
-            this.isStarted = true;
-            this.physics.resume();
-        }, this);
-
-        this.time.delayedCall(50, () => {
-            this.isManualReady = true;
-            EventBus.emit('current-scene-ready', this);
         });
     }
 
     setupGame() {
         this.updatePlayerStats();
         this.health = this.maxHealth;
-
         this.enemies = this.physics.add.group();
         this.bullets = this.physics.add.group();
         this.enemyBullets = this.physics.add.group();
         this.rewards = this.physics.add.group();
 
         this.player = this.physics.add.sprite(100, this.scale.height / 2, 'player');
-        this.player.setCollideWorldBounds(true);
-        this.player.setMaxVelocity(1000, 1000);
+        this.player.setCollideWorldBounds(true).setRotation(Phaser.Math.DegToRad(90));
+        this.player.setDisplaySize(50, 50);
+        this.player.setDrag(5000); // Very high drag for snappy 1:1 feel
 
         const flare = this.make.graphics({ x: 0, y: 0 }).fillStyle(0xffffff, 1).fillCircle(4, 4, 4);
         flare.generateTexture('flare', 8, 8);
         flare.destroy();
 
-        this.particleManager = this.add.particles(0, 0, 'flare', {
-            lifespan: 300,
-            speed: { min: 50, max: 150 },
-            scale: { start: 1, end: 0 },
-            emitting: false
-        });
-
         this.bossHealthBar = this.add.graphics().setDepth(100);
         this.playerHealthBar = this.add.graphics().setDepth(100);
         this.infoText = this.add.text(this.scale.width * 0.02, this.scale.height * 0.02, '', { fontSize: '18px', color: '#fff', fontStyle: 'bold' });
 
-        this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
-            if (!this.isGameOver && this.isStarted && this.player.active) {
-                const baseSpeed = 450;
-                const maxSpeed = baseSpeed * (1 + (this.stats.shoeLevel - 1) * 0.35);
-                const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, p.x, p.y);
-                const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, p.x, p.y);
-
-                if (dist < 10) {
-                    this.player.setVelocity(0, 0);
-                } else {
-                    this.player.setRotation(angle);
-                    this.player.setVelocity(Math.cos(angle) * maxSpeed, Math.sin(angle) * maxSpeed);
-                }
-            }
-        });
+        this.levelText = this.add.text(20, 20, `LEVEL: ${this.level}`, { fontSize: '22px', color: '#ffffff', fontFamily: 'monospace' }).setDepth(50000);
+        this.stageText = this.add.text(20, 50, `STAGE: ${this.stage}`, { fontSize: '18px', color: '#eab308', fontFamily: 'monospace' }).setDepth(50000);
+        this.enemyCountText = this.add.text(20, 80, `TARGET: ${this.enemiesKilled}/${this.enemiesToKill}`, { fontSize: '18px', color: '#ff4444', fontFamily: 'monospace' }).setDepth(50000);
 
         this.physics.add.overlap(this.bullets, this.enemies, (b, e) => this.handleHit(b, e), undefined, this);
         this.physics.add.overlap(this.player, this.enemies, () => this.takeDamage(20), undefined, this);
@@ -234,13 +243,9 @@ export class ShooterScene extends Phaser.Scene {
 
     startGameLogic() {
         if (!this.physics || !this.isManualReady) return;
-
         this.isStarted = true;
-
         this.createCountdown();
-
         this.physics.resume();
-
         if (this.player && this.player.active) {
             this.player.setActive(true).setVisible(true);
         }
@@ -262,7 +267,10 @@ export class ShooterScene extends Phaser.Scene {
 
     spawnEnemy() {
         const y = Phaser.Math.Between(50, this.scale.height - 50);
-        const enemy = this.enemies.create(this.scale.width + 50, y, 'enemy');
+        const texture = Math.random() > 0.5 ? 'enemy1' : 'enemy2';
+        const enemy = this.enemies.create(this.scale.width + 50, y, texture);
+        enemy.setDisplaySize(50, 50);
+
         const difficultyStep = ((this.level - 1) * 5) + (this.stage - 1);
         const multiplier = Math.pow(1.5, difficultyStep);
         enemy.setData('hp', 2 * multiplier);
@@ -272,7 +280,13 @@ export class ShooterScene extends Phaser.Scene {
             this.time.delayedCall(Phaser.Math.Between(500, 2000), () => {
                 if (this.isManualReady && enemy.active) {
                     const eb = this.enemyBullets.create(enemy.x, enemy.y, 'e_bullet');
-                    if (eb) eb.setVelocityX(-300 * (1 + (difficultyStep * 0.15)));
+                    if (eb) {
+                        eb.setDisplaySize(15, 15);
+                        eb.setVelocityX(-300 * (1 + (difficultyStep * 0.15)));
+                        for (let i = 0; i < 3; i++) {
+                            this.createMuzzleFlash(enemy.x + Phaser.Math.Between(-20, 20), enemy.y + Phaser.Math.Between(-20, 20), 0xff3333, 1.2);
+                        }
+                    }
                 }
             });
         }
@@ -281,18 +295,17 @@ export class ShooterScene extends Phaser.Scene {
     spawnBoss() {
         this.isBossPhase = true;
         this.cameras.main.shake(1000, 0.01);
-        this.cameras.main.flash(500, 153, 27, 27);
-
         const difficultyStep = ((this.level - 1) * 5) + (this.stage - 1);
         const multiplier = Math.pow(1.5, difficultyStep);
         const maxHp = 500 * multiplier;
 
-        this.boss = this.physics.add.sprite(this.scale.width + 100, this.scale.height / 2, 'boss').setScale(2.5);
-        this.boss.setData('hp', maxHp).setData('maxHp', maxHp).setTint(0xff0000);
+        this.boss = this.physics.add.sprite(this.scale.width + 150, this.scale.height / 2, 'boss1');
+        this.boss.setDisplaySize(200, 200).setRotation(Phaser.Math.DegToRad(-90));
+        this.boss.setData('hp', maxHp).setData('maxHp', maxHp);
 
         this.tweens.add({
             targets: this.boss,
-            x: this.scale.width - 150,
+            x: this.scale.width - 200,
             duration: 2000,
             onComplete: () => {
                 if (this.boss) {
@@ -306,7 +319,13 @@ export class ShooterScene extends Phaser.Scene {
             callback: () => {
                 if (this.isManualReady && this.boss?.active && this.player.active) {
                     const eb = this.enemyBullets.create(this.boss.x, this.boss.y, 'e_bullet');
-                    if (eb) this.physics.moveToObject(eb, this.player, 400);
+                    if (eb) {
+                        eb.setDisplaySize(20, 20);
+                        this.physics.moveToObject(eb, this.player, 400);
+                        for (let i = 0; i < 8; i++) {
+                            this.createMuzzleFlash(this.boss.x + Phaser.Math.Between(-80, 80), this.boss.y + Phaser.Math.Between(-80, 80), 0xff0000, 2.0);
+                        }
+                    }
                 }
             },
             loop: true
@@ -315,52 +334,52 @@ export class ShooterScene extends Phaser.Scene {
 
     handleHit(bullet: any, target: any) {
         bullet.destroy();
-        this.particleManager.emitParticleAt(target.x, target.y, 5);
+        this.createExplosion(target.x, target.y, 0xffffff, 5);
+
         const playerDamage = 10 * (1 + (this.stats.weaponLevel - 1) * 0.35);
         let hp = target.getData('hp') - playerDamage;
         target.setData('hp', hp);
 
         if (hp <= 0) {
-            if (target === this.boss) this.onBossKilled();
-            else {
+            if (target === this.boss) {
+                this.onBossKilled();
+            } else {
+                this.createExplosion(target.x, target.y, 0xff4444, 25);
                 this.enemiesKilled++;
+
+                // --- ADD THIS LINE TO UPDATE THE SCREEN ---
+                this.enemyCountText.setText(`TARGET: ${this.enemiesKilled}/${this.enemiesToKill}`);
+
                 if (Math.random() > 0.88) this.spawnSpecialBomb(target.x, target.y);
                 target.destroy();
             }
         }
     }
 
+
+
     onBossKilled() {
         this.isBossPhase = false;
-        if (this.boss) this.boss.destroy();
-
-        // If we are in Stage 1, 2, 3, or 4...
+        if (this.boss) {
+            this.createExplosion(this.boss.x, this.boss.y, 0xeab308, 100);
+            this.cameras.main.shake(500, 0.02);
+            this.boss.destroy();
+        }
         if (this.stage < 5) {
             this.stage++;
-            this.enemiesKilled = 0; // Reset count for the new stage
-
-            // Tell React to update the DB and open the Shop
-            EventBus.emit('stage-cleared', { stage: this.stage });
-
-            // STOP physics and spawning so Stage 2 doesn't start while Shop is open
-            this.physics.pause();
-            this.isManualReady = false;
-        }
-        // If we just killed the Stage 5 Boss...
-        else {
+        } else {
             this.level++;
             this.stage = 1;
-
-            // Trigger the Reward API in React
-            EventBus.emit('level-completed', { type: 'BOSS_WIN' });
-
-            // Full restart only for Level change to reset environment
-            this.scene.restart({ stats: this.stats, level: this.level, stage: this.stage });
         }
+        this.enemiesKilled = 0;
+        this.saveProgress();
+        EventBus.emit('stage-cleared', { stage: this.stage });
+        this.scene.restart({ stats: this.stats, level: this.level, stage: this.stage });
     }
 
     takeDamage(amount: number) {
         if (this.isGameOver) return;
+        this.cameras.main.flash(100, 255, 0, 0, false);
         this.health -= amount * Math.max(0.1, 1 - (this.stats.shieldLevel - 1) * 0.15);
         this.cameras.main.shake(100, 0.005);
         if (this.health <= 0) {
@@ -373,10 +392,11 @@ export class ShooterScene extends Phaser.Scene {
 
     spawnSpecialBomb(x: number, y: number) {
         const bomb = this.rewards.create(x, y, 'bomb');
+        bomb.setDisplaySize(30, 30);
         const roll = Phaser.Math.Between(1, 100);
-        if (roll <= 10) { bomb.setData('rewardType', 'TAG').setTint(0xff00ff); }
-        else if (roll <= 30) { bomb.setData('rewardType', 'LAAM').setTint(0xfbb124); }
-        else { bomb.setData('rewardType', 'HEALTH'); }
+        if (roll <= 10) bomb.setData('rewardType', 'TAG').setTint(0xff00ff);
+        else if (roll <= 30) bomb.setData('rewardType', 'LAAM').setTint(0xfbb124);
+        else bomb.setData('rewardType', 'HEALTH');
         bomb.setVelocityX(-100);
     }
 
@@ -391,24 +411,30 @@ export class ShooterScene extends Phaser.Scene {
     update() {
         if (!this.isManualReady || !this.isStarted || this.isGameOver) return;
 
-        // Friction for smooth stopping
-        if (this.player?.active && this.input.activePointer.velocity.x === 0 && this.input.activePointer.velocity.y === 0) {
-            const body = this.player.body as Phaser.Physics.Arcade.Body;
-            this.player.setVelocity(body.velocity.x * 0.9, body.velocity.y * 0.9);
+        const pointer = this.input.activePointer;
+
+        // --- MOVEMENT LOGIC (Joystick for Mobile/PC) ---
+        if (pointer.isDown) {
+            // Trigger joystick only if touching the left half of the screen
+            if (!this.joystickActive && pointer.x < this.scale.width / 2) {
+                this.showJoystick(pointer.x, pointer.y);
+            }
+
+            if (this.joystickActive) {
+                this.handleJoystickMovement(pointer);
+            }
+        } else {
+            this.hideJoystick(); // Resets velocity to 0 when finger is lifted
         }
 
-        // Cleanup off-screen enemy bullets to save memory
-        this.enemyBullets.getChildren().forEach((b: any) => {
-            if (b.x < -50) b.destroy();
-        });
+        // --- YOUR ORIGINAL GAME LOGIC ---
 
+        // 1. Scroll Backgrounds
         this.stars1.tilePositionX += 0.5;
         this.stars2.tilePositionX += 1.2;
         this.stars3.tilePositionX += 2.5;
 
-        this.infoText.setPosition(this.scale.width * 0.02, this.scale.height * 0.03);
-        this.infoText.setText(`LVL: ${this.level} STG: ${this.stage} | KILLS: ${this.enemiesKilled}/${this.enemiesToKill}`);
-
+        // 2. Refresh UI
         this.drawBossUI();
         this.drawPlayerHealthBar();
     }
@@ -430,7 +456,21 @@ export class ShooterScene extends Phaser.Scene {
 
     fireBullet() {
         if (this.isStarted && !this.isGameOver && this.player?.active) {
-            this.bullets.create(this.player.x + 20, this.player.y, 'bullet').setVelocityX(800);
+            const b = this.bullets.create(this.player.x, this.player.y, 'bullet');
+            b.setDisplaySize(20, 20);
+            b.setVelocityX(800);
+            const flashX = this.player.x + Math.cos(this.player.rotation - Math.PI / 2) * 30;
+            const flashY = this.player.y + Math.sin(this.player.rotation - Math.PI / 2) * 30;
+            this.createMuzzleFlash(flashX, flashY, 0x00ffff, 1.5);
+
+            if (this.stats.weaponLevel > 1) {
+                const shakeIntensity = 0.001 * this.stats.weaponLevel;
+                this.cameras.main.shake(50, shakeIntensity);
+                const recoilStrength = 5 * this.stats.weaponLevel;
+                const angle = this.player.rotation - Phaser.Math.DegToRad(90);
+                this.player.x -= Math.cos(angle) * recoilStrength;
+                this.player.y -= Math.sin(angle) * recoilStrength;
+            }
         }
     }
 
@@ -439,18 +479,22 @@ export class ShooterScene extends Phaser.Scene {
         this.tweens.add({ targets: t, y: y - 60, alpha: 0, duration: 1500, onComplete: () => t.destroy() });
     }
 
-    createPlaceholderTexture(key: string, w: number, h: number, color: string) {
-        const g = this.make.graphics({ x: 0, y: 0 }).fillStyle(Phaser.Display.Color.HexStringToColor(color).color, 1);
-        if (key === 'player') g.fillTriangle(0, 0, 0, h, w, h / 2);
-        else if (key === 'bullet' || key === 'e_bullet') g.fillCircle(w / 2, h / 2, w / 2);
-        else g.fillRect(0, 0, w, h);
-        g.generateTexture(key, w, h).destroy();
+    private createMuzzleFlash(x: number, y: number, color: number, scale: number) {
+        const flash = this.add.image(x, y, 'flare').setTint(color).setAlpha(1).setScale(scale).setBlendMode('ADD');
+        this.tweens.add({
+            targets: flash,
+            scale: scale * 2,
+            alpha: 0,
+            duration: 100,
+            onComplete: () => flash.destroy()
+        });
     }
 
-    createStarTexture(key: string, size: number, color: string) {
-        const g = this.make.graphics({ x: 0, y: 0 }).fillStyle(Phaser.Display.Color.HexStringToColor(color).color, 1);
-        for (let i = 0; i < 30; i++) g.fillCircle(Phaser.Math.Between(0, 512), Phaser.Math.Between(0, 512), size / 2);
-        g.generateTexture(key, 512, 512).destroy();
+    private createExplosion(x: number, y: number, color: number, count: number = 20) {
+        if (this.particleManager) {
+            this.particleManager.setParticleTint(color);
+            this.particleManager.emitParticleAt(x, y, count);
+        }
     }
 
     private createCountdown() {
@@ -460,8 +504,44 @@ export class ShooterScene extends Phaser.Scene {
                 const txt = this.add.text(this.scale.width / 2, this.scale.height / 2, val, { fontSize: '120px', color: '#ffffff', fontStyle: 'bold' })
                     .setOrigin(0.5).setDepth(30000).setTint(colors[i]);
                 this.tweens.add({ targets: txt, scale: 2, alpha: 0, duration: 350, onComplete: () => txt.destroy() });
-                this.cameras.main.shake(100, 0.005);
             });
         });
+    }
+
+    private showJoystick(x: number, y: number) {
+        if (!this.joystickBase) {
+            this.joystickBase = this.add.circle(x, y, 50, 0xffffff, 0.2).setDepth(100000);
+            this.joystickThumb = this.add.circle(x, y, 25, 0xffffff, 0.5).setDepth(100001);
+        }
+        this.joystickBase.setPosition(x, y).setVisible(true);
+        this.joystickThumb.setPosition(x, y).setVisible(true);
+        this.joystickActive = true;
+    }
+
+    private hideJoystick() {
+        if (this.joystickBase) {
+            this.joystickBase.setVisible(false);
+            this.joystickThumb.setVisible(false);
+        }
+        this.joystickActive = false;
+        this.player.setVelocity(0, 0);
+    }
+
+    private handleJoystickMovement(pointer: Phaser.Input.Pointer) {
+        const angle = Phaser.Math.Angle.Between(this.joystickBase.x, this.joystickBase.y, pointer.x, pointer.y);
+        const distance = Phaser.Math.Distance.Between(this.joystickBase.x, this.joystickBase.y, pointer.x, pointer.y);
+        const maxDistance = 50;
+
+        // Move the thumb sprite visually
+        const thumbX = this.joystickBase.x + Math.cos(angle) * Math.min(distance, maxDistance);
+        const thumbY = this.joystickBase.y + Math.sin(angle) * Math.min(distance, maxDistance);
+        this.joystickThumb.setPosition(thumbX, thumbY);
+
+        // Move the player based on joystick direction
+        const speed = 500 * (1 + (this.stats.shoeLevel - 1) * 0.35);
+        this.physics.velocityFromRotation(angle, speed, (this.player.body as Phaser.Physics.Arcade.Body).velocity);
+
+        // Smoothly rotate ship towards movement
+        this.player.setRotation(angle + Phaser.Math.DegToRad(90));
     }
 }
