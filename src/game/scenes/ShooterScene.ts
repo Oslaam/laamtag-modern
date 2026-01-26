@@ -356,8 +356,6 @@ export class ShooterScene extends Phaser.Scene {
         }
     }
 
-
-
     onBossKilled() {
         this.isBossPhase = false;
         if (this.boss) {
@@ -532,16 +530,26 @@ export class ShooterScene extends Phaser.Scene {
         const distance = Phaser.Math.Distance.Between(this.joystickBase.x, this.joystickBase.y, pointer.x, pointer.y);
         const maxDistance = 50;
 
-        // Move the thumb sprite visually
-        const thumbX = this.joystickBase.x + Math.cos(angle) * Math.min(distance, maxDistance);
-        const thumbY = this.joystickBase.y + Math.sin(angle) * Math.min(distance, maxDistance);
+        // 1. Move the thumb visually
+        const thumbDistance = Math.min(distance, maxDistance);
+        const thumbX = this.joystickBase.x + Math.cos(angle) * thumbDistance;
+        const thumbY = this.joystickBase.y + Math.sin(angle) * thumbDistance;
         this.joystickThumb.setPosition(thumbX, thumbY);
 
-        // Move the player based on joystick direction
-        const speed = 500 * (1 + (this.stats.shoeLevel - 1) * 0.35);
-        this.physics.velocityFromRotation(angle, speed, (this.player.body as Phaser.Physics.Arcade.Body).velocity);
+        // 2. Calculate Normalized Speed (0 to 1)
+        // This makes it so if you push the stick a little, you move slow. Push it far, you move fast.
+        const force = thumbDistance / maxDistance;
 
-        // Smoothly rotate ship towards movement
+        // 3. Set Velocity based on how far the stick is pushed
+        const baseSpeed = 500 * (1 + (this.stats.shoeLevel - 1) * 0.35);
+        const finalSpeed = baseSpeed * force;
+
+        this.player.setVelocity(
+            Math.cos(angle) * finalSpeed,
+            Math.sin(angle) * finalSpeed
+        );
+
+        // 4. Rotate ship
         this.player.setRotation(angle + Phaser.Math.DegToRad(90));
     }
 }
