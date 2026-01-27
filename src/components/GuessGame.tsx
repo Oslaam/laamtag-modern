@@ -55,7 +55,7 @@ export default function GuessGameComponent() {
           if (gameData.lastAttempt) {
             const timestamp = new Date(gameData.lastAttempt).getTime();
             setLastAttemptTimestamp(timestamp);
-            const lockoutEnd = timestamp + (6 * 60 * 60 * 1000);
+            const lockoutEnd = timestamp + (1 * 60 * 60 * 1000);
             setIsLocked(Date.now() < lockoutEnd);
           }
         }
@@ -70,7 +70,7 @@ export default function GuessGameComponent() {
     if (!isLocked || !lastAttemptTimestamp) return;
 
     const interval = setInterval(() => {
-      const lockoutEnd = lastAttemptTimestamp + (6 * 60 * 60 * 1000);
+      const lockoutEnd = lastAttemptTimestamp + (1 * 60 * 60 * 1000);
       const diff = lockoutEnd - Date.now();
 
       if (diff <= 0) {

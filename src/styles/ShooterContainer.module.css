@@ -1,105 +1,144 @@
-/* src/styles/ShooterContainer.module.css */
-
+/* --- Scaling Variables --- */
 .container {
+    --title-size: 64px;
+    --btn-padding: 20px 60px;
+    --btn-font: 24px;
+    --hud-offset: 16px;
+    --panel-width: 350px;
+
     width: 100vw;
     height: 100vh;
     margin: 0;
     display: flex;
     justify-content: center;
     align-items: center;
-    background-color: #000;
+    background-color: #050505;
     position: fixed;
     top: 0;
     left: 0;
     z-index: 9999;
-    /* Prevent accidental scrolling/bouncing on mobile browsers */
     overscroll-behavior: none;
     touch-action: none;
 }
 
-/* Ensure the game scales but keeps a clean 16:9 or similar ratio */
-.innerFrame {
-    width: 100%;
-    height: 100%;
-    position: relative;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    overflow: hidden;
-    /* Prevents scrollbars if Phaser overflows */
-}
-
-
-/* Specifically for Seeker/Mobile: Hide global site UI */
-.container :global(.main-header),
-.container :global(.main-footer),
-.container :global(nav) {
-    display: none !important;
-}
-
-.currencyHud {
-    position: absolute;
-    top: 15px;
-    /* Tighter for mobile */
-    right: 20px;
-    z-index: 1000;
-    display: flex;
-    gap: 15px;
-    pointer-events: none;
-    /* Allows clicks to pass through to Phaser */
-    font-family: 'Courier New', Courier, monospace;
-}
-
+/* --- HUD & Currency --- */
 .currencyItem {
-    background: rgba(0, 0, 0, 0.7);
-    padding: 5px 12px;
-    border-radius: 20px;
-    border: 1px solid #eab308;
-    color: #fff;
-    font-size: 14px;
-    font-weight: bold;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 6px 12px;
+    border: 1px solid #333;
+    border-radius: 4px;
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 8px;
+    color: #fff;
+    font-family: monospace;
+    font-size: 14px;
 }
 
-/* Add to src/styles/ShooterContainer.module.css */
+.currencyIcon {
+    color: #eab308;
+}
 
-.shopPanel {
+/* --- Overlays (Start & Game Over) --- */
+.startOverlay,
+.gameOverOverlay {
     position: absolute;
-    top: 0;
-    right: 0;
-    height: 100%;
-    width: 300px;
+    inset: 0;
     background: rgba(0, 0, 0, 0.85);
-    border-left: 1px solid rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(20px);
-    z-index: 150;
-    transform: translateX(100%);
-    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     display: flex;
     flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 20000;
+    backdrop-filter: blur(10px);
 }
 
-.shopPanelOpen {
-    transform: translateX(0);
+.startActions,
+.gameOverActions {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-top: 40px;
 }
 
-#game-container {
-    width: 100%;
-    height: 100%;
+/* --- Menu Buttons --- */
+.abortButton,
+.buyTagButton {
+    background: transparent;
+    border: 1px solid #333;
+    color: #888;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.abortButton:hover {
+    color: #fff;
+    border-color: #666;
+}
+
+.redeployButton {
+    padding: var(--btn-padding);
+    background: #eab308;
+    color: #000;
+    border: none;
+    border-radius: 4px;
+    font-weight: 900;
+    font-size: var(--btn-font);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* --- Home & Navigation --- */
+.homeButton {
+    position: absolute;
+    top: var(--hud-offset);
+    left: 24px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid #333;
+    color: #fff;
+    padding: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    z-index: 10001;
+}
+
+/* --- Shop Extras --- */
+.shopTitle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #eab308;
+    font-size: 18px;
+    letter-spacing: 2px;
+    border-bottom: 1px solid #222;
+    padding-bottom: 15px;
+}
+
+.shopExit {
+    background: #111;
+    border: none;
+    border-top: 1px solid #222;
+    color: #fff;
+    padding: 20px;
+    cursor: pointer;
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 1;
+    gap: 8px;
+    font-weight: 900;
+    letter-spacing: 1px;
 }
 
-#game-container canvas {
-    max-width: 100vw;
-    max-height: 100vh;
-    object-fit: contain;
+.shopExit:hover {
+    background: #1a1a1a;
 }
 
+/* --- Animations --- */
 .spinning {
     animation: spin 1s linear infinite;
 }
@@ -112,4 +151,289 @@
     to {
         transform: rotate(360deg);
     }
+}
+
+/* --- Controls --- */
+.controlBar {
+    position: absolute;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 15px;
+    z-index: 10001;
+}
+
+.controlButton {
+    background: #111;
+    border: 1px solid #333;
+    color: #fff;
+    padding: 12px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: all 0.2s;
+}
+
+.controlButton:hover {
+    background: #222;
+    border-color: #eab308;
+}
+
+.controlButtonActive {
+    background: #991b1b;
+    border-color: #f87171;
+}
+
+/* --- Shop & Upgrades --- */
+.shopContent {
+    padding: 24px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.upgradeList {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.upgradeCard {
+    background: #111;
+    border: 1px solid #222;
+    padding: 16px;
+    border-radius: 8px;
+    text-align: left;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.upgradeCard:active {
+    transform: scale(0.98);
+}
+
+.upgradeHeader {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.upgradeLabel {
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.upgradeCost {
+    font-size: 12px;
+    color: #888;
+    margin-top: 8px;
+    font-family: monospace;
+}
+
+/* --- Helper Colors (for item.color) --- */
+.gold {
+    color: #eab308;
+}
+
+.blue {
+    color: #60a5fa;
+}
+
+.green {
+    color: #4ade80;
+}
+
+.red {
+    color: #f87171;
+}
+
+/* --- Mobile / Seeker Adjustments --- */
+@media (max-width: 1024px) {
+    .container {
+        --title-size: 32px;
+        --btn-padding: 12px 30px;
+        --btn-font: 16px;
+        --hud-offset: max(10px, env(safe-area-inset-top));
+        --panel-width: 80vw;
+    }
+}
+
+.innerFrame {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+/* --- New Styled Classes to replace Inline Styles --- */
+
+.mainTitle {
+    font-size: var(--title-size);
+    font-weight: 900;
+    color: #eab308;
+    font-style: italic;
+    letter-spacing: -2px;
+    text-align: center;
+    text-shadow: 0 0 20px rgba(234, 179, 8, 0.3);
+    line-height: 0.9;
+}
+
+.engageButton {
+    padding: var(--btn-padding);
+    background: #991b1b;
+    color: #fff;
+    border-radius: 4px;
+    border: none;
+    font-weight: 900;
+    font-size: var(--btn-font);
+    letter-spacing: 2px;
+    box-shadow: 0 6px 0 #450a0a;
+    transition: all 0.1s;
+    cursor: pointer;
+}
+
+.engageButton:active {
+    transform: translateY(4px);
+    box-shadow: 0 2px 0 #450a0a;
+}
+
+.engageButton:disabled {
+    background: #1f2937;
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+.hudContainer {
+    position: absolute;
+    top: var(--hud-offset);
+    right: max(24px, env(safe-area-inset-right));
+    z-index: 10000;
+    display: flex;
+    gap: 12px;
+}
+
+.shopPanel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: var(--panel-width);
+    background: #080808;
+    border-left: 2px solid #1a1a1a;
+    backdrop-filter: blur(20px);
+    z-index: 20001;
+    transform: translateX(100%);
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    flex-direction: column;
+}
+
+.shopPanelOpen {
+    transform: translateX(0);
+}
+
+.gameContainer {
+    width: 100%;
+    height: 100%;
+    background-color: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.gameContainer canvas {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.abortButton {
+    background: transparent;
+    border: 1px solid #333;
+    color: #666;
+    padding: 12px 24px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 10px;
+}
+
+.abortButton:hover {
+    color: #fff;
+    border-color: #eab308;
+    background: rgba(234, 179, 8, 0.05);
+}
+
+.healthBarContainer {
+    width: 180px;
+    margin-bottom: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.healthLabel {
+    font-size: 8px;
+    font-weight: 900;
+    color: #eab308;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    text-shadow: 0 0 5px rgba(234, 179, 8, 0.5);
+}
+
+.healthTrack {
+    width: 100%;
+    height: 6px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid #333;
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+}
+
+.healthFill {
+    height: 100%;
+    background: linear-gradient(90deg, #22c55e 0%, #4ade80 100%);
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.6);
+    transition: width 0.3s ease-out, background 0.3s ease;
+}
+
+/* Optional: Make the bar turn red when health is low */
+.healthFill[style*="width: 1"],
+.healthFill[style*="width: 2"],
+.healthFill[style*="width: 3"] {
+    background: linear-gradient(90deg, #ef4444 0%, #f87171 100%);
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.8);
+}
+
+.hudContainer {
+    position: absolute;
+    top: var(--hud-offset);
+    right: max(24px, env(safe-area-inset-right));
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    /* Changed from default row */
+    align-items: flex-end;
+    /* Align everything to the right edge */
+    gap: 8px;
+}
+
+/* Ensure the currency items stay in a row if you want them side-by-side */
+.currencyWrapper {
+    display: flex;
+    gap: 12px;
 }

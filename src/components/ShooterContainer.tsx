@@ -26,6 +26,7 @@ export default function ShooterContainer() {
     const [isShopOpen, setIsShopOpen] = useState(false);
     const [isRestarting, setIsRestarting] = useState(false);
     const [statsReady, setStatsReady] = useState(false);
+    const [currentHealth, setCurrentHealth] = useState(100);
 
     const [stats, setStats] = useState({
         laam: 0,
@@ -68,11 +69,13 @@ export default function ShooterContainer() {
             console.error("Failed to fetch stats:", err);
         }
     }, [publicKey]);
+
     useEffect(() => {
         setIsMounted(true);
         const checkOri = () => setIsLandscape(window.innerWidth > window.innerHeight);
         window.addEventListener('resize', checkOri);
 
+        // 1. Define all handlers first
         const handleSceneReady = () => {
             sceneReadyRef.current = true;
             setIsSceneReady(true);
@@ -80,39 +83,31 @@ export default function ShooterContainer() {
 
         const handleGameOver = () => {
             setIsGameOver(true);
-            // Remove the window.location.reload()
-            // Just show the toast and let the UI handle the rest
             toast.error("MISSION FAILED. SYSTEMS OFFLINE.");
         };
 
         const handleVictory = () => setIsVictory(true);
 
         const handleStageCleared = async (data: { stage: number }) => {
-            setStats(prev => ({
-                ...prev,
-                shooterStage: data.stage
-            }));
-
+            setStats(prev => ({ ...prev, shooterStage: data.stage }));
             toast(`STAGE ${data.stage - 1} CLEAR! SHOP OPEN`, {
                 icon: '🚀',
                 style: { background: '#000', color: '#eab308', border: '1px solid #eab308', fontWeight: 900, fontSize: '10px' }
             });
             setIsShopOpen(true);
-
             if (publicKey) {
                 try {
                     await fetch('/api/games/shooter/sync-stage', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            walletAddress: publicKey.toString(),
-                            stage: data.stage
-                        })
+                        body: JSON.stringify({ walletAddress: publicKey.toString(), stage: data.stage })
                     });
-                } catch (err) {
-                    console.error("Failed to sync stage progress:", err);
-                }
+                } catch (err) { console.error("Sync error:", err); }
             }
+        };
+
+        const handleHealthUpdate = (data: { health: number }) => {
+            setCurrentHealth(data.health);
         };
 
         const handleRewardEarned = async (data: { type: string }) => {
@@ -121,35 +116,24 @@ export default function ShooterContainer() {
                 const res = await fetch('/api/games/shooter/reward', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        walletAddress: publicKey.toString(),
-                        type: data.type
-                    })
+                    body: JSON.stringify({ walletAddress: publicKey.toString(), type: data.type })
                 });
-
                 const result = await res.json();
-
                 if (res.ok) {
-                    setStats(prev => {
-                        const isBoss = data.type === 'BOSS_WIN';
-                        return {
-                            ...prev,
-                            tag: (prev.tag || 0) + (result.tag || 0),
-                            laam: (prev.laam || 0) + (result.laam || 0),
-                            shooterLevel: isBoss ? prev.shooterLevel + 1 : prev.shooterLevel,
-                            shooterStage: isBoss ? 1 : prev.shooterStage
-                        };
-                    });
-
-                    toast.success(`+${result.laam || result.tag} RECEIVED`, {
-                        style: { background: '#000', color: '#eab308', border: '1px solid #eab308', fontSize: '10px' }
-                    });
+                    setStats(prev => ({
+                        ...prev,
+                        tag: (prev.tag || 0) + (result.tag || 0),
+                        laam: (prev.laam || 0) + (result.laam || 0),
+                        shooterLevel: data.type === 'BOSS_WIN' ? prev.shooterLevel + 1 : prev.shooterLevel,
+                        shooterStage: data.type === 'BOSS_WIN' ? 1 : prev.shooterStage
+                    }));
+                    toast.success(`+${result.laam || result.tag} RECEIVED`);
                 }
-            } catch (err) {
-                console.error("Failed to save reward:", err);
-            }
+            } catch (err) { console.error("Reward error:", err); }
         };
 
+        // 2. Register all listeners together
+        EventBus.on('health-changed', handleHealthUpdate);
         EventBus.on('current-scene-ready', handleSceneReady);
         EventBus.on('game-over', handleGameOver);
         EventBus.on('victory', handleVictory);
@@ -158,8 +142,10 @@ export default function ShooterContainer() {
 
         if (publicKey) fetchUserData();
 
+        // 3. Single cleanup function at the very end
         return () => {
             window.removeEventListener('resize', checkOri);
+            EventBus.off('health-changed', handleHealthUpdate);
             EventBus.off('current-scene-ready', handleSceneReady);
             EventBus.off('game-over', handleGameOver);
             EventBus.off('victory', handleVictory);
@@ -371,86 +357,89 @@ export default function ShooterContainer() {
     }
 
     return (
-        <div className={styles.container} style={{ backgroundColor: '#050505' }}>
-            <div className={`${styles.innerFrame} relative overflow-hidden`} style={{ border: '4px solid #111', boxShadow: 'inset 0 0 100px rgba(0,0,0,0.5)' }}>
+        <div className={styles.container}>
+            <div className={styles.innerFrame}>
 
+                {/* --- HUD --- */}
                 {(gameStarted || isGameOver) && (
-                    <div style={{ position: 'absolute', top: '16px', right: '100px', zIndex: 10000, display: 'flex', gap: '12px' }}>
-                        <div style={{ background: 'rgba(0,0,0,0.8)', border: '1px solid #eab308', padding: '6px 16px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '8px', backdropFilter: 'blur(8px)' }}>
-                            <Ticket size={12} style={{ color: '#eab308' }} />
-                            <span style={{ color: '#fff', fontWeight: 900, fontSize: '10px', fontFamily: 'monospace' }}>TAG: {(stats?.tag ?? 0).toLocaleString()}</span>
+                    <div className={styles.hudContainer}>
+                        {/* NEW: Integrated Health Bar */}
+                        <div className={styles.healthBarContainer}>
+                            <div className={styles.healthLabel}>
+                                <Shield size={10} /> SYSTEM_INTEGRITY
+                            </div>
+                            <div className={styles.healthTrack}>
+                                <div
+                                    className={styles.healthFill}
+                                    style={{ width: `${Math.max(0, currentHealth)}%` }}
+                                />
+                            </div>
                         </div>
-                        <div style={{ background: 'rgba(0,0,0,0.8)', border: '1px solid #eab308', padding: '6px 16px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '8px', backdropFilter: 'blur(8px)' }}>
-                            <Zap size={12} style={{ color: '#eab308' }} />
-                            <span style={{ color: '#fff', fontWeight: 900, fontSize: '10px', fontFamily: 'monospace' }}>LAAM: {(stats?.laam ?? 0).toLocaleString()}</span>
+
+                        <div className={styles.currencyItem}>
+                            <Ticket size={12} className={styles.currencyIcon} />
+                            <span>TAG: {(stats?.tag ?? 0).toLocaleString()}</span>
+                        </div>
+                        <div className={styles.currencyItem}>
+                            <Zap size={12} className={styles.currencyIcon} />
+                            <span>LAAM: {(stats?.laam ?? 0).toLocaleString()}</span>
                         </div>
                     </div>
                 )}
 
-                <div id="game-container" className="w-full h-full absolute inset-0 z-[1]" />
+                {/* --- GAME CANVAS --- */}
+                <div id="game-container" className={styles.gameContainer} />
 
+                {/* --- CONTROLS --- */}
                 {gameStarted && !isGameOver && !isVictory && (
-                    <div style={{ position: 'absolute', top: '16px', left: '24px', zIndex: 10001, display: 'flex', gap: '10px' }}>
-                        <button onClick={togglePause} style={{ background: '#111', border: '1px solid #333', padding: '10px', borderRadius: '8px', color: '#fff', boxShadow: '0 4px 0 #000' }}>
-                            {isPaused ? <Play size={18} fill="#eab308" color="#eab308" /> : <Pause size={18} fill="#fff" />}
+                    <div className={styles.controlBar}>
+                        <button onClick={togglePause} className={styles.controlButton}>
+                            {isPaused ? (
+                                <Play size={18} className={styles.accentIcon} />
+                            ) : (
+                                <Pause size={18} />
+                            )}
                         </button>
-                        <button onClick={() => setIsShopOpen(!isShopOpen)} style={{ background: isShopOpen ? '#991b1b' : '#111', border: '1px solid #333', padding: '10px', borderRadius: '8px', color: '#fff', boxShadow: isShopOpen ? 'none' : '0 4px 0 #000', transform: isShopOpen ? 'translateY(2px)' : 'none' }}>
+
+                        <button
+                            onClick={() => setIsShopOpen(!isShopOpen)}
+                            className={`${styles.controlButton} ${isShopOpen ? styles.controlButtonActive : ''
+                                }`}
+                        >
                             <ShoppingCart size={18} />
                         </button>
-                        <button onClick={restartGame} style={{ background: '#111', border: '1px solid #333', padding: '10px', borderRadius: '8px', color: '#fff', boxShadow: '0 4px 0 #000' }}>
+
+                        <button onClick={restartGame} className={styles.controlButton}>
                             <RotateCcw size={18} />
                         </button>
                     </div>
                 )}
 
-                {!gameStarted && (
-                    <div style={{ position: 'absolute', inset: 0, zIndex: 20000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'radial-gradient(circle, #111 0%, #000 100%)' }}>
-                        <div style={{ position: 'relative', marginBottom: '40px' }}>
-                            <div style={{ position: 'absolute', inset: '-20px', background: 'rgba(234, 179, 8, 0.1)', filter: 'blur(30px)', borderRadius: '50%' }} />
-                            <h1 style={{ position: 'relative', fontSize: '64px', fontWeight: 900, color: '#eab308', fontStyle: 'italic', letterSpacing: '-4px', textAlign: 'center', textShadow: '0 0 20px rgba(234,179,8,0.5)' }}>
-                                VOID<br /><span style={{ color: '#fff' }}>SHOOTER</span>
-                            </h1>
-                        </div>
+                {/* --- HOME BUTTON --- */}
+                <button onClick={goHome} className={styles.homeButton}>
+                    <Home size={18} />
+                </button>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' }}>
+                {/* --- START MENU --- */}
+                {!gameStarted && (
+                    <div className={styles.startOverlay}>
+                        <h1 className={styles.mainTitle}>
+                            VOID<br />
+                            <span>SHOOTER</span>
+                        </h1>
+
+                        <div className={styles.startActions}>
                             <button
                                 onClick={handleEngage}
                                 disabled={isLoading}
-                                style={{
-                                    padding: '20px 60px',
-                                    background: isLoading ? '#1f2937' : '#991b1b',
-                                    color: '#fff',
-                                    borderRadius: '4px',
-                                    border: 'none',
-                                    fontWeight: 900,
-                                    fontSize: '24px',
-                                    letterSpacing: '4px',
-                                    boxShadow: isLoading ? 'none' : `0 8px 0 #450a0a`,
-                                    transform: isLoading ? 'translateY(4px)' : 'none',
-                                    transition: 'all 0.1s',
-                                    cursor: isLoading ? 'not-allowed' : 'pointer'
-                                }}
+                                className={styles.engageButton}
                             >
-                                {isLoading ? "INITIALIZING..." : "ENGAGE [5 TAG]"}
+                                {isLoading ? 'INITIALIZING...' : 'ENGAGE [5 TAG]'}
                             </button>
 
                             <button
-                                onClick={() => window.location.href = '/games'}
-                                style={{
-                                    background: 'transparent',
-                                    color: 'rgba(255,255,255,0.4)',
-                                    border: '1px solid rgba(255,255,255,0.1)',
-                                    padding: '8px 24px',
-                                    borderRadius: '4px',
-                                    fontSize: '10px',
-                                    fontWeight: 900,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '2px',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s'
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.color = '#fff'}
-                                onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.4)'}
+                                onClick={() => (window.location.href = '/games')}
+                                className={styles.abortButton}
                             >
                                 ← Abort Mission / Return to Terminal
                             </button>
@@ -458,38 +447,38 @@ export default function ShooterContainer() {
                     </div>
                 )}
 
-                <button onClick={goHome} style={{ position: 'absolute', top: '16px', right: '24px', zIndex: 10001, background: '#111', border: '1px solid #333', padding: '10px', borderRadius: '50%', color: '#fff' }}>
-                    <Home size={18} />
-                </button>
-
-                <div className={`${styles.shopPanel} ${isShopOpen ? styles.shopPanelOpen : ''}`} style={{ zIndex: 20001, background: '#080808', borderLeft: '2px solid #1a1a1a' }}>
-                    <div style={{ padding: '24px', paddingTop: '80px', height: '100%', overflowY: 'auto' }}>
-                        <h3 style={{ color: '#eab308', fontWeight: 900, fontStyle: 'italic', fontSize: '20px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid #1a1a1a', paddingBottom: '10px' }}>
+                {/* --- SHOP PANEL --- */}
+                <div
+                    className={`${styles.shopPanel} ${isShopOpen ? styles.shopPanelOpen : ''
+                        }`}
+                >
+                    <div className={styles.shopContent}>
+                        <h3 className={styles.shopTitle}>
                             <Zap size={20} /> SYSTEM_UPGRADES
                         </h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+                        <div className={styles.upgradeList}>
                             {[
-                                { id: 'weapon', label: 'Plasma Cannon', level: stats.weaponLevel, icon: <Zap size={16} />, color: '#eab308', desc: 'ROF +20%' },
-                                { id: 'shield', label: 'Energy Shield', level: stats.shieldLevel, icon: <Shield size={16} />, color: '#60a5fa', desc: 'DEF +15%' },
-                                { id: 'engine', label: 'Hyper Engine', level: stats.shoeLevel, icon: <Wind size={16} />, color: '#4ade80', desc: 'SPD +10%' },
-                                { id: 'hull', label: 'Titanium Hull', level: stats.lifeLevel, icon: <Heart size={16} />, color: '#f87171', desc: 'HP +25%' },
-                            ].map((item) => (
+                                { id: 'weapon', label: 'Plasma Cannon', level: stats.weaponLevel, icon: <Zap size={16} />, color: styles.gold },
+                                { id: 'shield', label: 'Energy Shield', level: stats.shieldLevel, icon: <Shield size={16} />, color: styles.blue },
+                                { id: 'engine', label: 'Hyper Engine', level: stats.shoeLevel, icon: <Wind size={16} />, color: styles.green },
+                                { id: 'hull', label: 'Titanium Hull', level: stats.lifeLevel, icon: <Heart size={16} />, color: styles.red },
+                            ].map(item => (
                                 <button
                                     key={item.id}
                                     onClick={() => handleUpgrade(item.id)}
-                                    style={{
-                                        width: '100%', background: '#000', border: '1px solid #1a1a1a', padding: '16px', borderRadius: '8px',
-                                        display: 'flex', flexDirection: 'column', textAlign: 'left', gap: '4px', transition: 'all 0.2s'
-                                    }}
+                                    className={styles.upgradeCard}
                                 >
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                                        <span style={{ fontWeight: 900, display: 'flex', alignItems: 'center', gap: '8px', color: item.color, fontSize: '12px', textTransform: 'uppercase' }}>
+                                    <div className={styles.upgradeHeader}>
+                                        <span className={`${styles.upgradeLabel} ${item.color}`}>
                                             {item.icon} {item.label}
                                         </span>
-                                        <span style={{ color: '#444', fontSize: '10px', fontWeight: 900, fontFamily: 'monospace' }}>LVL {item.level}</span>
+                                        <span className={styles.upgradeLevel}>LVL {item.level}</span>
                                     </div>
-                                    <div style={{ fontSize: '9px', color: '#666', fontWeight: 500 }}>{item.desc}</div>
-                                    <div style={{ marginTop: '8px', background: 'rgba(234,179,8,0.1)', color: '#eab308', fontSize: '9px', padding: '4px 8px', borderRadius: '2px', fontWeight: 900, alignSelf: 'flex-start' }}>
+
+                                    <div className={styles.upgradeDesc}>+</div>
+
+                                    <div className={styles.upgradeCost}>
                                         COST: {Math.floor(1 * Math.pow(1.2, item.level))} TAG
                                     </div>
                                 </button>
@@ -502,73 +491,53 @@ export default function ShooterContainer() {
                             setIsShopOpen(false);
                             EventBus.emit('resume-stage');
                         }}
-                        style={{
-                            position: 'absolute', bottom: 0, width: '100%', padding: '20px',
-                            borderTop: '1px solid #1a1a1a', color: '#444', fontWeight: 900,
-                            fontSize: '10px', textTransform: 'uppercase', display: 'flex',
-                            alignItems: 'center', justifyContent: 'center', gap: '8px'
-                        }}
+                        className={styles.shopExit}
                     >
                         EXIT_TERMINAL <ChevronRight size={14} />
                     </button>
                 </div>
 
+                {/* --- GAME OVER --- */}
                 {isGameOver && (
-                    <div style={{ position: 'absolute', inset: 0, zIndex: 30000, background: 'rgba(0,0,0,0.95)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(10px)' }}>
-                        <h2 style={{ color: '#991b1b', fontSize: '72px', fontWeight: 900, fontStyle: 'italic', marginBottom: '20px', letterSpacing: '-4px' }}>TERMINATED</h2>
+                    <div className={styles.gameOverOverlay}>
+                        <h2 className={styles.gameOverTitle}>TERMINATED</h2>
 
-                        <div style={{ display: 'flex', gap: '16px' }}>
+                        <div className={styles.gameOverActions}>
                             <button
                                 onClick={restartGame}
                                 disabled={isRestarting}
-                                style={{
-                                    background: isRestarting ? '#333' : '#fff',
-                                    color: '#000',
-                                    padding: '16px 40px',
-                                    borderRadius: '4px',
-                                    fontWeight: 900,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '10px',
-                                    fontSize: '18px',
-                                    textTransform: 'uppercase',
-                                    cursor: isRestarting ? 'not-allowed' : 'pointer',
-                                    transition: 'all 0.2s',
-                                    boxShadow: '0 0 20px rgba(255,255,255,0.1)'
-                                }}
+                                className={styles.redeployButton}
                             >
                                 <RotateCcw
                                     size={20}
                                     className={isRestarting ? styles.spinning : ''}
                                 />
-                                {isRestarting ? "CONNECTING..." : "REDEPLOY [5 TAG]"}
+                                {isRestarting ? 'CONNECTING...' : 'REDEPLOY [5 TAG]'}
                             </button>
 
                             {stats.tag < 5 && (
                                 <button
                                     onClick={() => router.push('/shop')}
-                                    style={{
-                                        background: '#eab308',
-                                        color: '#000',
-                                        padding: '16px 30px',
-                                        borderRadius: '4px',
-                                        fontWeight: 900,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '10px',
-                                        fontSize: '18px',
-                                        textTransform: 'uppercase',
-                                        cursor: 'pointer'
-                                    }}
+                                    className={styles.buyTagButton}
                                 >
                                     <ShoppingBag size={20} />
                                     BUY TAG
                                 </button>
                             )}
+
+                            {/* ✨ ADD THIS BUTTON HERE ✨ */}
+                            <button
+                                onClick={() => (window.location.href = '/games')}
+                                className={styles.abortButton}
+                                style={{ marginTop: '1.5rem' }}
+                            >
+                                ← Abort Mission / Return to Terminal
+                            </button>
                         </div>
                     </div>
                 )}
             </div>
         </div>
     );
+
 }

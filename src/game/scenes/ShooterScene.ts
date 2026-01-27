@@ -149,7 +149,12 @@ export class ShooterScene extends Phaser.Scene {
         EventBus.off('pause-game');
         EventBus.off('resume-stage');
 
-        EventBus.on('start-game', this.startGameLogic, this);
+        // FIX: Start game immediately when React says so, even if intro is fading
+        EventBus.on('start-game', () => {
+            this.isStarted = true;
+            if (this.physics) this.physics.resume();
+            this.startGameLogic();
+        }, this);
 
         EventBus.on('redeploy-player', () => {
             this.scene.restart({ stats: this.stats, level: this.level, stage: this.stage });
@@ -161,14 +166,21 @@ export class ShooterScene extends Phaser.Scene {
             }
         });
 
+        // FIXED: Removed "if (!this.isManualReady) return;" 
+        // This allows the upgrades to be saved even while the "INITIALIZING" screen is visible.
         EventBus.on('apply-upgrades', (data: any) => {
-            if (!this.isManualReady) return;
+            // We no longer return early here. We accept the data immediately.
             if (data.weaponLevel) this.stats.weaponLevel = data.weaponLevel;
             if (data.shieldLevel) this.stats.shieldLevel = data.shieldLevel;
             if (data.shoeLevel) this.stats.shoeLevel = data.shoeLevel;
             if (data.lifeLevel) this.stats.lifeLevel = data.lifeLevel;
+
             this.updatePlayerStats();
-            if (this.player && this.player.active) this.applyPowerUpEffect();
+
+            // Only show the flash/tint if the player sprite is actually created
+            if (this.player && this.player.active) {
+                this.applyPowerUpEffect();
+            }
         });
 
         EventBus.on('resume-stage', () => {
@@ -176,9 +188,8 @@ export class ShooterScene extends Phaser.Scene {
             this.isStarted = true;
             if (this.physics) this.physics.resume();
         }, this);
-
         // 7. Mark as ready for React
-        this.time.delayedCall(100, () => {
+        this.time.delayedCall(200, () => {
             EventBus.emit('current-scene-ready', this);
         });
 
@@ -206,9 +217,13 @@ export class ShooterScene extends Phaser.Scene {
         this.player.setDisplaySize(50, 50);
         this.player.setDrag(5000); // Very high drag for snappy 1:1 feel
 
-        const flare = this.make.graphics({ x: 0, y: 0 }).fillStyle(0xffffff, 1).fillCircle(4, 4, 4);
-        flare.generateTexture('flare', 8, 8);
-        flare.destroy();
+        if (!this.textures.exists('flare')) {
+            const flare = this.make.graphics({ x: 0, y: 0 }, false)
+                .fillStyle(0xffffff, 1)
+                .fillCircle(4, 4, 4);
+            flare.generateTexture('flare', 8, 8);
+            flare.destroy();
+        }
 
         this.bossHealthBar = this.add.graphics().setDepth(100);
         this.playerHealthBar = this.add.graphics().setDepth(100);
@@ -378,7 +393,13 @@ export class ShooterScene extends Phaser.Scene {
     takeDamage(amount: number) {
         if (this.isGameOver) return;
         this.cameras.main.flash(100, 255, 0, 0, false);
+
+        // Update the internal health
         this.health -= amount * Math.max(0.1, 1 - (this.stats.shieldLevel - 1) * 0.15);
+
+        // ADD THIS LINE: Send the NEW health value to React
+        EventBus.emit('health-changed', { health: this.health });
+
         this.cameras.main.shake(100, 0.005);
         if (this.health <= 0) {
             this.isGameOver = true;
@@ -387,7 +408,6 @@ export class ShooterScene extends Phaser.Scene {
             EventBus.emit('game-over');
         }
     }
-
     spawnSpecialBomb(x: number, y: number) {
         const bomb = this.rewards.create(x, y, 'bomb');
         bomb.setDisplaySize(30, 30);
@@ -526,30 +546,28 @@ export class ShooterScene extends Phaser.Scene {
     }
 
     private handleJoystickMovement(pointer: Phaser.Input.Pointer) {
+        const dist = Phaser.Math.Distance.Between(this.joystickBase.x, this.joystickBase.y, pointer.x, pointer.y);
         const angle = Phaser.Math.Angle.Between(this.joystickBase.x, this.joystickBase.y, pointer.x, pointer.y);
-        const distance = Phaser.Math.Distance.Between(this.joystickBase.x, this.joystickBase.y, pointer.x, pointer.y);
-        const maxDistance = 50;
+        const maxDist = 50;
+        const deadzone = 5; // Pixels to ignore
 
-        // 1. Move the thumb visually
-        const thumbDistance = Math.min(distance, maxDistance);
-        const thumbX = this.joystickBase.x + Math.cos(angle) * thumbDistance;
-        const thumbY = this.joystickBase.y + Math.sin(angle) * thumbDistance;
-        this.joystickThumb.setPosition(thumbX, thumbY);
+        if (dist < deadzone) {
+            this.player.setVelocity(0, 0);
+            this.joystickThumb.setPosition(this.joystickBase.x, this.joystickBase.y);
+            return;
+        }
 
-        // 2. Calculate Normalized Speed (0 to 1)
-        // This makes it so if you push the stick a little, you move slow. Push it far, you move fast.
-        const force = thumbDistance / maxDistance;
+        const moveDist = Math.min(dist, maxDist);
+        this.joystickThumb.setPosition(
+            this.joystickBase.x + Math.cos(angle) * moveDist,
+            this.joystickBase.y + Math.sin(angle) * moveDist
+        );
 
-        // 3. Set Velocity based on how far the stick is pushed
+        const force = moveDist / maxDist;
         const baseSpeed = 500 * (1 + (this.stats.shoeLevel - 1) * 0.35);
         const finalSpeed = baseSpeed * force;
 
-        this.player.setVelocity(
-            Math.cos(angle) * finalSpeed,
-            Math.sin(angle) * finalSpeed
-        );
-
-        // 4. Rotate ship
+        this.player.setVelocity(Math.cos(angle) * finalSpeed, Math.sin(angle) * finalSpeed);
         this.player.setRotation(angle + Phaser.Math.DegToRad(90));
     }
 }
