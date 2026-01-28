@@ -7,9 +7,8 @@ import { Lock, Zap, Clock, History } from 'lucide-react';
 import { stakeNftOnChain } from '../lib/stakeNftTask';
 import { unstakeNftOnChain } from '../lib/unstakeNftTask';
 
-
-// The live ticker for rewards with 48h Countdown logic
-const RewardTicker = ({ stakedAt }: { stakedAt: string }) => {
+// --- SUB-COMPONENT: REWARD TICKER (48h Lock) ---
+const RewardTicker = ({ stakedAt, lastClaimed }: { stakedAt: string, lastClaimed: string }) => {
     const [rewards, setRewards] = useState({ laam: 0, tag: 0 });
     const [timeLeft, setTimeLeft] = useState<string | null>(null);
 
@@ -17,27 +16,31 @@ const RewardTicker = ({ stakedAt }: { stakedAt: string }) => {
         const interval = setInterval(() => {
             const now = Date.now();
             const start = new Date(stakedAt).getTime();
-            const lockDuration = 48 * 3600 * 1000; // 48 Hours in ms
-            const elapsed = now - start;
+            const last = new Date(lastClaimed).getTime();
 
-            if (elapsed < lockDuration) {
-                const remaining = lockDuration - elapsed;
+            const lockDuration = 48 * 3600 * 1000;
+            const elapsedSinceStake = now - start;
+
+            if (elapsedSinceStake < lockDuration) {
+                const remaining = lockDuration - elapsedSinceStake;
                 const hours = Math.floor(remaining / (3600 * 1000));
                 const mins = Math.floor((remaining % (3600 * 1000)) / (60 * 1000));
                 setTimeLeft(`LOCKED: ${hours}h ${mins}m left`);
                 setRewards({ laam: 0, tag: 0 });
             } else {
                 setTimeLeft(null);
-                const secondsElapsed = Math.floor((now - start) / 1000) - (48 * 3600);
+                // Math: Seconds since the last time the user clicked 'Claim'
+                const secondsSinceLastClaim = Math.floor((now - last) / 1000);
+                const validSeconds = Math.max(0, secondsSinceLastClaim);
 
                 setRewards({
-                    laam: secondsElapsed * (500 / 86400),
-                    tag: secondsElapsed * (20 / 86400)
+                    laam: validSeconds * (500 / 86400),
+                    tag: validSeconds * (20 / 86400)
                 });
             }
         }, 1000);
         return () => clearInterval(interval);
-    }, [stakedAt]);
+    }, [stakedAt, lastClaimed]);
 
     return (
         <div style={{ marginTop: '12px' }}>
@@ -61,6 +64,65 @@ const RewardTicker = ({ stakedAt }: { stakedAt: string }) => {
                 </div>
             )}
         </div>
+    );
+};
+
+// --- SUB-COMPONENT: CLAIM BUTTON (24h Cooldown) ---
+const ClaimButton = ({ lastClaimed, onClaim, loading, stakedAt }: any) => {
+    const [cooldown, setCooldown] = useState<string | null>(null);
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            const now = Date.now();
+            const stakeTime = new Date(stakedAt).getTime();
+            // Fallback to stakeTime if lastClaimed is somehow missing
+            const lastClaimTime = lastClaimed ? new Date(lastClaimed).getTime() : stakeTime;
+
+            const lock48h = 48 * 3600 * 1000;
+            const cooldown24h = 24 * 3600 * 1000;
+
+            const timeSinceStaked = now - stakeTime;
+            const timeSinceLastClaim = now - lastClaimTime;
+
+            if (timeSinceStaked < lock48h) {
+                // Phase 1: Initial 48h Vault Lock
+                const remaining = lock48h - timeSinceStaked;
+                const h = Math.floor(remaining / (3600 * 1000));
+                const m = Math.floor((remaining % (3600 * 1000)) / (60 * 1000));
+                setCooldown(`VAULT LOCK: ${h}h ${m}m`);
+            } else if (timeSinceLastClaim < cooldown24h) {
+                // Phase 2: 24h Daily Claim Cooldown
+                const remaining = cooldown24h - timeSinceLastClaim;
+                const h = Math.floor(remaining / (3600 * 1000));
+                const m = Math.floor((remaining % (3600 * 1000)) / (60 * 1000));
+                setCooldown(`NEXT CLAIM: ${h}h ${m}m`);
+            } else {
+                // Phase 3: Ready to claim!
+                setCooldown(null);
+            }
+        }, 1000);
+        return () => clearInterval(timer);
+    }, [lastClaimed, stakedAt]);
+
+    return (
+        <button
+            disabled={loading || !!cooldown}
+            onClick={onClaim}
+            className="secondary-btn"
+            style={{
+                padding: '10px',
+                fontSize: '11px',
+                background: cooldown ? '#1a1a1a' : '#a855f7',
+                color: cooldown ? '#666' : '#fff',
+                border: cooldown ? '1px solid #333' : 'none',
+                borderRadius: '4px',
+                cursor: cooldown ? 'not-allowed' : 'pointer',
+                fontWeight: 900,
+                width: '100%'
+            }}
+        >
+            {loading ? "PROCESSING..." : cooldown ? cooldown : "CLAIM ACCRUED REWARDS"}
+        </button>
     );
 };
 
@@ -101,10 +163,9 @@ export default function VaultPage() {
                 walletAddress: publicKey?.toBase58()
             });
             if (res.data.depositedLaam > 0) {
-                // UPDATE: Added Math.floor to alert for whole numbers
                 alert(`SUCCESS: ${Math.floor(res.data.depositedLaam)} LAAM & ${Math.floor(res.data.depositedTag)} TAG DEPOSITED!`);
             } else {
-                alert("No rewards ready yet. (Must be 48h after stake and 24h since last claim)");
+                alert("Vault update: No rewards ready to move yet.");
             }
             await loadData();
         } catch (err) {
@@ -145,7 +206,6 @@ export default function VaultPage() {
             <div className="main-content">
                 <Head><title>LAAMTAG | Staking Arena</title></Head>
                 <div className="content-wrapper">
-
                     <div style={{ textAlign: 'center', marginBottom: '40px' }}>
                         <h1 className="page-title">The <span style={{ color: '#eab308' }}>Vault</span></h1>
                         <p className="terminal-desc" style={{ fontSize: '10px' }}>PROTOCOL: ASSET_LOCK_V2</p>
@@ -159,7 +219,6 @@ export default function VaultPage() {
                         </div>
                         <div className="terminal-card" style={{ padding: '16px', textAlign: 'center' }}>
                             <Zap size={16} color="#a855f7" style={{ margin: '0 auto 8px' }} />
-                            {/* UPDATE: Use Math.floor for the display balance */}
                             <p style={{ fontSize: '18px', fontWeight: 900, margin: 0 }}>{Math.floor(totalClaimed.laam)}</p>
                             <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)', fontWeight: 900 }}>TOTAL LAAM EARNED</p>
                         </div>
@@ -177,20 +236,25 @@ export default function VaultPage() {
                                         </div>
                                         <div style={{ flex: 1 }}>
                                             <h3 style={{ fontSize: '14px', fontWeight: 900, margin: 0 }}>{nft.name}</h3>
-                                            {nft.staked && stakeData ? <RewardTicker stakedAt={stakeData.stakedAt} /> : <p style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', marginTop: '4px' }}>READY TO LOCK</p>}
+                                            {nft.staked && stakeData ? (
+                                                <RewardTicker
+                                                    stakedAt={stakeData.stakedAt}
+                                                    lastClaimed={stakeData.lastClaimed}
+                                                />
+                                            ) : (
+                                                <p style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', marginTop: '4px' }}>READY TO LOCK</p>
+                                            )}
                                         </div>
                                     </div>
 
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
-                                        {nft.staked && (
-                                            <button
-                                                disabled={loading}
-                                                onClick={() => handleClaim(nft)}
-                                                className="secondary-btn"
-                                                style={{ padding: '10px', fontSize: '11px', background: '#a855f7', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                                            >
-                                                {loading ? "PROCESSING..." : "CLAIM ACCRUED REWARDS"}
-                                            </button>
+                                        {nft.staked && stakeData && (
+                                            <ClaimButton
+                                                lastClaimed={stakeData.lastClaimed}
+                                                stakedAt={stakeData.stakedAt}
+                                                onClaim={() => handleClaim(nft)}
+                                                loading={loading}
+                                            />
                                         )}
 
                                         <button
@@ -201,7 +265,8 @@ export default function VaultPage() {
                                                 padding: '10px',
                                                 fontSize: '11px',
                                                 background: nft.staked ? 'rgba(255,255,255,0.05)' : '#eab308',
-                                                color: nft.staked ? '#fff' : '#000'
+                                                color: nft.staked ? '#fff' : '#000',
+                                                fontWeight: 900
                                             }}
                                         >
                                             {loading ? "PROCESSING..." : nft.staked ? "UNSTAKE NFT (RELEASE)" : "LOCK ASSET"}
@@ -212,6 +277,7 @@ export default function VaultPage() {
                         })}
                     </div>
 
+                    {/* History Section */}
                     <div className="terminal-card" style={{ marginTop: '40px', padding: '20px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                             <History size={16} color="#eab308" />
@@ -221,7 +287,6 @@ export default function VaultPage() {
                             {history.slice(0, 5).map((item) => (
                                 <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '8px' }}>
                                     <span style={{ opacity: 0.5 }}>{new Date(item.unstakedAt).toLocaleDateString()}</span>
-                                    {/* UPDATE: Use Math.floor for history items to keep them as whole numbers */}
                                     <span style={{ fontWeight: 900, color: '#eab308' }}>+{Math.floor(item.laamEarned)} LAAM</span>
                                 </div>
                             ))}

@@ -138,10 +138,13 @@ const Mint: NextPage = () => {
       const successCount = results.filter(r => r.success).length;
 
       if (successCount > 0) {
-        // Update personalMinted count
+        // Calculate the new absolute total
+        const newActualTotal = stats.personal + successCount;
+
+        // We change 'amount' to 'actualCount' to match your new API
         await axios.post('/api/user/update-mints', {
           walletAddress: publicKey.toBase58(),
-          amount: successCount
+          actualCount: newActualTotal
         });
 
         // Trigger the 1000 LAAM per NFT reward

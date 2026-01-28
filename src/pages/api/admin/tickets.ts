@@ -3,14 +3,14 @@ import prisma from '../../../lib/prisma';
 import { isWalletAdmin } from '../../../lib/adminAuth';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-    const adminAddress = (req.query.adminAddress || req.headers['x-admin-wallet']) as string;
+    const adminAddress = (req.headers['x-admin-wallet'] as string) || (req.query.adminAddress as string);
 
-    // Security check using your existing lib
+    // Security check
     if (!isWalletAdmin(adminAddress)) {
         return res.status(403).json({ error: "Unauthorized access" });
     }
 
-    // GET: Load all tickets for the dashboard
+    // 1. GET: Fetch all tickets for the Admin Dashboard
     if (req.method === 'GET') {
         try {
             const tickets = await prisma.supportTicket.findMany({
@@ -22,15 +22,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
     }
 
-    // PATCH: Mark ticket as Resolved
+    // 2. PATCH: Update status from 'Pending' to 'Resolved'
     if (req.method === 'PATCH') {
         const { ticketId, newStatus } = req.body;
         try {
-            await prisma.supportTicket.update({
+            const updated = await prisma.supportTicket.update({
                 where: { id: ticketId },
                 data: { status: newStatus }
             });
-            return res.status(200).json({ success: true });
+            return res.status(200).json(updated);
         } catch (error) {
             return res.status(500).json({ error: "Failed to update ticket" });
         }

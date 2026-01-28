@@ -165,8 +165,18 @@ export default function NftGallery() {
         setLoading(true);
         try {
             const res = await axios.get(`/api/staking/list?address=${publicKey.toString()}`);
-            setNfts(res.data.nfts);
+            const nftArray = res.data.nfts;
+            setNfts(nftArray);
             setRawStakes(res.data.rawStakes);
+
+            // --- NEW SELF-HEALING LOGIC ---
+            // This automatically fixes the "4 instead of 2" error in the database
+            await axios.post('/api/user/update-mints', {
+                walletAddress: publicKey.toString(),
+                actualCount: nftArray.length // The actual number of NFTs in the wallet
+            });
+            // ------------------------------
+
         } catch (e) {
             console.error("Gallery Load Error:", e);
         } finally {

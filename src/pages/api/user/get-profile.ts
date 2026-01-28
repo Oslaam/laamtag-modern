@@ -16,6 +16,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         lastTagCheckIn: true,
         laamPoints: true,
         tagTickets: true,
+        streakCount: true,
       }
     });
 
@@ -25,7 +26,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         lastLaamCheckIn: null,
         lastTagCheckIn: null,
         laamPoints: 0,
-        tagTickets: 0
+        tagTickets: 0,
+        streakCount: 0
       });
     }
 

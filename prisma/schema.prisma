@@ -38,9 +38,10 @@ model Activity {
   id            String   @id @default(cuid())
   userId        String
   user          User     @relation(fields: [userId], references: [walletAddress])
-  type          String   // e.g., "SPIN_COST", "SPIN_WIN", "TAG_PURCHASE"
-  asset         String   // e.g., "TAG", "LAAM", "SOL", "USDC"
+  type          String   // e.g., "SPIN_COST", "SPIN_WIN", "TAG_PURCHASE" , "SWAP"
+  asset         String   // e.g., "TAG", "LAAM", "SOL", "USDC" , "SOL/USDC"
   amount        Float
+  signature       String?  // To store the Solana TX hash
   createdAt     DateTime @default(now())
 }
 

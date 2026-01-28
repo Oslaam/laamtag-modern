@@ -19,11 +19,8 @@ export const ContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
     }, []);
 
     const endpoint = useMemo(() => {
-        const url = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
-        if (!url) {
-            return "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
-        }
-        return url;
+        // We are hardcoding this to ensure the Helius private node is ALWAYS used
+        return "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
     }, []);
 
     const wallets = useMemo(() => {

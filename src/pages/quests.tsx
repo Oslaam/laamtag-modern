@@ -5,7 +5,6 @@ import { useState, useEffect, useCallback } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import SeekerGuard from '../components/SeekerGuard';
 
-// Helper to check if the timestamp happened today (Calendar reset)
 const isAlreadyClaimedToday = (lastCheckInDate: string | Date | null) => {
   if (!lastCheckInDate) return false;
   const lastDate = new Date(lastCheckInDate);
@@ -19,7 +18,6 @@ export default function QuestsPage() {
   const [dbQuests, setDbQuests] = useState([]);
   const [questStatuses, setQuestStatuses] = useState<Record<string, string>>({});
   const [userCheckins, setUserCheckins] = useState<{ laam: Date | null, tag: Date | null }>({ laam: null, tag: null });
-  const [userStreak, setUserStreak] = useState(0); // Added for Streak Logic
   const [isClaiming, setIsClaiming] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState("");
   const [clickedQuests, setClickedQuests] = useState<Record<string, boolean>>({});
@@ -47,7 +45,6 @@ export default function QuestsPage() {
             laam: userData.lastLaamCheckIn,
             tag: userData.lastTagCheckIn
           });
-          setUserStreak(userData.streakCount || 0); // Sync with Prisma field
         }
       }
     } catch (err) { console.error(err); }
@@ -60,20 +57,17 @@ export default function QuestsPage() {
       const now = new Date();
       const resetTime = new Date();
       resetTime.setHours(23, 59, 59, 999);
-
       let diff = resetTime.getTime() - now.getTime();
-
       if (diff <= 0) {
         fetchQuests();
-        toast.success("SYSTEM RESET: New Quests Available!", { icon: '🚀' });
+        toast.success("SYSTEM RESET!", { icon: '🚀' });
         resetTime.setDate(resetTime.getDate() + 1);
         diff = resetTime.getTime() - now.getTime();
       }
-
       const h = Math.floor(diff / (1000 * 60 * 60));
       const m = Math.floor((diff / (1000 * 60)) % 60);
       const s = Math.floor((diff / 1000) % 60);
-      setTimeLeft(`${h}h ${m}m ${s}s`);
+      setTimeLeft(`${h}h ${m}s`);
     }, 1000);
     return () => clearInterval(timer);
   }, [fetchQuests]);
@@ -97,6 +91,7 @@ export default function QuestsPage() {
     } finally { setIsClaiming(null); }
   };
 
+  // ... (Keep existing claimQuest, submitSocialQuest, handleSocialClick)
   const claimQuest = async (questId: string, reward: number) => {
     if (!publicKey) return toast.error("Connect wallet!");
     setIsClaiming(questId);
@@ -104,46 +99,28 @@ export default function QuestsPage() {
       const res = await fetch('/api/complete-quest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          walletAddress: publicKey.toString(),
-          questId,
-          pointsReward: reward
-        }),
+        body: JSON.stringify({ walletAddress: publicKey.toString(), questId, pointsReward: reward }),
       });
-      if (res.ok) {
-        toast.success("Reward Claimed!");
-        fetchQuests();
-      } else {
-        const errorData = await res.json();
-        toast.error(errorData.message || "Failed to claim");
-      }
+      if (res.ok) { toast.success("Reward Claimed!"); fetchQuests(); }
+      else { const errorData = await res.json(); toast.error(errorData.message || "Failed to claim"); }
     } catch (err) { toast.error("Network error"); }
     finally { setIsClaiming(null); }
   };
 
   const submitSocialQuest = async (questId: string) => {
     const link = proofLinks[questId];
-    if (!link) return toast.error("Please provide the required proof!");
+    if (!link) return toast.error("Please provide proof!");
     if (!publicKey) return toast.error("Connect wallet!");
-
     setIsClaiming(questId);
     try {
       const res = await fetch('/api/submit-social', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          walletAddress: publicKey.toString(),
-          questId,
-          proofLink: link
-        }),
+        body: JSON.stringify({ walletAddress: publicKey.toString(), questId, proofLink: link }),
       });
       const data = await res.json();
-      if (res.ok) {
-        toast.success(data.message);
-        fetchQuests();
-      } else {
-        toast.error(data.message);
-      }
+      if (res.ok) { toast.success(data.message); fetchQuests(); }
+      else { toast.error(data.message); }
     } catch (err) { toast.error("Submission failed"); }
     finally { setIsClaiming(null); }
   };
@@ -157,21 +134,8 @@ export default function QuestsPage() {
   const isLaamClaimed = isAlreadyClaimedToday(userCheckins.laam);
   const isTagClaimed = isAlreadyClaimedToday(userCheckins.tag);
 
-  // STREAK VISUAL LOGIC
-  const currentWeek = Math.floor(userStreak / 7) + 1;
-  const dayInCycle = ((userStreak - 1) % 7) + 1;
-  const hasClaimedToday = isLaamClaimed || isTagClaimed;
-
-  // Shapes change based on week: Week 1 = Circle, Week 2 = Rounded, Week 3+ = Octagon style
-  const getRadius = () => {
-    if (currentWeek === 1) return '50%';
-    if (currentWeek === 2) return '12px';
-    return '4px';
-  };
-
   const availableQuests = dbQuests.filter((q: any) =>
-    q.type !== 'daily' &&
-    (!questStatuses[q.id] || questStatuses[q.id] === 'REJECTED')
+    q.type !== 'daily' && (!questStatuses[q.id] || questStatuses[q.id] === 'REJECTED')
   );
   const pendingQuests = dbQuests.filter((q: any) => questStatuses[q.id] === 'PENDING');
   const completedQuests = dbQuests.filter((q: any) => questStatuses[q.id] === 'COMPLETED' || questStatuses[q.id] === 'APPROVED');
@@ -181,48 +145,13 @@ export default function QuestsPage() {
       <div className="main-content">
         <Toaster />
         <div className="content-wrapper">
-
-          {/* STREAK VISUAL TRACKER */}
-          <div className="terminal-card" style={{ marginBottom: '32px', border: '1px solid #333' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
-              <span style={{ fontSize: '10px', fontWeight: 900, color: '#eab308' }}>STREAK CYCLE: WEEK {currentWeek}</span>
-              <span style={{ fontSize: '10px', color: '#666' }}>TOTAL STREAK: {userStreak} DAYS</span>
-            </div>
-
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'space-between' }}>
-              {[1, 2, 3, 4, 5, 6, 7].map((day) => {
-                const isCompleted = day < dayInCycle || (day === dayInCycle && hasClaimedToday);
-                const isCurrent = day === dayInCycle && !hasClaimedToday;
-
-                return (
-                  <div key={day} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                    <div style={{
-                      width: '100%',
-                      aspectRatio: '1/1',
-                      maxWidth: '45px',
-                      borderRadius: getRadius(),
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '12px',
-                      fontWeight: 900,
-                      transition: 'all 0.3s ease',
-                      background: isCompleted ? '#22d3ee' : isCurrent ? '#eab308' : '#111',
-                      border: isCurrent ? '2px solid #fff' : '1px solid #333',
-                      color: isCompleted || isCurrent ? '#000' : '#444',
-                      boxShadow: isCurrent ? '0 0 10px rgba(234, 179, 8, 0.4)' : 'none'
-                    }}>
-                      {isCompleted ? '✓' : day}
-                    </div>
-                    <span style={{ fontSize: '8px', color: isCurrent ? '#fff' : '#666' }}>D{day}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
+          
           {/* SECTION: DAILY */}
-          <h2 style={headerStyle}><span>Daily Transmissions</span> <span style={{ color: '#ef4444' }}>Reset: {timeLeft}</span></h2>
+          <h2 style={headerStyle}>
+            <span>Daily Transmissions</span> 
+            <span style={{ color: '#ef4444' }}>Reset: {timeLeft}</span>
+          </h2>
+          
           <div style={{ display: 'flex', gap: '12px', marginBottom: '32px' }}>
             <div className="terminal-card" style={{ flex: 1, opacity: isLaamClaimed ? 0.6 : 1 }}>
               <h3 style={{ fontSize: '14px', fontWeight: 900 }}>Daily LAAM</h3>
@@ -255,7 +184,6 @@ export default function QuestsPage() {
             {availableQuests.map((quest: any) => {
               const hasClicked = clickedQuests[quest.id];
               const isSocialType = ['social', 'social_username', 'social_any_link'].includes(quest.type);
-
               return (
                 <div key={quest.id} className="terminal-card">
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -279,11 +207,7 @@ export default function QuestsPage() {
                     {isSocialType && hasClicked && (
                       <input
                         type="text"
-                        placeholder={
-                          quest.type === 'social' ? "Paste X/Twitter link..." :
-                            quest.type === 'social_username' ? "Enter your Username (@handle)..." :
-                              "Paste proof link (URL)..."
-                        }
+                        placeholder="Paste proof here..."
                         value={proofLinks[quest.id] || ''}
                         onChange={(e) => setProofLinks(prev => ({ ...prev, [quest.id]: e.target.value }))}
                         style={{ background: '#111', border: '1px solid #333', color: '#fff', padding: '10px', fontSize: '10px', borderRadius: '8px', outline: 'none', marginTop: '10px' }}
