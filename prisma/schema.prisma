@@ -30,6 +30,7 @@ model User {
   shoeLevel          Int              @default(1)
   lifeLevel          Int              @default(1)
   currentStage       Int              @default(1)
+  boosts             MultiplierBoost[]
   lastLaamCheckIn DateTime?
   lastTagCheckIn  DateTime?
 }
@@ -134,4 +135,19 @@ model RewardHistory {
   unstakedAt    DateTime @default(now())
 
   @@index([walletAddress])
+}
+
+
+model MultiplierBoost {
+  id          String   @id @default(cuid())
+  userAddress String
+  mintAddress String   // Added this to target specific NFTs
+  user        User     @relation(fields: [userAddress], references: [walletAddress])
+  multiplier  Float    
+  activatedAt DateTime @default(now()) // When the boost starts working
+  expiresAt   DateTime
+  purchasedAt DateTime @default(now())
+
+  @@index([userAddress])
+  @@index([mintAddress])
 }

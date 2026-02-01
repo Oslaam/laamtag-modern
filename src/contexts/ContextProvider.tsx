@@ -42,6 +42,9 @@ export const ContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
             }),
             new PhantomWalletAdapter(),
             new SolflareWalletAdapter(),
+            // new PhantomWalletAdapter({ network: WalletAdapterNetwork.Devnet }),
+            // new SolflareWalletAdapter({ network: WalletAdapterNetwork.Devnet }),
+
         ];
     }, [mounted]);
 

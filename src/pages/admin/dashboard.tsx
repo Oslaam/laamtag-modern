@@ -9,7 +9,7 @@ import { bs58 } from '@project-serum/anchor/dist/cjs/utils/bytes';
 import toast, { Toaster } from 'react-hot-toast';
 import confetti from 'canvas-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, MessageSquare, ExternalLink, ShieldAlert, Clock, XCircle } from 'lucide-react';
+import { CheckCircle2, MessageSquare, ExternalLink, ShieldAlert, Clock, XCircle, ChevronLeft, Terminal } from 'lucide-react';
 
 const MotionDiv = motion.div as any;
 const MotionSvg = motion.svg as any;
@@ -51,24 +51,21 @@ export default function AdminDashboard() {
     try {
       const headers = { 'x-admin-wallet': publicKey.toString() };
       
-      // Quests
       const questRes = await fetch('/api/admin/pending', { headers });
       const questData = await questRes.json();
       setSubmissions(questData.submissions || []);
 
-      // Tickets
       const ticketRes = await fetch('/api/admin/tickets', { headers });
       const ticketData = await ticketRes.json();
       setTickets(Array.isArray(ticketData) ? ticketData : []);
 
-      // History
       const historyRes = await fetch('/api/admin/history', { headers });
       const historyData = await historyRes.json();
       setHistory(historyData.history || []);
 
     } catch (err) {
       console.error("Fetch error:", err);
-      toast.error("Failed to load terminal data");
+      toast.error("DATA_DECRYPTION_FAILED");
     } finally {
       setLoading(false);
     }
@@ -90,11 +87,11 @@ export default function AdminDashboard() {
 
       if (res.ok) {
         if (action === 'APPROVE') {
-          confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#eab308', '#ffffff', '#22c55e'] });
+          confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#eab308', '#ffffff'] });
           setShowSuccessUI(true);
-          setTimeout(() => setShowSuccessUI(false), 3000);
+          setTimeout(() => setShowSuccessUI(false), 2000);
         }
-        toast.success(`Quest ${action === 'APPROVE' ? 'Approved' : 'Rejected'}!`);
+        toast.success(`SYSTEM: ${action}_SUCCESS`);
         fetchData();
       } else {
         const err = await res.json();
@@ -114,7 +111,7 @@ export default function AdminDashboard() {
         body: JSON.stringify({ ticketId, newStatus })
       });
       if (res.ok) {
-        toast.success("Ticket Status Updated");
+        toast.success("TICKET_STATUS_UPDATED");
         fetchData();
       }
     } catch (err) {
@@ -142,7 +139,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="p-10 bg-black min-h-screen text-white font-sans overflow-hidden pb-32">
+    <div className="p-4 md:p-10 bg-black min-h-screen text-white font-sans overflow-hidden pb-32">
       <Toaster position="bottom-right" />
 
       <AnimatePresence>
@@ -151,143 +148,134 @@ export default function AdminDashboard() {
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 1.5, opacity: 0 }}
-            className="fixed inset-0 flex items-center justify-center pointer-events-none z-50"
+            className="fixed inset-0 flex items-center justify-center pointer-events-none z-50 bg-black/60 backdrop-blur-sm"
           >
-            <div className="bg-yellow-500/10 backdrop-blur-xl p-12 rounded-full border border-yellow-500/50 shadow-[0_0_100px_rgba(234,179,8,0.3)]">
-              <MotionSvg
-                initial={{ pathLength: 0 }}
-                animate={{ pathLength: 1 }}
-                transition={{ duration: 0.5 }}
-                className="w-24 h-24 text-yellow-500"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-              </MotionSvg>
+            <div className="bg-yellow-500/10 p-12 rounded-full border border-yellow-500/50 shadow-[0_0_100px_rgba(234,179,8,0.2)]">
+              <CheckCircle2 size={80} className="text-yellow-500" />
             </div>
           </MotionDiv>
         )}
       </AnimatePresence>
 
-      <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-10 border-b border-white/5 pb-10">
+      <div className="max-w-5xl mx-auto">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6 border-b border-white/5 pb-10">
           <div className="flex items-center gap-6">
-            <Link href="/" className="group flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-2 rounded-xl hover:bg-white hover:text-black transition-all">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
-              <span className="text-[10px] font-black uppercase tracking-widest">Close Terminal</span>
+            <Link href="/" className="p-3 bg-zinc-900 border border-white/5 rounded-xl hover:bg-white hover:text-black transition-all group">
+              <ChevronLeft size={20} />
             </Link>
-            <div className="h-8 w-[1px] bg-white/10" />
             <div>
-              <h1 className="text-3xl font-black italic text-yellow-500 uppercase tracking-tighter">Terminal</h1>
-              <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.3em] mt-1">Verification Node 01</p>
+              <div className="flex items-center gap-2">
+                <Terminal size={20} className="text-yellow-500" />
+                <h1 className="text-3xl font-black italic text-white uppercase tracking-tighter">ADMIN <span className="text-yellow-500">TERMINAL</span></h1>
+              </div>
+              <p className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.3em] mt-1">Verification Node 01 // Secure Connection</p>
             </div>
           </div>
-          <WalletMultiButton />
+          <WalletMultiButton className="!bg-yellow-500 !text-black !font-black !rounded-xl !h-12 !px-8 hover:!bg-white transition-all" />
         </div>
 
-        <div className="flex gap-4 mb-8 bg-gray-900/30 p-2 rounded-2xl border border-white/5">
-          <button onClick={() => setActiveTab('QUESTS')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'QUESTS' ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20' : 'text-gray-500 hover:text-white'}`}>
-            Pending ({submissions.length})
-          </button>
-          <button onClick={() => setActiveTab('SUPPORT')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'SUPPORT' ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20' : 'text-gray-500 hover:text-white'}`}>
-            Tickets ({tickets.length})
-          </button>
-          <button onClick={() => setActiveTab('HISTORY')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'HISTORY' ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20' : 'text-gray-500 hover:text-white'}`}>
-            History ({history.length})
-          </button>
+        <div className="flex gap-2 mb-8 bg-zinc-900/50 p-1.5 rounded-2xl border border-white/5">
+          {['QUESTS', 'SUPPORT', 'HISTORY'].map((tab) => (
+            <button 
+              key={tab}
+              onClick={() => setActiveTab(tab as any)} 
+              className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/10' : 'text-zinc-500 hover:text-white'}`}
+            >
+              {tab} {tab === 'QUESTS' ? `(${submissions.length})` : tab === 'SUPPORT' ? `(${tickets.length})` : ''}
+            </button>
+          ))}
         </div>
 
         {loading ? (
-          <div className="flex items-center gap-3 text-gray-500 font-mono text-[10px] uppercase tracking-widest">
-            <div className="w-3 h-3 border border-yellow-500 border-t-transparent rounded-full animate-spin"></div>
-            Decrypting Pending Packets...
+          <div className="flex flex-col items-center justify-center py-20 gap-4 border border-white/5 rounded-[40px] bg-zinc-900/20">
+            <div className="w-8 h-8 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-zinc-500 font-mono text-[10px] uppercase tracking-[0.2em]">Decrypting_Incoming_Transmissions...</p>
           </div>
         ) : (
           <div className="grid gap-4">
-            {activeTab === 'QUESTS' && (
-              submissions.map((s: any) => (
-                <MotionDiv layout initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} key={s.id} className="p-6 border border-gray-800 rounded-3xl bg-gray-900/40 flex justify-between items-center hover:border-yellow-500/30 transition-all group">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-1">
-                      <p className="text-white font-black text-xl italic uppercase tracking-tight">{s.quest.title}</p>
-                      <span className="bg-yellow-500/10 text-yellow-500 text-[10px] font-black px-2 py-0.5 rounded-md">+{s.quest.reward} LAAM</span>
-                    </div>
-                    <div className="flex gap-2 mb-3">
-                      <p className="text-[10px] text-gray-500 font-mono bg-black/40 px-2 py-1 rounded">USER: {s.userId.slice(0, 4)}...{s.userId.slice(-4)}</p>
-                      <span className="text-[9px] font-black bg-white/5 border border-white/10 px-2 py-1 rounded text-gray-400 uppercase tracking-tighter">Type: {s.quest.type.replace('social_', '')}</span>
-                    </div>
-                    {s.proofLink && (
-                      <div className="mt-2">
-                        {s.quest.type === 'social_username' ? (
-                          <div className="flex items-center gap-2 bg-yellow-500/5 border border-yellow-500/20 p-3 rounded-xl max-w-fit">
-                            <span className="text-yellow-500 font-black text-[10px] uppercase tracking-widest">Username:</span>
-                            <code className="text-white font-bold text-sm">{s.proofLink.startsWith('@') ? s.proofLink : `@${s.proofLink}`}</code>
-                            <button onClick={() => { navigator.clipboard.writeText(s.proofLink); toast.success("Copied!"); }} className="ml-4 text-[9px] bg-white/10 px-2 py-1 rounded hover:bg-white/20 transition-all">Copy</button>
-                          </div>
-                        ) : (
-                          <a href={s.proofLink.startsWith('http') ? s.proofLink : `https://${s.proofLink}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 bg-cyan-500/10 border border-cyan-500/20 px-4 py-2 rounded-xl text-cyan-400 text-[10px] font-black italic hover:bg-cyan-500 hover:text-white transition-all uppercase tracking-widest group">
-                            Verify Social Link <ExternalLink size={12} className="group-hover:translate-x-1 transition-transform" />
-                          </a>
-                        )}
-                      </div>
-                    )}
+            {activeTab === 'QUESTS' && submissions.map((s: any) => (
+              <MotionDiv layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={s.id} className="p-6 border border-zinc-800 rounded-[32px] bg-zinc-900/40 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 hover:border-yellow-500/30 transition-all group">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <p className="text-white font-black text-xl italic uppercase tracking-tight">{s.quest.title}</p>
+                    <span className="bg-yellow-500 text-black text-[9px] font-black px-2 py-0.5 rounded-md">+{s.quest.reward} LAAM</span>
                   </div>
-                  <div className="flex gap-3 ml-6">
-                    <button onClick={() => handleQuestAction(s.id, 'REJECT')} className="border border-red-500/30 text-red-500 px-6 py-3 rounded-2xl text-[10px] font-black uppercase hover:bg-red-500 hover:text-white transition-all active:scale-95">Reject</button>
-                    <button onClick={() => handleQuestAction(s.id, 'APPROVE')} className="bg-white text-black px-6 py-3 rounded-2xl text-[10px] font-black uppercase hover:bg-yellow-500 transition-all active:scale-95 shadow-lg shadow-white/5">Approve</button>
+                  <div className="flex gap-4 mb-4">
+                    <p className="text-[10px] text-zinc-500 font-mono">USER: <span className="text-white">{s.userId.slice(0, 8)}...</span></p>
+                    <span className="text-[10px] font-black text-yellow-500 uppercase tracking-tighter">TYPE: {s.quest.type.replace('social_', '')}</span>
                   </div>
-                </MotionDiv>
-              ))
-            )}
-
-            {activeTab === 'HISTORY' && (
-              history.map((h: any) => (
-                <div key={h.id} className="p-6 border border-white/5 rounded-3xl bg-gray-900/20 flex justify-between items-center opacity-70 hover:opacity-100 transition-opacity">
-                   <div>
-                    <div className="flex items-center gap-3 mb-1">
-                      <p className="text-gray-300 font-bold italic uppercase tracking-tight">{h.quest.title}</p>
-                      <span className={`text-[8px] font-black px-2 py-0.5 rounded-md ${h.status === 'APPROVED' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>{h.status}</span>
+                  {s.proofLink && (
+                    <div className="mt-2">
+                      {s.quest.type === 'social_username' ? (
+                        <div className="flex items-center gap-3 bg-black border border-white/5 p-3 rounded-2xl max-w-fit">
+                          <span className="text-zinc-500 font-black text-[9px] uppercase tracking-widest italic">Identity:</span>
+                          <code className="text-white font-bold text-sm tracking-tight">{s.proofLink.startsWith('@') ? s.proofLink : `@${s.proofLink}`}</code>
+                          <button onClick={() => { navigator.clipboard.writeText(s.proofLink); toast.success("COPIED"); }} className="p-1.5 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white transition-all">
+                            <ExternalLink size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <a href={s.proofLink.startsWith('http') ? s.proofLink : `https://${s.proofLink}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 bg-white/5 border border-white/10 px-6 py-2.5 rounded-xl text-white text-[10px] font-black italic hover:bg-white hover:text-black transition-all uppercase tracking-widest group">
+                          Verify Transmission <ExternalLink size={12} className="group-hover:translate-x-1 transition-transform" />
+                        </a>
+                      )}
                     </div>
-                    <p className="text-[10px] text-gray-500 font-mono">USER: {h.user.walletAddress.slice(0, 6)}... • {new Date(h.updatedAt).toLocaleString()}</p>
-                  </div>
-                  {h.status === 'APPROVED' ? <CheckCircle2 className="text-green-500/30" size={24} /> : <XCircle className="text-red-500/30" size={24} />}
+                  )}
                 </div>
-              ))
-            )}
+                <div className="flex gap-2 w-full md:w-auto">
+                  <button onClick={() => handleQuestAction(s.id, 'REJECT')} className="flex-1 md:flex-none border border-red-500/20 text-red-500 px-8 py-4 rounded-2xl text-[10px] font-black uppercase hover:bg-red-500 hover:text-white transition-all active:scale-95">Reject</button>
+                  <button onClick={() => handleQuestAction(s.id, 'APPROVE')} className="flex-1 md:flex-none bg-white text-black px-8 py-4 rounded-2xl text-[10px] font-black uppercase hover:bg-yellow-500 transition-all active:scale-95">Approve</button>
+                </div>
+              </MotionDiv>
+            ))}
 
-            {activeTab === 'SUPPORT' && (
-              tickets.map((t: any) => (
-                <MotionDiv layout initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} key={t.id} className="p-6 border border-gray-800 rounded-3xl bg-gray-900/40 flex flex-col md:flex-row justify-between gap-6 hover:border-yellow-500/30 transition-all">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className={`text-[9px] font-black px-2 py-1 rounded ${t.type === 'Complaint' ? 'bg-red-500/10 text-red-500' : 'bg-blue-500/10 text-blue-500'} uppercase`}>{t.type}</span>
-                      <span className="text-gray-600 text-[10px] font-mono">{new Date(t.createdAt).toLocaleString()}</span>
+            {activeTab === 'HISTORY' && history.map((h: any) => (
+              <div key={h.id} className="p-5 border border-white/5 rounded-2xl bg-zinc-900/20 flex justify-between items-center opacity-70 hover:opacity-100 transition-opacity">
+                <div>
+                  <div className="flex items-center gap-3 mb-1">
+                    <p className="text-zinc-300 font-black italic uppercase tracking-tight">{h.quest.title}</p>
+                    <span className={`text-[8px] font-black px-2 py-0.5 rounded-md ${h.status === 'APPROVED' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>{h.status}</span>
+                  </div>
+                  <p className="text-[10px] text-zinc-600 font-mono">NODE: {h.user.walletAddress.slice(0, 6)}... • {new Date(h.updatedAt).toLocaleString()}</p>
+                </div>
+                {h.status === 'APPROVED' ? <CheckCircle2 className="text-green-500/20" size={20} /> : <XCircle className="text-red-500/20" size={20} />}
+              </div>
+            ))}
+
+            {activeTab === 'SUPPORT' && tickets.map((t: any) => (
+              <MotionDiv layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} key={t.id} className="border border-zinc-800 rounded-[32px] bg-zinc-900/40 overflow-hidden hover:border-yellow-500/20 transition-all">
+                <div className="p-4 bg-white/5 border-b border-white/5 flex justify-between items-center">
+                   <span className={`text-[9px] font-black px-3 py-1 rounded-full ${t.type === 'Complaint' ? 'bg-red-500' : 'bg-blue-600'} uppercase text-white tracking-widest`}>{t.type}</span>
+                   <span className="text-zinc-600 text-[10px] font-mono italic uppercase">{new Date(t.createdAt).toLocaleDateString()}</span>
+                </div>
+                <div className="p-6">
+                  <h3 className="text-xl font-black mb-3 text-white italic uppercase tracking-tight">{t.title}</h3>
+                  <div className="bg-black/60 p-5 rounded-2xl border border-white/5 mb-6">
+                    <p className="text-zinc-400 text-sm leading-relaxed">{t.description}</p>
+                  </div>
+                  <div className="flex flex-col md:flex-row justify-between items-end gap-6">
+                    <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-[9px] uppercase font-black text-zinc-500 tracking-[0.2em]">
+                      <p>Subject: <span className="text-white italic">{t.name}</span></p>
+                      <p>Email: <span className="text-white italic">{t.email}</span></p>
+                      <p className="col-span-2">Wallet: <span className="text-yellow-500 font-mono">{t.walletAddress}</span></p>
                     </div>
-                    <h3 className="text-xl font-bold mb-2 text-white italic">{t.title}</h3>
-                    <p className="text-gray-400 text-sm mb-4 bg-black/40 p-4 rounded-2xl border border-white/5">{t.description}</p>
-                    <div className="flex flex-wrap gap-4 text-[9px] uppercase font-black text-gray-500 tracking-widest">
-                      <p>Name: <span className="text-white">{t.name}</span></p>
-                      <p>Wallet: <span className="text-yellow-500 font-mono">{t.walletAddress.slice(0, 6)}...</span></p>
+                    <div className="flex gap-2 w-full md:w-auto">
+                      {t.status === 'Pending' ? (
+                        <button onClick={() => updateTicketStatus(t.id, 'Resolved')} className="flex-1 md:flex-none bg-yellow-500 text-black px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-white transition-all flex items-center justify-center gap-2"><CheckCircle2 size={14} /> Mark_Resolved</button>
+                      ) : (
+                        <div className="flex-1 md:flex-none bg-green-500/10 text-green-500 px-6 py-3 rounded-xl font-black text-[10px] uppercase text-center border border-green-500/20 italic">ARCHIVED_RESOLVED</div>
+                      )}
+                      <a href={`mailto:${t.email}`} className="flex-1 md:flex-none bg-zinc-800 text-white border border-white/5 px-6 py-3 rounded-xl font-black text-[10px] uppercase text-center hover:bg-white hover:text-black transition-all flex items-center justify-center gap-2"><MessageSquare size={14} /> Send_Reply</a>
                     </div>
                   </div>
-                  <div className="flex flex-col justify-center gap-2 min-w-[160px]">
-                    {t.status === 'Pending' ? (
-                      <button onClick={() => updateTicketStatus(t.id, 'Resolved')} className="bg-yellow-500 text-black py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-white transition-all flex items-center justify-center gap-2"><CheckCircle2 size={14} /> Resolve</button>
-                    ) : (
-                      <div className="bg-green-500/10 text-green-500 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest text-center border border-green-500/20">Resolved</div>
-                    )}
-                    <a href={`mailto:${t.email}`} className="bg-white/5 text-white border border-white/10 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest text-center hover:bg-white hover:text-black transition-all flex items-center justify-center gap-2"><MessageSquare size={14} /> Reply</a>
-                  </div>
-                </MotionDiv>
-              ))
-            )}
+                </div>
+              </MotionDiv>
+            ))}
 
             {(activeTab === 'QUESTS' ? submissions.length : activeTab === 'SUPPORT' ? tickets.length : history.length) === 0 && (
-              <div className="text-center py-20 border-2 border-dashed border-gray-900 rounded-[40px]">
-                <p className="text-gray-600 font-black italic uppercase tracking-widest text-[10px]">Terminal clear. No pending transmissions.</p>
+              <div className="text-center py-32 border-2 border-dashed border-zinc-900 rounded-[40px] bg-zinc-900/5">
+                <ShieldAlert className="mx-auto text-zinc-800 mb-4" size={40} />
+                <p className="text-zinc-600 font-black italic uppercase tracking-[0.5em] text-[10px]">Terminal clear // No transmissions found</p>
               </div>
             )}
           </div>

@@ -10,6 +10,7 @@ interface LeaderboardUser {
   laamPoints: number;
   tier: string;
   completedQuestsCount: number;
+  username?: string; // Added username to interface
 }
 
 interface UserStanding extends LeaderboardUser {
@@ -83,6 +84,10 @@ export default function LeaderboardPage() {
                   const isUser = leader.walletAddress === publicKey?.toString();
                   const rank = index + 1;
 
+                  // Display Domain if exists, otherwise show truncated wallet
+                  const displayName = leader.username ||
+                    `${leader.walletAddress.slice(0, 4)}...${leader.walletAddress.slice(-4)}`;
+
                   return (
                     <div
                       key={leader.walletAddress}
@@ -91,7 +96,7 @@ export default function LeaderboardPage() {
                         gridTemplateColumns: '60px 1fr 80px 100px',
                         padding: '16px 20px',
                         alignItems: 'center',
-                        background: isUser ? 'rgba(234, 179, 8, 0.05)' : 'transparent',
+                        background: isUser ? 'rgba(234, 179, 8, 0.1)' : 'transparent',
                         borderBottom: '1px solid rgba(255,255,255,0.03)'
                       }}
                     >
@@ -108,11 +113,12 @@ export default function LeaderboardPage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{
                           fontWeight: 700,
-                          fontFamily: 'monospace',
+                          fontFamily: leader.username ? 'inherit' : 'monospace',
                           fontSize: '13px',
-                          color: isUser ? '#eab308' : '#fff'
+                          color: leader.username ? '#eab308' : (isUser ? '#eab308' : '#fff'),
+                          textTransform: 'uppercase'
                         }}>
-                          {leader.walletAddress.slice(0, 4)}...{leader.walletAddress.slice(-4)}
+                          {displayName}
                         </span>
                       </div>
 
@@ -139,7 +145,6 @@ export default function LeaderboardPage() {
             )}
           </div>
 
-          {/* SPACER FOR STICKY FOOTER */}
           <div style={{ height: '140px' }}></div>
         </div>
 
@@ -147,7 +152,7 @@ export default function LeaderboardPage() {
         {publicKey && myStats && (
           <div style={{
             position: 'fixed',
-            bottom: '100px', // Sits above the main footer
+            bottom: '100px',
             left: '50%',
             transform: 'translateX(-50%)',
             width: '90%',
@@ -167,8 +172,12 @@ export default function LeaderboardPage() {
                 <p style={{ fontSize: '18px', fontWeight: 900, margin: 0 }}>#{myStats.rank}</p>
               </div>
               <div>
-                <p style={{ fontSize: '8px', fontWeight: 900, color: 'rgba(0,0,0,0.5)', margin: 0 }}>YOUR STANDING</p>
-                <p style={{ fontSize: '14px', fontWeight: 900, color: '#000', margin: 0 }}>{getRank(myStats.laamPoints).name} SEEKER</p>
+                <p style={{ fontSize: '8px', fontWeight: 900, color: 'rgba(0,0,0,0.5)', margin: 0 }}>
+                  {myStats.username || "ANONYMOUS SEEKER"}
+                </p>
+                <p style={{ fontSize: '14px', fontWeight: 900, color: '#000', margin: 0 }}>
+                  {getRank(myStats.laamPoints).name}
+                </p>
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>

@@ -22,7 +22,8 @@
     "next-env.d.ts",
     "**/*.mts",
     "**/*.ts",
-    "**/*.tsx"
+    "**/*.tsx",
+    "anchor/target/idl/anchor.json"
   ],
   "exclude": [
     "node_modules"

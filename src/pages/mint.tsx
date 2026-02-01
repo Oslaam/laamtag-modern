@@ -4,11 +4,10 @@ import { useState, useEffect } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import axios from "axios";
-import toast from 'react-hot-toast';
-import { Minus, Plus } from "lucide-react";
+import { Minus, Plus, Crown } from "lucide-react"; // Added Crown
 import SeekerGuard from "../components/SeekerGuard";
 
-// METAPLEX IMPORTS
+// ... (Metaplex imports remain the same)
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-adapters";
 import {
@@ -23,11 +22,8 @@ import {
   generateSigner,
 } from "@metaplex-foundation/umi";
 import { setComputeUnitLimit, setComputeUnitPrice } from "@metaplex-foundation/mpl-toolbox";
-
-// UTILS
 import { verifyCandyMachine } from '../utils/check-cm';
 
-// --- CONSTANTS ---
 const MY_CANDY_ID = "7EQyVJBqdsbe6fSjg9ZLuaFsB1cppBa9QLFJE86ziKh9";
 const MY_TREASURY_ADDR = "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc";
 const RPC_URL = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
@@ -42,6 +38,7 @@ const Mint: NextPage = () => {
 
   const [isClient, setIsClient] = useState(false);
   const [stats, setStats] = useState({ global: 0, personal: 0, soldOut: false });
+  const [username, setUsername] = useState<string | null>(null); // New state for domain
   const [balance, setBalance] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [amount, setAmount] = useState(1);
@@ -56,25 +53,22 @@ const Mint: NextPage = () => {
     try {
       if (!publicKey) return;
 
-      // 1. Fetch user stats from the API (the one we fixed from /api/status to /api/user)
       const res = await axios.get(`/api/user/${publicKey.toBase58()}`);
-
-      // 2. Fetch Candy Machine State from Solana
       const umi = createUmi(RPC_URL).use(mplCandyMachine());
       const candyMachine = await fetchCandyMachine(umi, umiPublicKey(MY_CANDY_ID.trim()));
 
-      // Use BigInt conversion safely for the progress bar
       const redeemed = Number(candyMachine.itemsRedeemed);
       const total = Number(candyMachine.data.itemsAvailable);
 
       setStats({
         global: redeemed,
-        // CHANGE THIS: Use personalMinted from your Prisma schema
         personal: res.data.personalMinted || 0,
         soldOut: redeemed >= total
       });
 
-      console.log("Stats Updated:", { redeemed, personal: res.data.personalMinted });
+      // Set the username from database
+      setUsername(res.data.username || null);
+
     } catch (e) {
       console.warn("Status Sync Error:", e);
     }
@@ -138,22 +132,17 @@ const Mint: NextPage = () => {
       const successCount = results.filter(r => r.success).length;
 
       if (successCount > 0) {
-        // Calculate the new absolute total
         const newActualTotal = stats.personal + successCount;
-
-        // We change 'amount' to 'actualCount' to match your new API
         await axios.post('/api/user/update-mints', {
           walletAddress: publicKey.toBase58(),
           actualCount: newActualTotal
         });
 
-        // Trigger the 1000 LAAM per NFT reward
         try {
           const rewardRes = await axios.post('/api/user/reward-nft', {
             address: publicKey.toBase58(),
             mintCount: successCount
           });
-
           if (rewardRes.data.success) {
             alert(`🎉 SUCCESS! Minted ${successCount} NFT(s) and earned ${rewardRes.data.earned} LAAM!`);
           }
@@ -161,7 +150,6 @@ const Mint: NextPage = () => {
           console.error("Reward injection failed:", rewardErr);
           alert(`Minted ${successCount} NFT(s), but points will be synced later.`);
         }
-
         fetchStatus();
       }
     } catch (err: any) {
@@ -173,7 +161,6 @@ const Mint: NextPage = () => {
 
   if (!isClient) return null;
   const totalDisplay = (MINT_PRICE + RENT_PER_NFT) * amount;
-  const displayName = stats.personal > 0 ? (publicKey?.toString().slice(0, 4) + '.skr') : "SEEKER";
 
   return (
     <SeekerGuard>
@@ -196,7 +183,7 @@ const Mint: NextPage = () => {
                   width: '100%',
                   borderRadius: '24px',
                   aspectRatio: '1/1',
-                  objectFit: 'cover' // Changed from objectCover to objectFit
+                  objectFit: 'cover'
                 }}
               />
             </div>
@@ -205,13 +192,30 @@ const Mint: NextPage = () => {
           {/* TEXT SECTION */}
           <div style={{ marginBottom: '2rem' }}>
             <h1 className="page-title" style={{ color: '#eab308', marginBottom: '0.5rem' }}>Laamtag Genesis</h1>
-            <p className="terminal-desc">Claim your position, <span style={{ color: '#fff', fontWeight: 'bold' }}>{displayName}</span>.</p>
-            <p style={{ fontSize: '12px', fontWeight: 900, color: balance < totalDisplay ? '#ef4444' : '#eab308' }}>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <p className="terminal-desc" style={{ margin: 0 }}>
+                Claim your position,
+              </p>
+              <span style={{
+                color: username ? '#eab308' : '#fff',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                textTransform: 'uppercase'
+              }}>
+                {username && <Crown size={12} />}
+                {username || (publicKey ? `${publicKey.toBase58().slice(0, 4)}...${publicKey.toBase58().slice(-4)}` : 'SEEKER')}
+              </span>
+            </div>
+
+            <p style={{ fontSize: '12px', fontWeight: 900, color: balance < totalDisplay ? '#ef4444' : '#eab308', marginTop: '8px' }}>
               BALANCE: {balance.toFixed(3)} SOL
             </p>
           </div>
 
-          {/* PROGRESS SECTION */}
+          {/* ... (Rest of the UI: Progress bar and Mint controls remain the same) */}
           <div className="terminal-card" style={{ marginBottom: '2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
               <span style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', opacity: 0.5 }}>Global Progress</span>
@@ -229,7 +233,6 @@ const Mint: NextPage = () => {
             </div>
           </div>
 
-          {/* MINT CONTROL SECTION */}
           <div className="terminal-card">
             {stats.personal >= 3 ? (
               <div style={{ textAlign: 'center', padding: '1rem', color: '#eab308', fontWeight: 900 }}>

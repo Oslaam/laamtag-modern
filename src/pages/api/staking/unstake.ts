@@ -70,12 +70,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             prisma.user.update({
                 where: { walletAddress },
                 data: {
-                    // Decimals are saved here, UI handles the Math.floor
                     laamPoints: { increment: laamEarned },
                     tagTickets: { increment: tagEarned }
                 }
             }),
-            prisma.stakedNFT.delete({ where: { mintAddress } })
+            prisma.stakedNFT.delete({ where: { mintAddress } }),
+
+            prisma.multiplierBoost.deleteMany({ where: { mintAddress: mintAddress } })
         ]);
 
         return res.status(200).json({

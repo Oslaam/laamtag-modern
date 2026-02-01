@@ -1,14 +1,29 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
-import { useWallet } from '@solana/wallet-adapter-react';
+import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import SeekerGuard from '../components/SeekerGuard';
 import axios from 'axios';
-import { Lock, Zap, Clock, History } from 'lucide-react';
+import { Lock, Zap, Clock, History, TrendingUp, Layers, X, Calendar, Wallet } from 'lucide-react';
 import { stakeNftOnChain } from '../lib/stakeNftTask';
 import { unstakeNftOnChain } from '../lib/unstakeNftTask';
+import { Transaction, PublicKey } from '@solana/web3.js';
+import bs58 from 'bs58';
+import {
+    createTransferCheckedInstruction,
+    getAssociatedTokenAddress,
+    createAssociatedTokenAccountIdempotentInstruction
+} from '@solana/spl-token';
 
-// --- SUB-COMPONENT: REWARD TICKER (48h Lock) ---
-const RewardTicker = ({ stakedAt, lastClaimed }: { stakedAt: string, lastClaimed: string }) => {
+// --- SUB-COMPONENT: REWARD TICKER ---
+const RewardTicker = ({
+    stakedAt,
+    lastClaimed,
+    multiplier = 1
+}: {
+    stakedAt: string;
+    lastClaimed: string;
+    multiplier?: number;
+}) => {
     const [rewards, setRewards] = useState({ laam: 0, tag: 0 });
     const [timeLeft, setTimeLeft] = useState<string | null>(null);
 
@@ -29,18 +44,18 @@ const RewardTicker = ({ stakedAt, lastClaimed }: { stakedAt: string, lastClaimed
                 setRewards({ laam: 0, tag: 0 });
             } else {
                 setTimeLeft(null);
-                // Math: Seconds since the last time the user clicked 'Claim'
                 const secondsSinceLastClaim = Math.floor((now - last) / 1000);
                 const validSeconds = Math.max(0, secondsSinceLastClaim);
 
                 setRewards({
-                    laam: validSeconds * (500 / 86400),
-                    tag: validSeconds * (20 / 86400)
+                    laam: validSeconds * (500 / 86400) * multiplier,
+                    tag: validSeconds * (20 / 86400) * multiplier
                 });
             }
         }, 1000);
+
         return () => clearInterval(interval);
-    }, [stakedAt, lastClaimed]);
+    }, [stakedAt, lastClaimed, multiplier]);
 
     return (
         <div style={{ marginTop: '12px' }}>
@@ -54,12 +69,18 @@ const RewardTicker = ({ stakedAt, lastClaimed }: { stakedAt: string, lastClaimed
             ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                     <div style={{ background: 'rgba(0,0,0,0.3)', padding: '8px', borderRadius: '12px', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
-                        <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)', margin: 0, fontWeight: 900 }}>LAAM ACCRUED</p>
-                        <p style={{ color: '#eab308', fontWeight: 900, fontSize: '14px', margin: 0, fontFamily: 'monospace' }}>{rewards.laam.toFixed(4)}</p>
+                        <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)', margin: 0, fontWeight: 900 }}>
+                            LAAM ACCRUED {multiplier > 1 && <span style={{ color: '#a855f7' }}>(x{multiplier})</span>}
+                        </p>
+                        <p style={{ color: '#eab308', fontWeight: 900, fontSize: '14px', margin: 0, fontFamily: 'monospace' }}>
+                            {rewards.laam.toFixed(4)}
+                        </p>
                     </div>
                     <div style={{ background: 'rgba(0,0,0,0.3)', padding: '8px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
                         <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)', margin: 0, fontWeight: 900 }}>TAG ACCRUED</p>
-                        <p style={{ color: '#fff', fontWeight: 900, fontSize: '14px', margin: 0, fontFamily: 'monospace' }}>{rewards.tag.toFixed(4)}</p>
+                        <p style={{ color: '#fff', fontWeight: 900, fontSize: '14px', margin: 0, fontFamily: 'monospace' }}>
+                            {rewards.tag.toFixed(4)}
+                        </p>
                     </div>
                 </div>
             )}
@@ -67,7 +88,7 @@ const RewardTicker = ({ stakedAt, lastClaimed }: { stakedAt: string, lastClaimed
     );
 };
 
-// --- SUB-COMPONENT: CLAIM BUTTON (24h Cooldown) ---
+// --- CLAIM BUTTON ---
 const ClaimButton = ({ lastClaimed, onClaim, loading, stakedAt }: any) => {
     const [cooldown, setCooldown] = useState<string | null>(null);
 
@@ -75,32 +96,26 @@ const ClaimButton = ({ lastClaimed, onClaim, loading, stakedAt }: any) => {
         const timer = setInterval(() => {
             const now = Date.now();
             const stakeTime = new Date(stakedAt).getTime();
-            // Fallback to stakeTime if lastClaimed is somehow missing
             const lastClaimTime = lastClaimed ? new Date(lastClaimed).getTime() : stakeTime;
 
             const lock48h = 48 * 3600 * 1000;
             const cooldown24h = 24 * 3600 * 1000;
 
-            const timeSinceStaked = now - stakeTime;
-            const timeSinceLastClaim = now - lastClaimTime;
-
-            if (timeSinceStaked < lock48h) {
-                // Phase 1: Initial 48h Vault Lock
-                const remaining = lock48h - timeSinceStaked;
+            if (now - stakeTime < lock48h) {
+                const remaining = lock48h - (now - stakeTime);
                 const h = Math.floor(remaining / (3600 * 1000));
                 const m = Math.floor((remaining % (3600 * 1000)) / (60 * 1000));
                 setCooldown(`VAULT LOCK: ${h}h ${m}m`);
-            } else if (timeSinceLastClaim < cooldown24h) {
-                // Phase 2: 24h Daily Claim Cooldown
-                const remaining = cooldown24h - timeSinceLastClaim;
+            } else if (now - lastClaimTime < cooldown24h) {
+                const remaining = cooldown24h - (now - lastClaimTime);
                 const h = Math.floor(remaining / (3600 * 1000));
                 const m = Math.floor((remaining % (3600 * 1000)) / (60 * 1000));
                 setCooldown(`NEXT CLAIM: ${h}h ${m}m`);
             } else {
-                // Phase 3: Ready to claim!
                 setCooldown(null);
             }
         }, 1000);
+
         return () => clearInterval(timer);
     }, [lastClaimed, stakedAt]);
 
@@ -121,46 +136,182 @@ const ClaimButton = ({ lastClaimed, onClaim, loading, stakedAt }: any) => {
                 width: '100%'
             }}
         >
-            {loading ? "PROCESSING..." : cooldown ? cooldown : "CLAIM ACCRUED REWARDS"}
+            {loading ? 'PROCESSING...' : cooldown ? cooldown : 'CLAIM ACCRUED REWARDS'}
         </button>
     );
 };
 
+// --- MODAL COUNTDOWN SUB-COMPONENT ---
+const BoostCountdown = ({ expiresAt }: { expiresAt: string }) => {
+    const [timeStr, setTimeStr] = useState("");
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const diff = new Date(expiresAt).getTime() - Date.now();
+            if (diff <= 0) {
+                setTimeStr("EXPIRING...");
+                return;
+            }
+            const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const s = Math.floor((diff % (1000 * 60)) / 1000);
+            setTimeStr(`${d}d ${h}h ${m}m ${s}s`);
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [expiresAt]);
+
+    return <span style={{ color: '#a855f7', fontWeight: 900 }}>{timeStr}</span>;
+};
+
 export default function VaultPage() {
+    const { connection } = useConnection();
     const wallet = useWallet();
-    const { publicKey } = wallet;
+    const { publicKey, signMessage } = wallet;
+    const SKR_TOKEN_MINT = "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3";
+
     const [nfts, setNfts] = useState<any[]>([]);
     const [rawStakes, setRawStakes] = useState<any[]>([]);
+    const [allBoosts, setAllBoosts] = useState<any[]>([]);
     const [history, setHistory] = useState<any[]>([]);
     const [totalClaimed, setTotalClaimed] = useState({ laam: 0, tag: 0 });
+    const [skrBalance, setSkrBalance] = useState<number>(0);
     const [loading, setLoading] = useState(true);
 
+    const [selectedNftForSchedule, setSelectedNftForSchedule] = useState<any | null>(null);
+
+    const boostOptions = [
+        { mult: 2, price: 500 },
+        { mult: 3, price: 800 },
+        { mult: 5, price: 1400 },
+        { mult: 10, price: 3000 },
+        { mult: 50, price: 18000 },
+        { mult: 100, price: 40000 }
+    ];
+
     const loadData = async () => {
-        if (!publicKey) return;
+        if (!publicKey || !signMessage) return;
         try {
-            await axios.post('/api/staking/sync', { walletAddress: publicKey.toBase58() });
-            const [listRes, historyRes] = await Promise.all([
-                axios.get(`/api/staking/list?address=${publicKey.toBase58()}`),
-                axios.get(`/api/staking/history?address=${publicKey.toBase58()}`)
-            ]);
+            // Generate security signature for sync
+            const message = `Syncing staking rewards for ${publicKey.toBase58()} at ${Date.now()}`;
+            const encodedMessage = new TextEncoder().encode(message);
+            const signatureUint8 = await signMessage(encodedMessage);
+            const signature = bs58.encode(signatureUint8);
+
+            await axios.post('/api/staking/sync', {
+                walletAddress: publicKey.toBase58(),
+                signature,
+                message
+            });
+
+            const listRes = await axios.get(`/api/staking/buy-boost?address=${publicKey.toBase58()}`);
+            const historyRes = await axios.get(`/api/staking/history?address=${publicKey.toBase58()}`);
+
             setNfts(listRes.data.nfts);
             setRawStakes(listRes.data.rawStakes || []);
+            setAllBoosts(listRes.data.activeBoosts || []);
             setTotalClaimed(historyRes.data.totals);
             setHistory(historyRes.data.history);
+
+            try {
+                const balanceRes = await axios.get(`/api/user/balance?address=${publicKey.toBase58()}&mint=${SKR_TOKEN_MINT}`);
+                setSkrBalance(balanceRes.data.balance || 0);
+            } catch (balErr) {
+                console.warn("Balance API not found. Defaulting to 0.");
+                setSkrBalance(0);
+            }
+
         } catch (err) {
-            console.error("Staking load error", err);
+            console.error('Critical Staking load error', err);
         } finally {
             setLoading(false);
         }
     };
 
-    useEffect(() => { loadData(); }, [publicKey]);
+    useEffect(() => {
+        loadData();
+    }, [publicKey]);
 
-    const handleClaim = async (nft: any) => {
+    const handleBuyBoost = async (mint: string, mult: number, price: number) => {
+        if (!publicKey || !wallet.sendTransaction) {
+            alert("Wallet not connected!");
+            return;
+        }
+
+        if (!confirm(`Queue x${mult} boost for 7 days? Cost: ${price} SKR`)) return;
+
         setLoading(true);
         try {
+            const TREASURY_WALLET = new PublicKey("CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc");
+            const SKR_MINT = new PublicKey(SKR_TOKEN_MINT);
+            const DECIMALS = 6;
+
+            const userAta = await getAssociatedTokenAddress(SKR_MINT, publicKey);
+            const treasuryAta = await getAssociatedTokenAddress(SKR_MINT, TREASURY_WALLET);
+
+            const transaction = new Transaction();
+
+            transaction.add(
+                createAssociatedTokenAccountIdempotentInstruction(
+                    publicKey,
+                    treasuryAta,
+                    TREASURY_WALLET,
+                    SKR_MINT
+                )
+            );
+
+            transaction.add(
+                createTransferCheckedInstruction(
+                    userAta,
+                    SKR_MINT,
+                    treasuryAta,
+                    publicKey,
+                    BigInt(Math.round(price * Math.pow(10, DECIMALS))),
+                    DECIMALS
+                )
+            );
+
+            const signature = await wallet.sendTransaction(transaction, connection);
+            const latestBlockhash = await connection.getLatestBlockhash();
+            await connection.confirmTransaction({
+                signature,
+                ...latestBlockhash
+            }, 'confirmed');
+
+            const res = await axios.post('/api/boost/verify-payment', {
+                userAddress: publicKey.toBase58(),
+                mintAddress: mint,
+                multiplier: mult,
+                signature: signature
+            });
+
+            if (res.data.success) {
+                alert("BOOST ACTIVATED: " + res.data.message);
+                await loadData();
+            }
+
+        } catch (err: any) {
+            console.error("Payment failed", err);
+            const errMsg = err.response?.data?.error || err.message || 'Purchase failed.';
+            alert(errMsg);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleClaim = async (nft: any) => {
+        if (!publicKey || !signMessage) return;
+        setLoading(true);
+        try {
+            const message = `Claiming staking rewards for ${publicKey.toBase58()} at ${Date.now()}`;
+            const encodedMessage = new TextEncoder().encode(message);
+            const signatureUint8 = await signMessage(encodedMessage);
+            const signature = bs58.encode(signatureUint8);
+
             const res = await axios.post('/api/staking/sync', {
-                walletAddress: publicKey?.toBase58()
+                walletAddress: publicKey.toBase58(),
+                signature,
+                message
             });
             if (res.data.depositedLaam > 0) {
                 alert(`SUCCESS: ${Math.floor(res.data.depositedLaam)} LAAM & ${Math.floor(res.data.depositedTag)} TAG DEPOSITED!`);
@@ -176,13 +327,14 @@ export default function VaultPage() {
     };
 
     const handleAction = async (nft: any) => {
+        if (!publicKey) return;
         setLoading(true);
         try {
             if (!nft.staked) {
                 const result = await stakeNftOnChain(wallet, nft.mint);
                 if (result.success) {
                     await axios.post('/api/staking/stake', {
-                        walletAddress: publicKey?.toBase58(),
+                        walletAddress: publicKey.toBase58(),
                         mintAddress: nft.mint,
                         signature: result.signature
                     });
@@ -205,7 +357,67 @@ export default function VaultPage() {
         <SeekerGuard>
             <div className="main-content">
                 <Head><title>LAAMTAG | Staking Arena</title></Head>
+
+                {selectedNftForSchedule && (
+                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', backdropFilter: 'blur(10px)' }}>
+                        <div className="terminal-card" style={{ maxWidth: '500px', width: '100%', padding: '24px', border: '1px solid #a855f7', position: 'relative' }}>
+                            <button onClick={() => setSelectedNftForSchedule(null)} style={{ position: 'absolute', top: 15, right: 15, background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}>
+                                <X size={20} />
+                            </button>
+                            <h2 style={{ fontSize: '18px', fontWeight: 900, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <Calendar size={20} color="#a855f7" /> BOOST PIPELINE
+                            </h2>
+                            <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginBottom: '15px' }}>ASSET: {selectedNftForSchedule.name}</p>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '350px', overflowY: 'auto', paddingRight: '5px' }}>
+                                {allBoosts.filter(b => b.mintAddress === selectedNftForSchedule.mint).map((b) => {
+                                    const isActive = new Date(b.activatedAt) <= new Date() && new Date(b.expiresAt) > new Date();
+                                    return (
+                                        <div key={b.id} style={{ padding: '12px', background: isActive ? 'rgba(168, 85, 247, 0.1)' : 'rgba(255,255,255,0.03)', borderRadius: '8px', border: isActive ? '1px solid #a855f7' : '1px solid rgba(255,255,255,0.1)' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                                <span style={{ fontWeight: 900, color: isActive ? '#a855f7' : '#fff', fontSize: '11px' }}>
+                                                    {isActive ? '● ACTIVE' : '○ QUEUED'}
+                                                </span>
+                                                <span style={{ color: '#eab308', fontWeight: 900, fontSize: '11px' }}>x{b.multiplier} MULTIPLIER</span>
+                                            </div>
+
+                                            {isActive && (
+                                                <div style={{ fontSize: '10px', marginBottom: '8px', padding: '4px 8px', background: 'rgba(0,0,0,0.3)', borderRadius: '4px', border: '1px solid rgba(168, 85, 247, 0.3)' }}>
+                                                    <span style={{ color: 'rgba(255,255,255,0.5)' }}>REMAINING: </span>
+                                                    <BoostCountdown expiresAt={b.expiresAt} />
+                                                </div>
+                                            )}
+
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '9px', color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace' }}>
+                                                <div>STARTS: {new Date(b.activatedAt).toLocaleString()}</div>
+                                                <div>ENDS: {new Date(b.expiresAt).toLocaleString()}</div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div className="content-wrapper">
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
+                        <div style={{
+                            background: 'rgba(168, 85, 247, 0.1)',
+                            padding: '6px 12px',
+                            borderRadius: '20px',
+                            border: '1px solid rgba(168, 85, 247, 0.3)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                        }}>
+                            <Wallet size={12} color="#a855f7" />
+                            <span style={{ fontSize: '10px', fontWeight: 900, color: '#fff' }}>
+                                {skrBalance.toLocaleString()} <span style={{ color: '#a855f7' }}>$SKR</span>
+                            </span>
+                        </div>
+                    </div>
+
                     <div style={{ textAlign: 'center', marginBottom: '40px' }}>
                         <h1 className="page-title">The <span style={{ color: '#eab308' }}>Vault</span></h1>
                         <p className="terminal-desc" style={{ fontSize: '10px' }}>PROTOCOL: ASSET_LOCK_V2</p>
@@ -227,11 +439,34 @@ export default function VaultPage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                         {nfts.map((nft) => {
                             const stakeData = rawStakes.find(s => s.mintAddress === nft.mint);
+                            const nftBoosts = allBoosts.filter(b => b.mintAddress === nft.mint);
+                            const activeBoost = nftBoosts.find(b =>
+                                new Date(b.activatedAt) <= new Date() && new Date(b.expiresAt) > new Date()
+                            );
+                            const currentMult = activeBoost?.multiplier || 1;
+                            const queuedCount = nftBoosts.filter(b => new Date(b.activatedAt) > new Date()).length;
+
                             return (
                                 <div key={nft.mint} className="terminal-card" style={{ padding: '12px' }}>
                                     <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
                                         <div style={{ width: '80px', height: '80px', borderRadius: '16px', overflow: 'hidden', position: 'relative' }}>
                                             <img src={nft.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: nft.staked ? 0.5 : 1 }} />
+
+                                            {currentMult > 1 && (
+                                                <div style={{ position: 'absolute', top: 4, right: 4, background: '#a855f7', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 900 }}>
+                                                    x{currentMult}
+                                                </div>
+                                            )}
+
+                                            {queuedCount > 0 && (
+                                                <div
+                                                    onClick={() => setSelectedNftForSchedule(nft)}
+                                                    style={{ position: 'absolute', bottom: 4, right: 4, background: '#eab308', color: 'black', padding: '2px 6px', borderRadius: '4px', fontSize: '8px', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '2px', cursor: 'pointer' }}
+                                                >
+                                                    <Layers size={8} /> +{queuedCount}
+                                                </div>
+                                            )}
+
                                             {nft.staked && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Lock size={20} color="#eab308" /></div>}
                                         </div>
                                         <div style={{ flex: 1 }}>
@@ -240,12 +475,50 @@ export default function VaultPage() {
                                                 <RewardTicker
                                                     stakedAt={stakeData.stakedAt}
                                                     lastClaimed={stakeData.lastClaimed}
+                                                    multiplier={currentMult}
                                                 />
                                             ) : (
                                                 <p style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', marginTop: '4px' }}>READY TO LOCK</p>
                                             )}
                                         </div>
                                     </div>
+
+                                    {nft.staked && (
+                                        <div style={{ marginTop: '15px', padding: '10px', background: 'rgba(168, 85, 247, 0.05)', borderRadius: '8px', border: '1px dashed rgba(168, 85, 247, 0.3)' }}>
+                                            <p style={{ fontSize: '9px', fontWeight: 900, color: '#a855f7', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                <span style={{ display: 'flex', alignItems: 'center' }}><TrendingUp size={10} style={{ marginRight: '4px' }} /> UPGRADE REWARDS</span>
+                                                {(currentMult > 1 || queuedCount > 0) && (
+                                                    <button
+                                                        onClick={() => setSelectedNftForSchedule(nft)}
+                                                        style={{ background: 'none', border: 'none', color: '#eab308', fontSize: '8px', fontWeight: 900, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                                                    >
+                                                        VIEW SCHEDULE
+                                                    </button>
+                                                )}
+                                            </p>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                                                {boostOptions.map(opt => (
+                                                    <button
+                                                        key={opt.mult}
+                                                        onClick={() => handleBuyBoost(nft.mint, opt.mult, opt.price)}
+                                                        disabled={loading}
+                                                        style={{
+                                                            fontSize: '9px',
+                                                            padding: '6px',
+                                                            background: 'rgba(168, 85, 247, 0.2)',
+                                                            color: '#fff',
+                                                            border: '1px solid rgba(168, 85, 247, 0.3)',
+                                                            borderRadius: '4px',
+                                                            cursor: 'pointer',
+                                                            fontWeight: 700
+                                                        }}
+                                                    >
+                                                        {opt.mult}x ({opt.price} SKR)
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
 
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
                                         {nft.staked && stakeData && (
@@ -277,7 +550,6 @@ export default function VaultPage() {
                         })}
                     </div>
 
-                    {/* History Section */}
                     <div className="terminal-card" style={{ marginTop: '40px', padding: '20px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                             <History size={16} color="#eab308" />

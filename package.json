@@ -13,6 +13,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@coral-xyz/anchor": "^0.32.1",
     "@metaplex-foundation/mpl-candy-machine": "6.0.1",
     "@metaplex-foundation/mpl-essentials": "0.2.0",
     "@metaplex-foundation/mpl-token-metadata": "^3.4.0",

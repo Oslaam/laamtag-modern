@@ -4,7 +4,7 @@ import { logActivity } from '../../../lib/activityLogger';
 import { Connection, LAMPORTS_PER_SOL } from '@solana/web3.js';
 
 const RPC_URL = process.env.HELIUS_RPC_URL || process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
-const connection = new Connection(RPC_URL, 'finalized');
+const connection = new Connection(RPC_URL, 'confirmed');
 const TREASURY_WALLET = "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc";
 const PRICE_PER_TICKET_SOL = 0.003;
 
@@ -50,7 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         while (!tx && retries < maxRetries) {
             try {
                 tx = await connection.getTransaction(signature, {
-                    commitment: 'finalized',
+                    commitment: 'confirmed',
                     maxSupportedTransactionVersion: 0
                 });
 

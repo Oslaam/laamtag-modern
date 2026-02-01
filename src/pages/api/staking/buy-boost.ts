@@ -1,4 +1,3 @@
-// src/pages/api/staking/list.ts
 import { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '../../../lib/prisma';
 import axios from 'axios';
@@ -7,20 +6,26 @@ const HELIUS_RPC = `https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8
 const MY_COLLECTION_ID = "Dtuj3q4a2LxqhgQa3sDeGWeRsohKk38s5XgyrkRR6FLc";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-    const { address } = req.query;
+    // --- 1. BLOCK POST REQUESTS ---
+    // We moved purchase logic to /api/boost/verify-payment.ts to enforce SKR usage
+    if (req.method === 'POST') {
+        return res.status(405).json({ message: "Use the verify-payment endpoint for SKR purchases." });
+    }
 
+    // --- 2. HANDLE LISTING (GET) ---
+    const { address } = req.query;
     if (!address) return res.status(400).json({ error: "Address required" });
 
     try {
-        // 1. Fetch active boosts first
-        const activeBoosts = await prisma.multiplierBoost.findMany({
+        // Fetch ALL boosts that haven't expired yet
+        const allBoosts = await prisma.multiplierBoost.findMany({
             where: {
                 userAddress: address as string,
                 expiresAt: { gt: new Date() }
-            }
+            },
+            orderBy: { activatedAt: 'asc' }
         });
 
-        // 2. Fetch Assets from Helius
         const response = await axios.post(HELIUS_RPC, {
             jsonrpc: "2.0",
             id: "my-id",
@@ -37,7 +42,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             item.grouping?.some((g: any) => g.group_key === "collection" && g.group_value === MY_COLLECTION_ID)
         );
 
-        // 3. Fetch Staked Status from DB
         const dbStakes = await prisma.stakedNFT.findMany({
             where: { ownerAddress: address as string }
         });
@@ -54,7 +58,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             vaultedItems = vaultResponse.data.result;
         }
 
-        // 4. Format the output
         const formattedWalletNfts = walletItems.map((nft: any) => ({
             mint: nft.id,
             name: nft.content.metadata.name,
@@ -69,11 +72,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             staked: true
         }));
 
-        // 5. Single Return Point
         return res.status(200).json({
             nfts: [...formattedWalletNfts, ...formattedVaultNfts],
             rawStakes: dbStakes,
-            activeBoosts: activeBoosts // Now the UI knows which NFT has a boost
+            activeBoosts: allBoosts
         });
 
     } catch (error) {

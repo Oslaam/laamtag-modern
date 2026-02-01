@@ -1,12 +1,9 @@
+// src/pages/api/user/update-username.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../../../lib/prisma'; // Using your existing prisma import
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ message: 'Method not allowed' });
 
   const { walletAddress, username } = req.body;
 
@@ -14,30 +11,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ message: 'Missing required fields' });
   }
 
-  // 1. Clean the name
-  const cleanUsername = username.replace(/[^a-zA-Z0-9]/g, '').slice(0, 15);
+  // 1. Separate core name from suffix
+  // Input could be "Alice" or "alice.laam"
+  const coreName = username.replace('.laam', '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+  const finalUsername = `${coreName}.laam`;
 
-  if (cleanUsername.length < 3) {
-    return res.status(400).json({ message: 'Username too short' });
+  if (coreName.length < 3) {
+    return res.status(400).json({ message: 'Name too short (min 3 chars)' });
   }
 
   try {
     // 2. CHECK: Is someone else already using this name?
     const existing = await prisma.user.findFirst({
       where: {
-        username: { equals: cleanUsername, mode: 'insensitive' },
-        NOT: { walletAddress: walletAddress } // Ignore if the owner is the one saving it
+        username: finalUsername,
+        NOT: { walletAddress: walletAddress }
       }
     });
 
-    if (existing) {
-      return res.status(400).json({ message: 'Username already taken' });
-    }
+    if (existing) return res.status(400).json({ message: 'Domain already taken' });
 
-    // 3. UPDATE: Safe to save
+    // 3. UPDATE: Save with the full suffix
     const updatedUser = await prisma.user.update({
       where: { walletAddress: walletAddress },
-      data: { username: cleanUsername },
+      data: { username: finalUsername },
     });
 
     return res.status(200).json(updatedUser);

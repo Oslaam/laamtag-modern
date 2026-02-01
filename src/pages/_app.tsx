@@ -14,7 +14,7 @@ import { getRank } from '../utils/ranks';
 import {
     Hammer, Trophy, Layers, Gamepad2, ShoppingCart,
     FileText, User, BarChart3, Mail, History, Coins, ScrollText, Plus, X,
-    DoorClosed
+    DoorClosed, Crown, Repeat, Swords
 } from 'lucide-react';
 
 import '@solana/wallet-adapter-react-ui/styles.css';
@@ -138,20 +138,22 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
 
     // ... rest of your UI code remains the same ...
 
-    const allContentItems: FooterItem[] = [
-        { name: 'Mint', icon: <Coins size={20} />, path: '/mint', type: 'link' },
-        { name: 'Quests', icon: <ScrollText size={20} />, path: '/quests', type: 'link' },
-        { name: 'Vault', icon: <Layers size={20} />, path: '/vault', type: 'link' },
-        { name: 'Games', icon: <Gamepad2 size={20} />, path: '/games', type: 'link' },
-        { name: 'Shop', icon: <ShoppingCart size={20} />, path: '/shop', type: 'link' },
-        { name: 'Staking', icon: <DoorClosed size={20} />, path: '/staking', type: 'link' },
-        { name: 'Bank', icon: <FileText size={20} />, path: '/bank', type: 'link' },
-        { name: 'Profile', icon: <User size={20} />, path: '/profile', type: 'link' },
-        { name: 'Rank', icon: <BarChart3 size={20} />, path: '/leaderboard', type: 'link' },
-        { name: 'History', icon: <History size={20} />, type: 'action', action: 'history' },
-        { name: 'Contact', icon: <Mail size={20} />, path: '/contact', type: 'link' },
-    ];
-
+   const allContentItems: FooterItem[] = [
+    { name: 'Mint', icon: <Coins size={20} color="#eab308" />, path: '/mint', type: 'link' }, // Gold
+    { name: 'Quests', icon: <ScrollText size={20} color="#60a5fa" />, path: '/quests', type: 'link' }, // Blue
+    { name: 'Vault', icon: <Layers size={20} color="#a855f7" />, path: '/vault', type: 'link' }, // Purple
+    { name: 'Games', icon: <Gamepad2 size={20} color="#f43f5e" />, path: '/games', type: 'link' }, // Rose/Red
+    { name: 'Arena', icon: <Swords size={20} color="#9f3e99" />, path: '/arena', type: 'link' }, // Muted Gray (Locked vibe)
+    { name: 'Shop', icon: <ShoppingCart size={20} color="#fb923c" />, path: '/shop', type: 'link' }, // Orange
+    { name: 'Staking', icon: <DoorClosed size={20} color="#2dd4bf" />, path: '/staking', type: 'link' }, // Teal
+    { name: 'Trade', icon: <Repeat size={20} color="#4ade80" />, path: '/swap', type: 'link' }, // Green (Money/Flow)
+    { name: 'Bank', icon: <FileText size={20} color="#fbbf24" />, path: '/bank', type: 'link' }, // Amber
+    { name: 'Domain', icon: <Plus size={20} color="#9a823c" />, path: '/laam', type: 'link' }, // Gold (Matches your .laam branding)
+    { name: 'Profile', icon: <User size={20} color="#aa4747" />, path: '/profile', type: 'link' }, // White
+    { name: 'Rank', icon: <BarChart3 size={20} color="#facc15" />, path: '/leaderboard', type: 'link' }, // Yellow
+    { name: 'Contact', icon: <Mail size={20} color="#324d72" />, path: '/contact', type: 'link' }, // Slate
+    { name: 'History', icon: <History size={20} color="#698bb4" />, type: 'action', action: 'history' }, // Light Slate
+];
     const topRow = allContentItems.slice(0, 4);
     const toggleButton: FooterItem = {
         name: expanded ? 'Less' : 'More',
@@ -187,12 +189,21 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
                         <div className="stats-bar">
                             <div style={{ padding: '0 12px' }}>
                                 <p className="stat-label">OPERATOR</p>
-                                <p className="stat-value" style={{ color: '#eab308', textTransform: 'uppercase' }}>
-                                    {stats.username ? stats.username : 'SEEKER'}
-                                </p>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    {/* Domain verification badge */}
+                                    {stats.username && (
+                                        <Crown size={10} color="#eab308" style={{ filter: 'drop-shadow(0 0 3px #eab308)' }} />
+                                    )}
+                                    <p className="stat-value" style={{
+                                        color: stats.username ? '#eab308' : '#fff',
+                                        textTransform: 'uppercase',
+                                        fontSize: stats.username ? '11px' : '10px'
+                                    }}>
+                                        {stats.username ? stats.username : 'SEEKER'}
+                                    </p>
+                                </div>
                             </div>
                             <div style={{ display: 'flex', gap: '8px' }}>
-                                {/* ✅ Decimal Fix: Using Math.floor for LAAM and TAG */}
                                 <StatBox label="LAAM" value={Math.floor(stats.laam).toLocaleString()} color="#eab308" />
                                 <StatBox label="TAG" value={Math.floor(stats.tag).toLocaleString()} color="#fff" />
                                 <StatBox label="SOL" value={stats.sol.toFixed(2)} color="#22d3ee" />
