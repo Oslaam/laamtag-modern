@@ -234,50 +234,62 @@ export default function VaultPage() {
 
     const handleBuyBoost = async (mint: string, mult: number, price: number) => {
         if (!publicKey || !wallet.sendTransaction) {
-            alert("Wallet not connected!");
+            alert("Wallet not connected");
             return;
         }
 
-        if (!confirm(`Queue x${mult} boost for 7 days? Cost: ${price} SKR`)) return;
+        if (!confirm(`Queue x${mult} boost? Cost: ${price} SKR`)) return;
 
         setLoading(true);
         try {
-            const TREASURY_WALLET = new PublicKey("CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc");
-            const SKR_MINT = new PublicKey(SKR_TOKEN_MINT);
-            const DECIMALS = 6;
-
-            const userAta = await getAssociatedTokenAddress(SKR_MINT, publicKey);
-            const treasuryAta = await getAssociatedTokenAddress(SKR_MINT, TREASURY_WALLET);
-
             const transaction = new Transaction();
+            const SKR_MINT_PUBKEY = new PublicKey(SKR_TOKEN_MINT);
 
+            // Pulling from your .env
+            const TREASURY_WALLET = new PublicKey(process.env.NEXT_PUBLIC_TREASURY_WALLET!);
+
+            // 1. Get ATAs for the user and the treasury
+            const userAta = await getAssociatedTokenAddress(SKR_MINT_PUBKEY, publicKey);
+            const treasuryAta = await getAssociatedTokenAddress(SKR_MINT_PUBKEY, TREASURY_WALLET);
+
+            // 2. Add Instruction: Ensure Treasury ATA exists (so the transaction doesn't fail if it's empty)
             transaction.add(
                 createAssociatedTokenAccountIdempotentInstruction(
                     publicKey,
                     treasuryAta,
                     TREASURY_WALLET,
-                    SKR_MINT
+                    SKR_MINT_PUBKEY
                 )
             );
 
+            // 3. Add Instruction: Transfer SKR (Using 6 decimals as requested)
             transaction.add(
                 createTransferCheckedInstruction(
                     userAta,
-                    SKR_MINT,
+                    SKR_MINT_PUBKEY,
                     treasuryAta,
                     publicKey,
-                    BigInt(Math.round(price * Math.pow(10, DECIMALS))),
-                    DECIMALS
+                    Math.round(price * 1_000_000), // 10^6 for 6 decimals
+                    6 // Decimals set to 6
                 )
             );
 
+            // 4. Get Blockhash and set Fee Payer
+            // Using 'confirmed' commitment for speed/reliability
+            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+            transaction.recentBlockhash = blockhash;
+            transaction.feePayer = publicKey;
+
+            // 5. Send and Confirm
             const signature = await wallet.sendTransaction(transaction, connection);
-            const latestBlockhash = await connection.getLatestBlockhash();
+
             await connection.confirmTransaction({
                 signature,
-                ...latestBlockhash
+                blockhash,
+                lastValidBlockHeight
             }, 'confirmed');
 
+            // 6. Notify Backend
             const res = await axios.post('/api/boost/verify-payment', {
                 userAddress: publicKey.toBase58(),
                 mintAddress: mint,
@@ -288,12 +300,13 @@ export default function VaultPage() {
             if (res.data.success) {
                 alert("BOOST ACTIVATED: " + res.data.message);
                 await loadData();
+            } else {
+                alert("Payment sent but verification failed. Contact support.");
             }
 
         } catch (err: any) {
             console.error("Payment failed", err);
-            const errMsg = err.response?.data?.error || err.message || 'Purchase failed.';
-            alert(errMsg);
+            alert(err.message || "Transaction failed");
         } finally {
             setLoading(false);
         }
