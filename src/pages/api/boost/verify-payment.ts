@@ -35,18 +35,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // 3. Verify SKR Payment
         const isValid = tx.transaction.message.instructions.some((inst: any) => {
             const info = inst.parsed?.info;
+            const type = inst.parsed?.type;
 
-            // We need to verify against the TREASURY'S TOKEN ACCOUNT, not the main wallet
-            // Since you used createAssociatedTokenAccountIdempotentInstruction in frontend,
-            // the destination is the ATA.
+            const isTokenTransfer = inst.program === 'spl-token' &&
+                (type === 'transferChecked' || type === 'transfer');
+
+            // Safety check: transferChecked provides uiAmount, transfer only provides 'amount' (raw lamports)
+            const amountReceived = info?.tokenAmount?.uiAmount ?? (Number(info?.amount) / 1_000_000);
+
             return (
-                inst.program === 'spl-token' &&
-                inst.parsed?.type === 'transferChecked' &&
+                isTokenTransfer &&
                 info?.mint === SKR_MINT &&
-                // info?.destination will be the Treasury ATA. 
-                // To be safest, you can just verify the mint and the amount 
-                // OR calculate the expected ATA address here to compare.
-                Number(info?.tokenAmount?.uiAmount) >= officialPrice
+                amountReceived >= officialPrice
             );
         });
         if (!isValid) return res.status(400).json({ error: "Payment verification failed" });

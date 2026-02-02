@@ -22,8 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             where: {
                 userAddress: address as string,
                 expiresAt: { gt: new Date() }
-            },
-            orderBy: { activatedAt: 'asc' }
+            }
         });
 
         const response = await axios.post(HELIUS_RPC, {

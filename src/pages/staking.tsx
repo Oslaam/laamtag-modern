@@ -174,6 +174,10 @@ export default function VaultPage() {
     const wallet = useWallet();
     const { publicKey, signMessage } = wallet;
 
+    const SKR_TOKEN_MINT = process.env.NEXT_PUBLIC_SKR_TOKEN_MINT || "";
+    const TREASURY_WALLET = process.env.NEXT_PUBLIC_TREASURY_WALLET || "";
+
+
     const [nfts, setNfts] = useState<any[]>([]);
     const [rawStakes, setRawStakes] = useState<any[]>([]);
     const [allBoosts, setAllBoosts] = useState<any[]>([]);
@@ -236,16 +240,15 @@ export default function VaultPage() {
         loadData();
     }, [publicKey]);
 
-    // 1. Hardcode or Env-check the Mint
-    const SKR_TOKEN_MINT = "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3";
-
     const handleBuyBoost = async (mint: string, mult: number, price: number) => {
-        if (!publicKey || !wallet.connected) return alert("Wallet not connected");
+        // 1. Fixed: Changed SKR_MINT_MINT to SKR_TOKEN_MINT
+        // 2. Fixed: Changed TREASURY_STR to TREASURY_WALLET
+        if (!SKR_TOKEN_MINT || !TREASURY_WALLET) {
+            return alert("System Error: Configuration missing (SKR Mint or Treasury).");
+        }
 
-        // 2. Clean the treasury address string
-        const treasuryWalletStr = process.env.NEXT_PUBLIC_TREASURY_WALLET?.trim();
-        if (!treasuryWalletStr) {
-            return alert("System Error: Treasury address missing.");
+        if (!publicKey || !wallet.connected) {
+            return alert("Wallet not connected");
         }
 
         if (!confirm(`Queue x${mult} boost? Cost: ${price} SKR`)) return;
@@ -257,22 +260,21 @@ export default function VaultPage() {
                 .use(walletAdapterIdentity(wallet))
                 .use(mplToolbox());
 
+            // These now correctly use the variables defined at the top of your file
             const mintPubKey = umiPublicKey(SKR_TOKEN_MINT);
-            const treasuryPubKey = umiPublicKey(treasuryWalletStr);
+            const treasuryPubKey = umiPublicKey(TREASURY_WALLET);
 
-            // 3. Explicitly find ATAs
             const userAta = findAssociatedTokenPda(umi, {
                 mint: mintPubKey,
                 owner: umi.identity.publicKey
             });
+
             const treasuryAta = findAssociatedTokenPda(umi, {
                 mint: mintPubKey,
                 owner: treasuryPubKey
             });
 
-            // 4. Build the transaction
             const builder = transactionBuilder()
-                // Add priority fees (Optional but recommended for Mainnet)
                 .add(createIdempotentAssociatedToken(umi, {
                     ata: treasuryAta,
                     mint: mintPubKey,
@@ -281,21 +283,31 @@ export default function VaultPage() {
                 .add(transferTokens(umi, {
                     source: userAta,
                     destination: treasuryAta,
-                    amount: BigInt(Math.floor(price * 1_000_000)), // 6 decimals confirmed
+                    amount: BigInt(Math.floor(price * 1_000_000)), // Assuming 6 decimals
                 }));
 
             const result = await builder.sendAndConfirm(umi);
+            const signature = bs58.encode(result.signature);
 
-            // ... rest of your axios call ...
+            // --- UPDATED VERIFICATION LOGIC ---
+            await axios.post('/api/boost/verify-payment', {
+                signature: signature,
+                userAddress: publicKey.toBase58(), // Matches backend name
+                mintAddress: mint,
+                multiplier: mult
+            });
+            // --- END UPDATED LOGIC ---
+
+            alert("Boost successfully queued!");
+            await loadData();
+
         } catch (err: any) {
             console.error("Boost Error Details:", err);
-            // This will help us see if it's a balance issue or something else
-            alert(`Transaction Failed: ${err.message || "Check console for logs"}`);
+            alert(`Transaction Failed: ${err.message || "Check console"}`);
         } finally {
             setLoading(false);
         }
     };
-
     const handleClaim = async (nft: any) => {
         if (!publicKey || !signMessage) return;
         setLoading(true);
