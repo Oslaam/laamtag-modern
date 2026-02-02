@@ -1,5 +1,9 @@
+import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
+import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
+import { transferTokens } from '@metaplex-foundation/mpl-toolbox';
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
+import { publicKey as umiPublicKey, createAmount } from '@metaplex-foundation/umi';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import SeekerGuard from '../components/SeekerGuard';
 import axios from 'axios';
@@ -7,12 +11,13 @@ import { Lock, Zap, Clock, History, TrendingUp, Layers, X, Calendar, Wallet } fr
 import { stakeNftOnChain } from '../lib/stakeNftTask';
 import { unstakeNftOnChain } from '../lib/unstakeNftTask';
 import { Transaction, PublicKey } from '@solana/web3.js';
-import bs58 from 'bs58';
+import { mplToolbox } from '@metaplex-foundation/mpl-toolbox';
 import {
-    createTransferCheckedInstruction,
-    getAssociatedTokenAddress,
-    createAssociatedTokenAccountIdempotentInstruction
-} from '@solana/spl-token';
+    findAssociatedTokenPda,
+    createIdempotentAssociatedToken
+} from '@metaplex-foundation/mpl-toolbox';
+import { transactionBuilder } from '@metaplex-foundation/umi';
+import bs58 from 'bs58';
 
 // --- SUB-COMPONENT: REWARD TICKER ---
 const RewardTicker = ({
@@ -168,7 +173,6 @@ export default function VaultPage() {
     const { connection } = useConnection();
     const wallet = useWallet();
     const { publicKey, signMessage } = wallet;
-    const SKR_TOKEN_MINT = "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3";
 
     const [nfts, setNfts] = useState<any[]>([]);
     const [rawStakes, setRawStakes] = useState<any[]>([]);
@@ -232,81 +236,61 @@ export default function VaultPage() {
         loadData();
     }, [publicKey]);
 
+    // 1. Hardcode or Env-check the Mint
+    const SKR_TOKEN_MINT = "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3";
+
     const handleBuyBoost = async (mint: string, mult: number, price: number) => {
-        if (!publicKey || !wallet.sendTransaction) {
-            alert("Wallet not connected");
-            return;
+        if (!publicKey || !wallet.connected) return alert("Wallet not connected");
+
+        // 2. Clean the treasury address string
+        const treasuryWalletStr = process.env.NEXT_PUBLIC_TREASURY_WALLET?.trim();
+        if (!treasuryWalletStr) {
+            return alert("System Error: Treasury address missing.");
         }
 
         if (!confirm(`Queue x${mult} boost? Cost: ${price} SKR`)) return;
 
         setLoading(true);
+
         try {
-            const transaction = new Transaction();
-            const SKR_MINT_PUBKEY = new PublicKey(SKR_TOKEN_MINT);
+            const umi = createUmi(connection.rpcEndpoint)
+                .use(walletAdapterIdentity(wallet))
+                .use(mplToolbox());
 
-            // Pulling from your .env
-            const TREASURY_WALLET = new PublicKey(process.env.NEXT_PUBLIC_TREASURY_WALLET!);
+            const mintPubKey = umiPublicKey(SKR_TOKEN_MINT);
+            const treasuryPubKey = umiPublicKey(treasuryWalletStr);
 
-            // 1. Get ATAs for the user and the treasury
-            const userAta = await getAssociatedTokenAddress(SKR_MINT_PUBKEY, publicKey);
-            const treasuryAta = await getAssociatedTokenAddress(SKR_MINT_PUBKEY, TREASURY_WALLET);
-
-            // 2. Add Instruction: Ensure Treasury ATA exists (so the transaction doesn't fail if it's empty)
-            transaction.add(
-                createAssociatedTokenAccountIdempotentInstruction(
-                    publicKey,
-                    treasuryAta,
-                    TREASURY_WALLET,
-                    SKR_MINT_PUBKEY
-                )
-            );
-
-            // 3. Add Instruction: Transfer SKR (Using 6 decimals as requested)
-            transaction.add(
-                createTransferCheckedInstruction(
-                    userAta,
-                    SKR_MINT_PUBKEY,
-                    treasuryAta,
-                    publicKey,
-                    Math.round(price * 1_000_000), // 10^6 for 6 decimals
-                    6 // Decimals set to 6
-                )
-            );
-
-            // 4. Get Blockhash and set Fee Payer
-            // Using 'confirmed' commitment for speed/reliability
-            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
-            transaction.recentBlockhash = blockhash;
-            transaction.feePayer = publicKey;
-
-            // 5. Send and Confirm
-            const signature = await wallet.sendTransaction(transaction, connection);
-
-            await connection.confirmTransaction({
-                signature,
-                blockhash,
-                lastValidBlockHeight
-            }, 'confirmed');
-
-            // 6. Notify Backend
-            const res = await axios.post('/api/boost/verify-payment', {
-                userAddress: publicKey.toBase58(),
-                mintAddress: mint,
-                multiplier: mult,
-                signature: signature
+            // 3. Explicitly find ATAs
+            const userAta = findAssociatedTokenPda(umi, {
+                mint: mintPubKey,
+                owner: umi.identity.publicKey
+            });
+            const treasuryAta = findAssociatedTokenPda(umi, {
+                mint: mintPubKey,
+                owner: treasuryPubKey
             });
 
-            if (res.data.success) {
-                alert("BOOST ACTIVATED: " + res.data.message);
-                await loadData();
-            } else {
-                alert("Payment sent but verification failed. Contact support.");
-            }
+            // 4. Build the transaction
+            const builder = transactionBuilder()
+                // Add priority fees (Optional but recommended for Mainnet)
+                .add(createIdempotentAssociatedToken(umi, {
+                    ata: treasuryAta,
+                    mint: mintPubKey,
+                    owner: treasuryPubKey,
+                }))
+                .add(transferTokens(umi, {
+                    source: userAta,
+                    destination: treasuryAta,
+                    amount: BigInt(Math.floor(price * 1_000_000)), // 6 decimals confirmed
+                }));
 
+            const result = await builder.sendAndConfirm(umi);
+
+            // ... rest of your axios call ...
         } catch (err: any) {
-            console.error("Payment failed", err);
-            alert(err.message || "Transaction failed");
+            console.error("Boost Error Details:", err);
+            // This will help us see if it's a balance issue or something else
+            alert(`Transaction Failed: ${err.message || "Check console for logs"}`);
         } finally {
             setLoading(false);
         }

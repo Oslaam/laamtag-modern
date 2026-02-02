@@ -16,19 +16,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         const rewards = [
-            { label: "1 TAG", type: "TAG", value: 1, chance: 22 },
-            { label: "5 TAG", type: "TAG", value: 5, chance: 15 },
-            { label: "50 LAAM", type: "LAAM", value: 50, chance: 20 },
-            { label: "100 LAAM", type: "LAAM", value: 100, chance: 15 },
-            { label: "500 LAAM", type: "LAAM", value: 500, chance: 9 },
-            { label: "1 USDC", type: "USDC", value: 1, chance: 3 },
-            { label: "0.01 SOL", type: "SOL", value: 0.01, chance: 2 },
-            { label: "EMPTY", type: "EMPTY", value: 0, chance: 10 },
-            { label: "GENERAL BOX", type: "GEN_BOX", value: 0, chance: 3 },
+            { label: "1 TAG", type: "TAG", value: 1, chance: 32 },
+            { label: "5 TAG", type: "TAG", value: 5, chance: 11 },
+            { label: "50 L", type: "LAAM", value: 50, chance: 20 },
+            { label: "100 L", type: "LAAM", value: 100, chance: 10 },
+            { label: "500 L", type: "LAAM", value: 500, chance: 5 },
+            { label: "1 USDC", type: "USDC", value: 1, chance: 0.5 },
+            { label: "0.01 SOL", type: "SOL", value: 0.01, chance: 0.5 },
+            { label: "EMPTY", type: "EMPTY", value: 0, chance: 20 },
+            { label: "GEN BOX", type: "GEN_BOX", value: 0, chance: 2 },
+            {
+                label: "SPEC BOX",
+                type: "SPEC_BOX",
+                value: 0,
+                // Only give a chance if they have 1000 total purchased, else 0%
+                chance: (user.totalTagPurchased >= 1000) ? 1 : 0
+            },
         ];
 
         if (user.totalTagPurchased >= 1000) {
-            rewards.push({ label: "SPECIAL BOX", type: "SPEC_BOX", value: 0, chance: 5 });
+            rewards.push({ label: "SPECIAL BOX", type: "SPEC_BOX", value: 0, chance: 3 });
         }
 
         const totalWeight = rewards.reduce((acc, r) => acc + r.chance, 0);
