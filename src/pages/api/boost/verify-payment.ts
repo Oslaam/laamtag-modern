@@ -20,51 +20,69 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         const connection = new Connection(process.env.RPC_URL || "https://api.mainnet-beta.solana.com");
 
-        // 1. Fetch and Verify Transaction
+        // 1. Fetch Transaction with 'confirmed' commitment
         const tx = await connection.getParsedTransaction(signature, {
             commitment: 'confirmed',
             maxSupportedTransactionVersion: 0
         });
 
-        if (!tx || tx.meta?.err) return res.status(400).json({ error: "Transaction invalid" });
+        if (!tx || tx.meta?.err) return res.status(400).json({ error: "Transaction invalid or not found" });
 
         // 2. Replay Protection
         const existingActivity = await prisma.activity.findFirst({ where: { signature } });
         if (existingActivity) return res.status(400).json({ error: "Already processed" });
 
-        // 3. Verify SKR Payment
-        const isValid = tx.transaction.message.instructions.some((inst: any) => {
-            const info = inst.parsed?.info;
-            const type = inst.parsed?.type;
+        // 3. SECURE VERIFICATION: Check Balance Changes
+        const treasuryBalanceEntry = tx.meta?.postTokenBalances?.find(
+            (balance) =>
+                balance.owner === TREASURY_WALLET &&
+                balance.mint === SKR_MINT
+        );
 
-            const isTokenTransfer = inst.program === 'spl-token' &&
-                (type === 'transferChecked' || type === 'transfer');
+        if (!treasuryBalanceEntry) {
+            return res.status(400).json({ error: "Payment verification failed: Treasury did not receive SKR" });
+        }
 
-            // Safety check: transferChecked provides uiAmount, transfer only provides 'amount' (raw lamports)
-            const amountReceived = info?.tokenAmount?.uiAmount ?? (Number(info?.amount) / 1_000_000);
+        const preBalance = tx.meta?.preTokenBalances?.find(
+            (b) => b.owner === TREASURY_WALLET && b.mint === SKR_MINT
+        )?.uiTokenAmount.uiAmount || 0;
 
-            return (
-                isTokenTransfer &&
-                info?.mint === SKR_MINT &&
-                amountReceived >= officialPrice
-            );
-        });
-        if (!isValid) return res.status(400).json({ error: "Payment verification failed" });
+        const postBalance = treasuryBalanceEntry.uiTokenAmount.uiAmount || 0;
+        const amountReceived = postBalance - preBalance;
 
-        // --- 4. START QUEUE LOGIC ---
-        // Find if this NFT already has a boost active or queued
+        if (amountReceived < (officialPrice - 0.01)) {
+            return res.status(400).json({
+                error: `Insufficient payment. Expected ${officialPrice}, got ${amountReceived}`
+            });
+        }
+
+        // --- 4. START QUEUE LOGIC (Next Cycle Alignment) ---
+
+        // 1. Calculate the NEXT reward cycle start (Midnight UTC)
+        let nextRewardCycle = new Date();
+        nextRewardCycle.setUTCHours(24, 0, 0, 0);
+
+        // 2. Find if this NFT already has a future boost queued
         const latestBoost = await prisma.multiplierBoost.findFirst({
             where: { mintAddress: mintAddress },
             orderBy: { expiresAt: 'desc' }
         });
 
-        let startTime = new Date();
-        // If a boost exists and expires in the future, start the new one AFTER it.
-        if (latestBoost && new Date(latestBoost.expiresAt) > new Date()) {
+        let startTime: Date;
+
+        if (latestBoost && new Date(latestBoost.expiresAt) > nextRewardCycle) {
+            // If there is already a boost queued for the future, 
+            // start this new one exactly when the last one ends.
             startTime = new Date(latestBoost.expiresAt);
+        } else {
+            // If no future boost is active, start this one at the NEXT cycle (Midnight).
+            // This ensures it doesn't touch the current "7 hours remaining" cycle.
+            startTime = nextRewardCycle;
         }
 
+        // 3. The boost lasts 7 days FROM the start time
         const expiryTime = new Date(startTime.getTime() + 7 * 24 * 60 * 60 * 1000);
+
         // --- END QUEUE LOGIC ---
 
         // 5. Save to Database
@@ -91,7 +109,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         return res.status(200).json({
             success: true,
-            message: startTime > new Date() ? "Boost added to Queue!" : "Boost Activated!"
+            message: "Boost added to Queue for next reward cycle!"
         });
 
     } catch (error) {

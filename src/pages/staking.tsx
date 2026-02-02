@@ -1,6 +1,5 @@
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
 import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
-import { transferTokens } from '@metaplex-foundation/mpl-toolbox';
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { publicKey as umiPublicKey, createAmount } from '@metaplex-foundation/umi';
@@ -11,10 +10,11 @@ import { Lock, Zap, Clock, History, TrendingUp, Layers, X, Calendar, Wallet } fr
 import { stakeNftOnChain } from '../lib/stakeNftTask';
 import { unstakeNftOnChain } from '../lib/unstakeNftTask';
 import { Transaction, PublicKey } from '@solana/web3.js';
-import { mplToolbox } from '@metaplex-foundation/mpl-toolbox';
 import {
+    mplToolbox,
     findAssociatedTokenPda,
-    createIdempotentAssociatedToken
+    createIdempotentAssociatedToken,
+    transferTokens
 } from '@metaplex-foundation/mpl-toolbox';
 import { transactionBuilder } from '@metaplex-foundation/umi';
 import bs58 from 'bs58';
@@ -23,11 +23,13 @@ import bs58 from 'bs58';
 const RewardTicker = ({
     stakedAt,
     lastClaimed,
-    multiplier = 1
+    multiplier = 1,
+    upcomingMultiplier = 0 // New prop to show pending boosts
 }: {
     stakedAt: string;
     lastClaimed: string;
     multiplier?: number;
+    upcomingMultiplier?: number;
 }) => {
     const [rewards, setRewards] = useState({ laam: 0, tag: 0 });
     const [timeLeft, setTimeLeft] = useState<string | null>(null);
@@ -80,6 +82,12 @@ const RewardTicker = ({
                         <p style={{ color: '#eab308', fontWeight: 900, fontSize: '14px', margin: 0, fontFamily: 'monospace' }}>
                             {rewards.laam.toFixed(4)}
                         </p>
+                        {/* Visual indicator for bought boost that is not yet active */}
+                        {upcomingMultiplier > 0 && (
+                            <p style={{ fontSize: '7px', color: '#eab308', margin: '4px 0 0 0', fontWeight: 900, textTransform: 'uppercase' }}>
+                                ● Next Cycle: x{upcomingMultiplier}
+                            </p>
+                        )}
                     </div>
                     <div style={{ background: 'rgba(0,0,0,0.3)', padding: '8px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
                         <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)', margin: 0, fontWeight: 900 }}>TAG ACCRUED</p>
@@ -200,7 +208,6 @@ export default function VaultPage() {
     const loadData = async () => {
         if (!publicKey || !signMessage) return;
         try {
-            // Generate security signature for sync
             const message = `Syncing staking rewards for ${publicKey.toBase58()} at ${Date.now()}`;
             const encodedMessage = new TextEncoder().encode(message);
             const signatureUint8 = await signMessage(encodedMessage);
@@ -241,10 +248,8 @@ export default function VaultPage() {
     }, [publicKey]);
 
     const handleBuyBoost = async (mint: string, mult: number, price: number) => {
-        // 1. Fixed: Changed SKR_MINT_MINT to SKR_TOKEN_MINT
-        // 2. Fixed: Changed TREASURY_STR to TREASURY_WALLET
         if (!SKR_TOKEN_MINT || !TREASURY_WALLET) {
-            return alert("System Error: Configuration missing (SKR Mint or Treasury).");
+            return alert("System Error: Configuration missing.");
         }
 
         if (!publicKey || !wallet.connected) {
@@ -260,7 +265,6 @@ export default function VaultPage() {
                 .use(walletAdapterIdentity(wallet))
                 .use(mplToolbox());
 
-            // These now correctly use the variables defined at the top of your file
             const mintPubKey = umiPublicKey(SKR_TOKEN_MINT);
             const treasuryPubKey = umiPublicKey(TREASURY_WALLET);
 
@@ -271,15 +275,10 @@ export default function VaultPage() {
 
             const treasuryAta = findAssociatedTokenPda(umi, {
                 mint: mintPubKey,
-                owner: treasuryPubKey
+                owner: treasuryPubKey,
             });
 
             const builder = transactionBuilder()
-                .add(createIdempotentAssociatedToken(umi, {
-                    ata: treasuryAta,
-                    mint: mintPubKey,
-                    owner: treasuryPubKey,
-                }))
                 .add(transferTokens(umi, {
                     source: userAta,
                     destination: treasuryAta,
@@ -289,14 +288,12 @@ export default function VaultPage() {
             const result = await builder.sendAndConfirm(umi);
             const signature = bs58.encode(result.signature);
 
-            // --- UPDATED VERIFICATION LOGIC ---
             await axios.post('/api/boost/verify-payment', {
                 signature: signature,
-                userAddress: publicKey.toBase58(), // Matches backend name
+                userAddress: publicKey.toBase58(),
                 mintAddress: mint,
                 multiplier: mult
             });
-            // --- END UPDATED LOGIC ---
 
             alert("Boost successfully queued!");
             await loadData();
@@ -308,6 +305,7 @@ export default function VaultPage() {
             setLoading(false);
         }
     };
+
     const handleClaim = async (nft: any) => {
         if (!publicKey || !signMessage) return;
         setLoading(true);
@@ -449,10 +447,15 @@ export default function VaultPage() {
                         {nfts.map((nft) => {
                             const stakeData = rawStakes.find(s => s.mintAddress === nft.mint);
                             const nftBoosts = allBoosts.filter(b => b.mintAddress === nft.mint);
+
+                            // 1. Calculate Active Multiplier (only if current time is within activation range)
                             const activeBoost = nftBoosts.find(b =>
                                 new Date(b.activatedAt) <= new Date() && new Date(b.expiresAt) > new Date()
                             );
                             const currentMult = activeBoost?.multiplier || 1;
+
+                            // 2. Identify Upcoming Multiplier (bought but not yet midnight)
+                            const queuedBoost = nftBoosts.find(b => new Date(b.activatedAt) > new Date());
                             const queuedCount = nftBoosts.filter(b => new Date(b.activatedAt) > new Date()).length;
 
                             return (
@@ -485,6 +488,7 @@ export default function VaultPage() {
                                                     stakedAt={stakeData.stakedAt}
                                                     lastClaimed={stakeData.lastClaimed}
                                                     multiplier={currentMult}
+                                                    upcomingMultiplier={queuedBoost?.multiplier || 0}
                                                 />
                                             ) : (
                                                 <p style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', marginTop: '4px' }}>READY TO LOCK</p>
