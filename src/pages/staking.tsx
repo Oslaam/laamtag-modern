@@ -182,7 +182,7 @@ export default function VaultPage() {
     const wallet = useWallet();
     const { publicKey, signMessage } = wallet;
 
-    const SKR_TOKEN_MINT = process.env.NEXT_PUBLIC_SKR_TOKEN_MINT || "";
+    const SKR_TOKEN_MINT = process.env.NEXT_PUBLIC_SKR_TOKEN_MINT || "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3";
     const TREASURY_WALLET = process.env.NEXT_PUBLIC_TREASURY_WALLET || "";
 
 
