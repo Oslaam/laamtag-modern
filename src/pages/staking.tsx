@@ -183,8 +183,7 @@ export default function VaultPage() {
     const { publicKey, signMessage } = wallet;
 
     const SKR_TOKEN_MINT = process.env.NEXT_PUBLIC_SKR_TOKEN_MINT || "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3";
-    const TREASURY_WALLET = process.env.NEXT_PUBLIC_TREASURY_WALLET || "";
-
+    const TREASURY_WALLET = process.env.NEXT_PUBLIC_TREASURY_WALLET || "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc";
 
     const [nfts, setNfts] = useState<any[]>([]);
     const [rawStakes, setRawStakes] = useState<any[]>([]);
