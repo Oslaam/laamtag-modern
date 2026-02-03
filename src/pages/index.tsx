@@ -2,14 +2,12 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useWallet } from '@solana/wallet-adapter-react';
 import SeekerGuard from '../components/SeekerGuard';
-import EnvDebug from '../components/EnvDebug';   //remove later
 
 export default function AppHome() {
   const { connected, publicKey } = useWallet();
 
   return (
     <div className="main-content">
-      <EnvDebug /> //remove later
       <Head>
         <title>LaamTag App | Hub</title>
       </Head>
