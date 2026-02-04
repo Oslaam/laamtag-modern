@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey, TransactionMessage, VersionedTransaction } from '@solana/web3.js'; // Added v0 imports
 import { getAssociatedTokenAddress, createTransferInstruction } from '@solana/spl-token';
+import bs58 from 'bs58';
 
 interface DiceTerminalProps {
     user: {
@@ -72,18 +73,14 @@ const DiceTerminal: React.FC<DiceTerminalProps> = ({ user, refreshUser }) => {
             const transaction = new VersionedTransaction(messageV0);
 
             // 4. Send & Confirm
-            // sendTransaction works with both Legacy and Versioned Transactions
-            const signature = await sendTransaction(transaction, connection);
+            const signatureResult = await sendTransaction(transaction, connection);
+
+            // This ensures the signature is ALWAYS a string before it leaves the browser
+            const signature = typeof signatureResult === 'string'
+                ? signatureResult
+                : bs58.encode(signatureResult);
 
             toast.loading("Verifying on-chain...", { id: "verify-tx" });
-
-            const confirmation = await connection.confirmTransaction({
-                signature,
-                blockhash,
-                lastValidBlockHeight
-            }, 'confirmed');
-
-            if (confirmation.value.err) throw new Error("Transaction failed on-chain");
 
             // 5. Verify with backend
             const res = await fetch('/api/games/dice/unlock-dice', {

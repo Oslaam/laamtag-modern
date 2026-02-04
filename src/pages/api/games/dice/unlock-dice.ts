@@ -13,28 +13,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         // 1. Verify Transaction with Retry Logic
         let tx = null;
-        for (let i = 0; i < 3; i++) { // Try 3 times
+        for (let i = 0; i < 5; i++) {
             tx = await connection.getParsedTransaction(signature, {
                 commitment: 'confirmed',
-                maxSupportedTransactionVersion: 0 // Required for modern transactions
+                maxSupportedTransactionVersion: 0
             });
-            if (tx) break;
-            await new Promise(r => setTimeout(r, 2000)); // Wait 2 seconds
+
+            // If we found the transaction AND the receipt (meta), stop looping
+            if (tx && tx.meta) break;
+
+            // Otherwise wait 2 seconds and try again
+            await new Promise(r => setTimeout(r, 2000));
         }
 
-        if (!tx || tx.meta?.err) {
-            return res.status(400).json({ error: "Transaction not confirmed on-chain yet." });
+        // CRITICAL CHECK: Ensure tx and tx.meta actually exist
+        if (!tx || !tx.meta) {
+            return res.status(400).json({ error: "Transaction receipt not found. Please try again in a few seconds." });
         }
 
-        // 2. Check if Treasury received the correct amount (200 SKR)
-        // postTokenBalances shows the state AFTER the tx. 
-        // We look for the treasury's balance increase.
-        const received = tx.meta.postTokenBalances?.find(
-            b => b.owner === TREASURY && b.mint === SKR_MINT
-        );
+        if (tx.meta.err) {
+            return res.status(400).json({ error: "Transaction failed on-chain." });
+        }
 
-        if (!received) return res.status(400).json({ error: "Treasury did not receive SKR" });
+        // Strict version of Step 2
+        const treasuryPost = tx.meta.postTokenBalances?.find(b => b.owner === TREASURY && b.mint === SKR_MINT);
+        const treasuryPre = tx.meta.preTokenBalances?.find(b => b.owner === TREASURY && b.mint === SKR_MINT);
 
+        const amountReceived = (Number(treasuryPost?.uiTokenAmount.amount || 0) - Number(treasuryPre?.uiTokenAmount.amount || 0)) / 1_000_000;
+
+        if (amountReceived < 200) {
+            return res.status(400).json({ error: "Insufficient payment amount detected." });
+        }
+        
         // 3. Update DB (Remains the same)
         await prisma.user.update({
             where: { walletAddress },
