@@ -47,10 +47,19 @@ const DiceTerminal: React.FC<DiceTerminalProps> = ({ user, refreshUser }) => {
             const SKR_MINT = new PublicKey("SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3");
             const TREASURY = new PublicKey("CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc");
 
+            // 1. Get ATAs
             const userAta = await getAssociatedTokenAddress(SKR_MINT, publicKey);
             const treasuryAta = await getAssociatedTokenAddress(SKR_MINT, TREASURY);
 
-            const transaction = new Transaction().add(
+            // 2. Fetch the latest blockhash FIRST (Crucial for Mobile)
+            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+
+            // 3. Create transaction and manually assign the blockhash and feePayer
+            const transaction = new Transaction();
+            transaction.recentBlockhash = blockhash;
+            transaction.feePayer = publicKey;
+
+            transaction.add(
                 createTransferInstruction(
                     userAta,
                     treasuryAta,
@@ -59,14 +68,17 @@ const DiceTerminal: React.FC<DiceTerminalProps> = ({ user, refreshUser }) => {
                 )
             );
 
+            // 4. Send the transaction
             const signature = await sendTransaction(transaction, connection);
-            const latestBlockhash = await connection.getLatestBlockhash();
+
+            // 5. Confirm using the blockhash we fetched earlier
             await connection.confirmTransaction({
                 signature,
-                blockhash: latestBlockhash.blockhash,
-                lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+                blockhash,
+                lastValidBlockHeight
             }, 'confirmed');
 
+            // 6. Verify with your backend
             const res = await fetch('/api/games/dice/unlock-dice', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -87,6 +99,7 @@ const DiceTerminal: React.FC<DiceTerminalProps> = ({ user, refreshUser }) => {
                 throw new Error(errorData.error || "Verification failed");
             }
         } catch (err: any) {
+            console.error("Unlock error:", err);
             toast.error(err.message || "Payment Failed");
             setIsDecrypting(false);
         }
