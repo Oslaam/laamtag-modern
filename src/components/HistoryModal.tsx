@@ -3,7 +3,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { X, TrendingUp, Zap, History, Clock } from 'lucide-react';
 
 // Added 'NFT' to the types
-type FilterType = 'ALL' | 'WINS' | 'COSTS' | 'STAKING' | 'NFT';
+type FilterType = 'ALL' | 'WINS' | 'COSTS' | 'STAKING' | 'NFT' | 'SKR';
 
 export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
     const { publicKey } = useWallet();
@@ -12,6 +12,8 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
     const [stats, setStats] = useState({ todayEarned: 0, streak: 0 });
     const [loading, setLoading] = useState(true);
     const [activeFilter, setActiveFilter] = useState<FilterType>('ALL');
+    const [claimableSKR, setClaimableSKR] = useState(0);
+    const [isClaiming, setIsClaiming] = useState(false);
 
     useEffect(() => {
         if (isOpen && publicKey) {
@@ -29,10 +31,17 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
     useEffect(() => {
         const filtered = rawHistory.filter(item => {
             if (activeFilter === 'ALL') return true;
-            if (activeFilter === 'WINS') return item.type.includes('WIN');
-            if (activeFilter === 'COSTS') return item.type.includes('COST');
+            // Enhanced COSTS filter to include DICE_LOSS (which uses negative amounts) and GATE fees
+            if (activeFilter === 'COSTS') {
+                return item.type.includes('COST') ||
+                    item.type.includes('FEE') ||
+                    item.type.includes('LOSS') ||
+                    item.type.includes('SPENT');
+            }
+            if (activeFilter === 'WINS') return item.type.includes('WIN') && !item.type.includes('LOSS');
             if (activeFilter === 'STAKING') return item.type.includes('STAKING');
-            if (activeFilter === 'NFT') return item.type.includes('NFT'); // New Filter
+            if (activeFilter === 'NFT') return item.type.includes('NFT');
+            if (activeFilter === 'SKR') return item.asset === 'SKR';
             return true;
         });
 
@@ -126,50 +135,62 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
                                     {date}
                                 </h3>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                    {groupedHistory[date].map((item: any) => (
-                                        <div key={item.id} style={{
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'center',
-                                            padding: '12px 16px',
-                                            background: 'rgba(255,255,255,0.02)',
-                                            borderRadius: '12px',
-                                            border: '1px solid rgba(255,255,255,0.05)'
-                                        }}>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                    <span style={{
-                                                        fontSize: '7px',
-                                                        fontWeight: 900,
-                                                        padding: '2px 6px',
-                                                        borderRadius: '4px',
-                                                        background: item.type.includes('NFT') ? 'rgba(168, 85, 247, 0.1)' : item.type.includes('WIN') ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                                                        color: item.type.includes('NFT') ? '#a855f7' : item.type.includes('WIN') ? '#22c55e' : '#ef4444'
-                                                    }}>
-                                                        {item.type.replace('_', ' ')}
-                                                    </span>
-                                                    <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', gap: '2px' }}>
-                                                        <Clock size={8} />
-                                                        {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                    </span>
+                                    {groupedHistory[date].map((item: any) => {
+                                        // Logic to determine if it's a cost/loss
+                                        const isCost = item.type.includes('COST') ||
+                                            item.type.includes('FEE') ||
+                                            item.type.includes('LOSS') ||
+                                            item.amount < 0;
+
+                                        const themeColor = isCost ? '#ef4444' : '#22c55e';
+                                        const bgColor = isCost ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)';
+                                        const displayAmount = isCost ? `-${Math.abs(item.amount)}` : `+${Math.abs(item.amount)}`;
+
+                                        return (
+                                            <div key={item.id} style={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                padding: '12px 16px',
+                                                background: 'rgba(255,255,255,0.02)',
+                                                borderRadius: '12px',
+                                                border: '1px solid rgba(255,255,255,0.05)'
+                                            }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        <span style={{
+                                                            fontSize: '7px',
+                                                            fontWeight: 900,
+                                                            padding: '2px 6px',
+                                                            borderRadius: '4px',
+                                                            background: item.asset === 'SKR' ? 'rgba(234, 179, 8, 0.1)' : bgColor,
+                                                            color: item.asset === 'SKR' ? '#eab308' : themeColor
+                                                        }}>
+                                                            {item.type.replace('_', ' ')}
+                                                        </span>
+                                                        <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                                            <Clock size={8} />
+                                                            {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        </span>
+                                                    </div>
+                                                    <p style={{ fontSize: '10px', fontWeight: 900, color: '#fff', margin: 0 }}>
+                                                        {item.asset} {isCost ? 'EXPENSE' : 'INCOME'}
+                                                    </p>
                                                 </div>
-                                                <p style={{ fontSize: '10px', fontWeight: 900, color: '#fff', margin: 0 }}>
-                                                    {item.asset} {item.amount >= 0 ? 'INCOME' : 'EXPENSE'}
-                                                </p>
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <p style={{
+                                                        fontSize: '13px',
+                                                        fontWeight: 900,
+                                                        margin: 0,
+                                                        color: themeColor
+                                                    }}>
+                                                        {displayAmount}
+                                                    </p>
+                                                    <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', margin: 0 }}>{item.asset}</p>
+                                                </div>
                                             </div>
-                                            <div style={{ textAlign: 'right' }}>
-                                                <p style={{
-                                                    fontSize: '13px',
-                                                    fontWeight: 900,
-                                                    margin: 0,
-                                                    color: item.amount >= 0 ? '#22c55e' : '#ef4444'
-                                                }}>
-                                                    {item.amount >= 0 ? '+' : ''}{item.amount}
-                                                </p>
-                                                <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', margin: 0 }}>LAAM</p>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
                         ))

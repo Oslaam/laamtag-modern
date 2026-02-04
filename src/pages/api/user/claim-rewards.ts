@@ -17,6 +17,7 @@ import {
 } from '@metaplex-foundation/mpl-toolbox';
 
 const USDC_MINT = publicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+const SKR_MINT = publicKey("SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3");
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method !== 'POST') return res.status(405).end();
@@ -28,49 +29,67 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             where: { userId: walletAddress, asset: assetType }
         });
 
-        if (rewards.length === 0) {
+        // Calculate total balance available
+        const originalAmount = rewards.reduce((sum, r) => sum + r.amount, 0);
+
+        // --- NEW: 1000 SKR THRESHOLD CHECK ---
+        if (assetType === 'SKR' && originalAmount < 1000) {
+            return res.status(400).json({
+                message: `THRESHOLD NOT MET: Minimum 1000 SKR required. Current: ${originalAmount.toFixed(2)}`
+            });
+        }
+
+        if (rewards.length === 0 || originalAmount <= 0) {
             return res.status(400).json({ message: `No ${assetType} to claim.` });
         }
 
         // 2. Calculate Fee (10%) and User Payout
-        const originalAmount = rewards.reduce((sum, r) => sum + r.amount, 0);
         const feePercentage = 0.10;
         const feeAmount = originalAmount * feePercentage;
         const userAmount = originalAmount - feeAmount;
 
-        // 3. Setup Umi with the Toolbox plugin
+        // 3. Setup Umi
         const umi = createUmi(process.env.NEXT_PUBLIC_RPC_URL || "https://api.mainnet-beta.solana.com")
             .use(mplToolbox());
 
-        const secretKey = base58.serialize(process.env.TREASURY_PRIVATE_KEY || "");
-        const treasuryKeypair = umi.eddsa.createKeypairFromSecretKey(secretKey);
+        const privateKeyString = process.env.TREASURY_PRIVATE_KEY;
+        if (!privateKeyString) throw new Error("Missing TREASURY_PRIVATE_KEY");
+
+        // Corrected base58 decoding to fix the "Property utils does not exist" error
+        const treasuryKeypair = umi.eddsa.createKeypairFromSecretKey(
+            base58.serialize(privateKeyString)
+        );
+
         const treasurySigner = createSignerFromKeypair(umi, treasuryKeypair);
         umi.use(keypairIdentity(treasurySigner));
 
         // 4. Process Payouts
-        if (assetType === 'SOL') {
-            await transferSol(umi, {
-                destination: publicKey(walletAddress),
-                amount: sol(userAmount), // Sending 90%
-            }).sendAndConfirm(umi);
+        let signature: string = "";
 
-        } else if (assetType === 'USDC') {
+        if (assetType === 'SOL') {
+            const result = await transferSol(umi, {
+                destination: publicKey(walletAddress),
+                amount: sol(userAmount),
+            }).sendAndConfirm(umi);
+            signature = base58.deserialize(result.signature)[0];
+
+        } else if (assetType === 'USDC' || assetType === 'SKR') {
             const userOwner = publicKey(walletAddress);
+            const currentMint = assetType === 'USDC' ? USDC_MINT : SKR_MINT;
+            const decimals = 1_000_000;
+            const atomicUserAmount = BigInt(Math.floor(userAmount * decimals));
+
             const sourceATA = findAssociatedTokenPda(umi, {
-                mint: USDC_MINT,
+                mint: currentMint,
                 owner: treasurySigner.publicKey
             });
             const destinationATA = findAssociatedTokenPda(umi, {
-                mint: USDC_MINT,
+                mint: currentMint,
                 owner: userOwner
             });
 
-            // Calculate atomic amount for 90%
-            const atomicUserAmount = BigInt(Math.floor(userAmount * 1_000_000));
-
-            // Create account if missing (Treasury pays rent) and transfer 90%
-            await createTokenIfMissing(umi, {
-                mint: USDC_MINT,
+            const result = await createTokenIfMissing(umi, {
+                mint: currentMint,
                 owner: userOwner,
                 payer: treasurySigner,
             })
@@ -83,6 +102,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     })
                 )
                 .sendAndConfirm(umi);
+
+            signature = base58.deserialize(result.signature)[0];
         }
 
         // 5. Cleanup Database
@@ -90,16 +111,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             where: { id: { in: rewards.map(r => r.id) } }
         });
 
-        // 6. Return success with clear message about the 10% fee
         return res.status(200).json({
             success: true,
-            message: `Claimed ${userAmount.toFixed(4)} ${assetType}! (10% deducted for system rent and service fee).`
+            signature: signature,
+            message: `Claimed ${userAmount.toFixed(4)} ${assetType}! (10% fee deducted).`
         });
 
     } catch (error: any) {
-        console.error("--- PAYOUT ERROR ---");
-        console.error(error);
-
+        console.error("--- PAYOUT ERROR ---", error);
         return res.status(500).json({
             message: "Payout failed.",
             debug: error.message

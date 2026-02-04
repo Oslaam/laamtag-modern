@@ -30,6 +30,7 @@ model User {
   shoeLevel          Int              @default(1)
   lifeLevel          Int              @default(1)
   currentStage       Int              @default(1)
+  hasPaidDiceEntry   Boolean          @default(false)
   boosts             MultiplierBoost[]
   lastLaamCheckIn DateTime?
   lastTagCheckIn  DateTime?
