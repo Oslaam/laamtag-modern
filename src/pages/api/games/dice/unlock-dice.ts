@@ -3,56 +3,54 @@ import prisma from '../../../../lib/prisma';
 import { Connection } from '@solana/web3.js';
 
 const SKR_MINT = "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3";
+const TREASURY = "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-    if (req.method !== 'POST') return res.status(405).end();
+    if (req.method !== 'POST') return res.status(405).json({ error: "Method not allowed" });
 
     const { walletAddress, signature } = req.body;
 
     try {
-        const connection = new Connection(process.env.RPC_URL || "https://api.mainnet-beta.solana.com");
+        // --- STEP 1: Check Environment ---
+        const rpc = process.env.RPC_URL || "https://api.mainnet-beta.solana.com";
+        const connection = new Connection(rpc, 'confirmed');
 
-        // 1. REPLAY PROTECTION
-        const existingActivity = await prisma.activity.findFirst({ where: { signature } });
-        if (existingActivity) return res.status(400).json({ error: "Transaction already processed." });
+        // --- STEP 2: Check Prisma ---
+        if (!prisma) {
+            return res.status(500).json({ error: "Prisma client not initialized" });
+        }
 
-        // 2. FETCH TRANSACTION (Using Parsed for better JSON handling)
+        const user = await prisma.user.findUnique({ where: { walletAddress } });
+        if (!user) {
+            return res.status(404).json({ error: "User record not found in DB" });
+        }
+
+        // --- STEP 3: Verify Transaction ---
         let tx = null;
-        for (let i = 0; i < 6; i++) {
+        for (let i = 0; i < 5; i++) {
             tx = await connection.getParsedTransaction(signature, {
                 commitment: 'confirmed',
                 maxSupportedTransactionVersion: 0
             });
-            if (tx && tx.meta) break;
+            if (tx?.meta) break;
             await new Promise(r => setTimeout(r, 2000));
         }
 
         if (!tx || !tx.meta) {
-            return res.status(400).json({ error: "Could not find transaction metadata. Try again in a moment." });
+            return res.status(400).json({ error: "Transaction metadata not found on chain" });
         }
 
-        // 3. SECURE DELTA VERIFICATION
-        const postBalances = tx.meta.postTokenBalances || [];
-        const preBalances = tx.meta.preTokenBalances || [];
+        // --- STEP 4: Balance Logic ---
+        const post = tx.meta.postTokenBalances?.find(b => b.mint === SKR_MINT && b.owner === TREASURY);
+        const pre = tx.meta.preTokenBalances?.find(b => b.mint === SKR_MINT && b.owner === TREASURY);
 
-        // Find entry by mint only (Seeker-safe)
-        const postEntry = postBalances.find(b => b.mint === SKR_MINT);
-        const preEntry = preBalances.find(b => b.mint === SKR_MINT);
-
-        const postAmount = postEntry?.uiTokenAmount?.uiAmount || 0;
-        const preAmount = preEntry?.uiTokenAmount?.uiAmount || 0;
-        const amountReceived = postAmount - preAmount;
+        const amountReceived = (post?.uiTokenAmount.uiAmount || 0) - (pre?.uiTokenAmount.uiAmount || 0);
 
         if (amountReceived < 199.9) {
-            return res.status(400).json({ error: `Payment mismatch. Received: ${amountReceived} SKR` });
+            return res.status(400).json({ error: `Insufficient payment: ${amountReceived} SKR` });
         }
 
-        // 4. DATABASE UPDATE (Check user existence first to prevent Prisma 500)
-        const userExists = await prisma.user.findUnique({ where: { walletAddress } });
-        if (!userExists) {
-            return res.status(404).json({ error: "User not found in database." });
-        }
-
+        // --- STEP 5: Database Update ---
         await prisma.$transaction([
             prisma.user.update({
                 where: { walletAddress },
@@ -71,9 +69,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         return res.status(200).json({ success: true });
 
-    } catch (error: any) {
-        // This will now show up in your server logs so you can see the EXACT line that failed
-        console.error("CRITICAL BACKEND ERROR:", error.message);
-        return res.status(500).json({ error: "Internal server error during verification" });
+    } catch (err: any) {
+        // This prints the REAL error to your browser console so you can tell me what it says
+        console.error("DETAILED_ERROR:", err.message);
+        return res.status(500).json({
+            error: "Internal Server Error",
+            debug: err.message, // This lets you see the error on your Seeker
+            stack: err.stack
+        });
     }
 }
