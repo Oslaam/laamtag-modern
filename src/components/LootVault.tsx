@@ -124,7 +124,7 @@ export default function LootVault() {
                             ) : canClaimSkr ? (
                                 "CLAIM"
                             ) : (
-                                `${skrProgress.toFixed(0)}% TO THRESHOLD`
+                                `${skrProgress.toFixed(0)}%`
                             )}
                         </span>
                     </button>

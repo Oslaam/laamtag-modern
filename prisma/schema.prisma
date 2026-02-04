@@ -43,7 +43,7 @@ model Activity {
   type          String   // e.g., "SPIN_COST", "SPIN_WIN", "TAG_PURCHASE" , "SWAP"
   asset         String   // e.g., "TAG", "LAAM", "SOL", "USDC" , "SOL/USDC"
   amount        Float
-  signature       String?  // To store the Solana TX hash
+  signature       String? // To store the Solana TX hash
   createdAt     DateTime @default(now())
 }
 
