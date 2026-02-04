@@ -3,17 +3,39 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '../../../../lib/prisma';
 import { Connection } from '@solana/web3.js';
 
+const SKR_MINT = "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3";
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: "Method not allowed" });
+    }
+
     const { walletAddress, signature } = req.body;
-    const SKR_MINT = "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3";
-    const TREASURY = "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc";
+
+    if (!walletAddress || !signature) {
+        return res.status(400).json({ error: "Missing walletAddress or signature" });
+    }
 
     try {
-        const connection = new Connection(process.env.RPC_URL || "https://api.mainnet-beta.solana.com");
+        const connection = new Connection(
+            process.env.RPC_URL || "https://api.mainnet-beta.solana.com"
+        );
 
+        // 1. REPLAY PROTECTION
+        // Check if this signature has already been used to unlock the game
+        const alreadyUsed = await prisma.activity.findFirst({
+            where: { signature }
+        });
+
+        if (alreadyUsed) {
+            return res.status(400).json({ error: "Transaction already processed" });
+        }
+
+        // 2. FETCH TRANSACTION (Retry loop for RPC propagation)
+        // We use getTransaction for better stability with Versioned Transactions (v0)
         let tx = null;
         for (let i = 0; i < 5; i++) {
-            tx = await connection.getParsedTransaction(signature, {
+            tx = await connection.getTransaction(signature, {
                 commitment: 'confirmed',
                 maxSupportedTransactionVersion: 0
             });
@@ -21,50 +43,65 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             await new Promise(r => setTimeout(r, 2000));
         }
 
-        if (!tx || !tx.meta) {
-            return res.status(400).json({ error: "Transaction receipt not found." });
+        if (!tx || tx.meta?.err) {
+            return res.status(400).json({ error: "Transaction not found or failed on-chain" });
         }
 
-        // 2. STABLE AMOUNT CHECK
-        const postBalances = tx.meta.postTokenBalances || [];
-        const preBalances = tx.meta.preTokenBalances || [];
+        // 3. MOBILE-SAFE VERIFICATION (Delta Check)
+        // We look for the SKR movement and ignore the 'owner' field to avoid 
+        // inconsistent RPC parsing on Solana Mobile (Seeker).
+        const postBalances = tx.meta.postTokenBalances ?? [];
+        const preBalances = tx.meta.preTokenBalances ?? [];
 
-        const treasuryPost = postBalances.find(b => b.owner === TREASURY && b.mint === SKR_MINT);
-        const treasuryPre = preBalances.find(b => b.owner === TREASURY && b.mint === SKR_MINT);
+        const postEntry = postBalances.find(b => b.mint === SKR_MINT);
+        const preEntry = preBalances.find(b => b.mint === SKR_MINT);
 
-        // Use 0 as fallback if the account didn't exist before the tx
-        const postAmount = Number(treasuryPost?.uiTokenAmount?.amount || 0);
-        const preAmount = Number(treasuryPre?.uiTokenAmount?.amount || 0);
-
-        // Calculate difference in atoms, then convert to decimals (SKR has 6)
-        const diffAtoms = postAmount - preAmount;
-        const amountReceived = diffAtoms / 1_000_000;
-
-        console.log(`Verification for ${walletAddress}: Received ${amountReceived} SKR`);
-
-        if (amountReceived < 199) { // Using 199 to account for tiny rounding issues
-            return res.status(400).json({ error: `Insufficient payment. Found ${amountReceived} SKR` });
+        if (!postEntry) {
+            return res.status(400).json({ error: "SKR payment not detected in transaction metadata" });
         }
 
-        // 3. Update DB
-        await prisma.user.update({
-            where: { walletAddress },
-            data: {
-                hasPaidDiceEntry: true,
-                activities: {
-                    create: {
-                        type: "DICE_GATE_FEE",
-                        asset: "SKR",
-                        amount: 200,
-                        signature: signature
-                    }
+        const postAmount = postEntry.uiTokenAmount.uiAmount ?? 0;
+        const preAmount = preEntry?.uiTokenAmount.uiAmount ?? 0;
+
+        // Calculate how much the balance increased
+        const amountReceived = postAmount - preAmount;
+
+        console.log(`[DICE UNLOCK] Wallet: ${walletAddress} | Received: ${amountReceived} SKR`);
+
+        // Check for 200 SKR (threshold at 199.9 to handle minor float precision)
+        if (amountReceived < 199.9) {
+            return res.status(400).json({
+                error: `Insufficient payment. Received ${amountReceived.toFixed(2)} SKR`
+            });
+        }
+
+        // 4. ATOMIC DATABASE UPDATE
+        // Unlocks the game and logs the activity in one transaction
+        await prisma.$transaction([
+            prisma.user.update({
+                where: { walletAddress },
+                data: { hasPaidDiceEntry: true }
+            }),
+            prisma.activity.create({
+                data: {
+                    userId: walletAddress,
+                    type: "DICE_GATE_FEE",
+                    asset: "SKR",
+                    amount: 200,
+                    signature: signature
                 }
-            }
+            })
+        ]);
+
+        return res.status(200).json({
+            success: true,
+            message: "Dice module decrypted and unlocked"
         });
 
-        return res.status(200).json({ success: true });
     } catch (error: any) {
-        console.error("CRITICAL BACKEND ERROR:", error);
-        return res.status(500).json({ error: error.message || "Internal Server Error" });
+        console.error("CRITICAL UNLOCK ERROR:", error);
+        return res.status(500).json({
+            error: "Internal server error during verification"
+        });
     }
 }
