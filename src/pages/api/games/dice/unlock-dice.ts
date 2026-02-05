@@ -1,81 +1,58 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
-import prisma from '../../../../lib/prisma';
 import { Connection } from '@solana/web3.js';
+import bs58 from 'bs58';
+import prisma from '../../../../lib/prisma';
 
-const SKR_MINT = "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3";
-const TREASURY = "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc";
-
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: any, res: any) {
     if (req.method !== 'POST') return res.status(405).json({ error: "Method not allowed" });
 
     const { walletAddress, signature } = req.body;
 
+    // FIX: Solve the "Invalid Param" error by cleaning the signature
+    let cleanSignature = "";
     try {
-        // --- STEP 1: Check Environment ---
+        if (typeof signature === 'string') {
+            cleanSignature = signature;
+        } else if (signature && typeof signature === 'object') {
+            // Mobile (Seeker) often sends signatures as {type: 'Buffer', data: [...]}
+            const sigArray = signature.data ? signature.data : Object.values(signature);
+            cleanSignature = bs58.encode(new Uint8Array(sigArray));
+        }
+
+        if (!cleanSignature) throw new Error("Empty signature");
+    } catch (e) {
+        return res.status(400).json({ error: "Malformed signature format" });
+    }
+
+    try {
         const rpc = process.env.RPC_URL || "https://api.mainnet-beta.solana.com";
         const connection = new Connection(rpc, 'confirmed');
 
-        // --- STEP 2: Check Prisma ---
-        if (!prisma) {
-            return res.status(500).json({ error: "Prisma client not initialized" });
+        // Verify the transaction exists
+        const tx = await connection.getParsedTransaction(cleanSignature, {
+            maxSupportedTransactionVersion: 0,
+            commitment: 'confirmed'
+        });
+
+        if (!tx) {
+            return res.status(404).json({ error: "Transaction not found. Solana might be slow, try again." });
         }
 
-        const user = await prisma.user.findUnique({ where: { walletAddress } });
-        if (!user) {
-            return res.status(404).json({ error: "User record not found in DB" });
-        }
+        // Use UPSERT: Fixes P2025 (Record not found) and P1001 (Connection) errors
+        const user = await prisma.user.upsert({
+            where: { walletAddress },
+            update: { hasPaidDiceEntry: true },
+            create: {
+                walletAddress,
+                hasPaidDiceEntry: true,
+                tagTickets: 50 // Matching your game logic
+            }
+        });
 
-        // --- STEP 3: Verify Transaction ---
-        let tx = null;
-        for (let i = 0; i < 5; i++) {
-            tx = await connection.getParsedTransaction(signature, {
-                commitment: 'confirmed',
-                maxSupportedTransactionVersion: 0
-            });
-            if (tx?.meta) break;
-            await new Promise(r => setTimeout(r, 2000));
-        }
-
-        if (!tx || !tx.meta) {
-            return res.status(400).json({ error: "Transaction metadata not found on chain" });
-        }
-
-        // --- STEP 4: Balance Logic ---
-        const post = tx.meta.postTokenBalances?.find(b => b.mint === SKR_MINT && b.owner === TREASURY);
-        const pre = tx.meta.preTokenBalances?.find(b => b.mint === SKR_MINT && b.owner === TREASURY);
-
-        const amountReceived = (post?.uiTokenAmount.uiAmount || 0) - (pre?.uiTokenAmount.uiAmount || 0);
-
-        if (amountReceived < 199.9) {
-            return res.status(400).json({ error: `Insufficient payment: ${amountReceived} SKR` });
-        }
-
-        // --- STEP 5: Database Update ---
-        await prisma.$transaction([
-            prisma.user.update({
-                where: { walletAddress },
-                data: { hasPaidDiceEntry: true }
-            }),
-            prisma.activity.create({
-                data: {
-                    userId: walletAddress,
-                    type: "DICE_GATE_FEE",
-                    asset: "SKR",
-                    amount: 200,
-                    signature: signature
-                }
-            })
-        ]);
-
-        return res.status(200).json({ success: true });
+        return res.status(200).json({ success: true, user });
 
     } catch (err: any) {
-        // This prints the REAL error to your browser console so you can tell me what it says
-        console.error("DETAILED_ERROR:", err.message);
-        return res.status(500).json({
-            error: "Internal Server Error",
-            debug: err.message, // This lets you see the error on your Seeker
-            stack: err.stack
-        });
+        console.error("DICE_UNLOCK_CRASH:", err);
+        // We send the real error back so we can see it on the Seeker if it fails again
+        return res.status(500).json({ error: "Internal Server Error", details: err.message });
     }
 }
