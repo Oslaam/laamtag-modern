@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Lock, Unlock, Cpu } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { PublicKey, TransactionMessage, VersionedTransaction } from '@solana/web3.js'; // Added v0 imports
+import { PublicKey, TransactionMessage, VersionedTransaction } from '@solana/web3.js';
 import { getAssociatedTokenAddress, createTransferInstruction } from '@solana/spl-token';
 import bs58 from 'bs58';
 
@@ -47,14 +47,11 @@ const DiceTerminal: React.FC<DiceTerminalProps> = ({ user, refreshUser }) => {
             const SKR_MINT = new PublicKey("SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3");
             const TREASURY = new PublicKey("CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc");
 
-            // 1. Get ATAs
             const userAta = await getAssociatedTokenAddress(SKR_MINT, publicKey);
             const treasuryAta = await getAssociatedTokenAddress(SKR_MINT, TREASURY);
 
-            // 2. Fetch fresh blockhash
-            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+            const { blockhash } = await connection.getLatestBlockhash('confirmed');
 
-            // 3. Create Versioned Transaction (CRITICAL FOR MOBILE)
             const instructions = [
                 createTransferInstruction(
                     userAta,
@@ -72,17 +69,17 @@ const DiceTerminal: React.FC<DiceTerminalProps> = ({ user, refreshUser }) => {
 
             const transaction = new VersionedTransaction(messageV0);
 
-            // 4. Send & Confirm
+            // 4. Send Transaction
             const signatureResult = await sendTransaction(transaction, connection);
 
-            // This ensures the signature is ALWAYS a string before it leaves the browser
+            // CLEAN SIGNATURE LOGIC: Ensures Seeker objects are converted to strings
             const signature = typeof signatureResult === 'string'
                 ? signatureResult
-                : bs58.encode(signatureResult);
+                : bs58.encode(new Uint8Array(Object.values(signatureResult)));
 
             toast.loading("Verifying on-chain...", { id: "verify-tx" });
 
-            // 5. Verify with backend
+            // 5. Notify Backend (Minting Pattern)
             const res = await fetch('/api/games/dice/unlock-dice', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -108,7 +105,6 @@ const DiceTerminal: React.FC<DiceTerminalProps> = ({ user, refreshUser }) => {
         }
     };
 
-    // ... handleRoll and return JSX remain the same ...
     const handleRoll = async () => {
         if (isRolling) return;
         if (user.tagTickets < 50) {
@@ -213,13 +209,6 @@ const DiceTerminal: React.FC<DiceTerminalProps> = ({ user, refreshUser }) => {
                     <span style={{ color: 'rgba(255,255,255,0.3)' }}>CURRENT NONCE:</span>
                     <span style={{ color: '#eab308', fontWeight: 900 }}>{user.activities?.length || 0}</span>
                 </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '20px', fontSize: '10px' }}>
-                <div style={{ background: 'rgba(255,255,255,0.05)', padding: '8px', borderRadius: '6px', border: '1px solid rgba(234,179,8,0.3)' }}>
-                    <span style={{ color: '#eab308' }}>JACKPOT:</span> 8000 SKR
-                </div>
-                {/* ... other wins ... */}
             </div>
 
             <button onClick={handleRoll} disabled={isRolling} style={{ width: '100%', padding: '18px', background: isRolling ? '#333' : '#eab308', color: '#000', fontWeight: 900, border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
