@@ -10,10 +10,16 @@ import RaffleHistory from './RaffleHistory';
 // Umi & Metaplex Imports
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-adapters";
-import { transferTokens, setComputeUnitPrice } from "@metaplex-foundation/mpl-toolbox";
 import { publicKey as umiPublicKey } from "@metaplex-foundation/umi";
 import { base58 } from "@metaplex-foundation/umi/serializers";
-import { findAssociatedTokenPda } from "@metaplex-foundation/mpl-toolbox";
+
+// UPDATED THIS LINE: added mplToolbox
+import { 
+    mplToolbox, 
+    transferTokens, 
+    findAssociatedTokenPda, 
+    setComputeUnitPrice 
+} from "@metaplex-foundation/mpl-toolbox";
 
 const SKR_MINT = new PublicKey("SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3");
 const TREASURY = new PublicKey("CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc");
@@ -224,7 +230,7 @@ export default function RaffleLobby() {
         finally { setIsActionLoading(false); }
     };
 
-   const handleJoin = async (poolId: string, fee: number) => {
+  const handleJoin = async (poolId: string, fee: number) => {
     if (!publicKey || !wallet || !wallet.adapter.connected) {
         return toast.error("Please connect your wallet first!");
     }
@@ -232,13 +238,16 @@ export default function RaffleLobby() {
     setIsActionLoading(true);
 
     try {
-        const umi = createUmi(RPC_URL).use(walletAdapterIdentity(wallet.adapter as any));
+        // ADD .use(mplToolbox()) HERE
+        const umi = createUmi(RPC_URL)
+            .use(walletAdapterIdentity(wallet.adapter as any))
+            .use(mplToolbox()); 
 
         const SKR_MINT_UMI = umiPublicKey("SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3");
         const TREASURY_WALLET_UMI = umiPublicKey("CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc");
         const userWalletUmi = umiPublicKey(publicKey.toBase58());
 
-        // Derive only the PublicKey [0] from the PDA tuple
+        // Now Umi will recognize the program and derive these correctly
         const sourceAccount = findAssociatedTokenPda(umi, {
             mint: SKR_MINT_UMI,
             owner: userWalletUmi,
