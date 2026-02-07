@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { X, TrendingUp, Zap, History, Clock } from 'lucide-react';
 
-// Added 'NFT' to the types
 type FilterType = 'ALL' | 'WINS' | 'COSTS' | 'STAKING' | 'NFT' | 'SKR';
 
 export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
@@ -31,17 +30,22 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
     useEffect(() => {
         const filtered = rawHistory.filter(item => {
             if (activeFilter === 'ALL') return true;
-            // Enhanced COSTS filter to include DICE_LOSS (which uses negative amounts) and GATE fees
+
             if (activeFilter === 'COSTS') {
                 return item.type.includes('COST') ||
                     item.type.includes('FEE') ||
                     item.type.includes('LOSS') ||
-                    item.type.includes('SPENT');
+                    item.type.includes('SPENT') ||
+                    item.type.includes('ENTRY'); // Matches RAFFLE_ENTRY_COST
             }
-            if (activeFilter === 'WINS') return item.type.includes('WIN') && !item.type.includes('LOSS');
+
+            if (activeFilter === 'WINS') {
+                // Now includes RAFFLE_WIN and RAFFLE_REWARD types
+                return item.type.includes('WIN') || item.type.includes('REWARD');
+            }
+
             if (activeFilter === 'STAKING') return item.type.includes('STAKING');
             if (activeFilter === 'NFT') return item.type.includes('NFT');
-            if (activeFilter === 'SKR') return item.asset === 'SKR';
             return true;
         });
 
@@ -136,10 +140,11 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
                                 </h3>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                     {groupedHistory[date].map((item: any) => {
-                                        // Logic to determine if it's a cost/loss
+                                        // 1. IMPROVED LOGIC: Check for 'ENTRY' so Raffle Costs show as Red
                                         const isCost = item.type.includes('COST') ||
                                             item.type.includes('FEE') ||
                                             item.type.includes('LOSS') ||
+                                            item.type.includes('ENTRY') || // This catches RAFFLE_ENTRY_COST
                                             item.amount < 0;
 
                                         const themeColor = isCost ? '#ef4444' : '#22c55e';
@@ -166,7 +171,8 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
                                                             background: item.asset === 'SKR' ? 'rgba(234, 179, 8, 0.1)' : bgColor,
                                                             color: item.asset === 'SKR' ? '#eab308' : themeColor
                                                         }}>
-                                                            {item.type.replace('_', ' ')}
+                                                            {/* 2. UI FIX: This replaces ALL underscores with spaces */}
+                                                            {item.type.split('_').join(' ')}
                                                         </span>
                                                         <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', gap: '2px' }}>
                                                             <Clock size={8} />

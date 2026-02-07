@@ -22,10 +22,11 @@ const ADMIN_WALLETS = [
 export default function AdminDashboard() {
   const { publicKey, signMessage } = useWallet();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'QUESTS' | 'SUPPORT' | 'HISTORY'>('QUESTS');
+  const [activeTab, setActiveTab] = useState<'QUESTS' | 'SUPPORT' | 'HISTORY' | 'RAFFLES'>('QUESTS');
   const [submissions, setSubmissions] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [history, setHistory] = useState([]);
+  const [raffleHistory, setRaffleHistory] = useState([]); // Fixed: Added missing state
   const [loading, setLoading] = useState(true);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [showSuccessUI, setShowSuccessUI] = useState(false);
@@ -50,7 +51,7 @@ export default function AdminDashboard() {
     setLoading(true);
     try {
       const headers = { 'x-admin-wallet': publicKey.toString() };
-      
+
       const questRes = await fetch('/api/admin/pending', { headers });
       const questData = await questRes.json();
       setSubmissions(questData.submissions || []);
@@ -62,6 +63,11 @@ export default function AdminDashboard() {
       const historyRes = await fetch('/api/admin/history', { headers });
       const historyData = await historyRes.json();
       setHistory(historyData.history || []);
+
+      // Fetch Raffle History
+      const raffleRes = await fetch('/api/admin/raffle-history', { headers });
+      const raffleData = await raffleRes.json();
+      setRaffleHistory(raffleData.history || []);
 
     } catch (err) {
       console.error("Fetch error:", err);
@@ -175,13 +181,13 @@ export default function AdminDashboard() {
         </div>
 
         <div className="flex gap-2 mb-8 bg-zinc-900/50 p-1.5 rounded-2xl border border-white/5">
-          {['QUESTS', 'SUPPORT', 'HISTORY'].map((tab) => (
-            <button 
+          {['QUESTS', 'SUPPORT', 'HISTORY', 'RAFFLES'].map((tab) => (
+            <button
               key={tab}
-              onClick={() => setActiveTab(tab as any)} 
+              onClick={() => setActiveTab(tab as any)}
               className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/10' : 'text-zinc-500 hover:text-white'}`}
             >
-              {tab} {tab === 'QUESTS' ? `(${submissions.length})` : tab === 'SUPPORT' ? `(${tickets.length})` : ''}
+              {tab}
             </button>
           ))}
         </div>
@@ -245,8 +251,8 @@ export default function AdminDashboard() {
             {activeTab === 'SUPPORT' && tickets.map((t: any) => (
               <MotionDiv layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} key={t.id} className="border border-zinc-800 rounded-[32px] bg-zinc-900/40 overflow-hidden hover:border-yellow-500/20 transition-all">
                 <div className="p-4 bg-white/5 border-b border-white/5 flex justify-between items-center">
-                   <span className={`text-[9px] font-black px-3 py-1 rounded-full ${t.type === 'Complaint' ? 'bg-red-500' : 'bg-blue-600'} uppercase text-white tracking-widest`}>{t.type}</span>
-                   <span className="text-zinc-600 text-[10px] font-mono italic uppercase">{new Date(t.createdAt).toLocaleDateString()}</span>
+                  <span className={`text-[9px] font-black px-3 py-1 rounded-full ${t.type === 'Complaint' ? 'bg-red-500' : 'bg-blue-600'} uppercase text-white tracking-widest`}>{t.type}</span>
+                  <span className="text-zinc-600 text-[10px] font-mono italic uppercase">{new Date(t.createdAt).toLocaleDateString()}</span>
                 </div>
                 <div className="p-6">
                   <h3 className="text-xl font-black mb-3 text-white italic uppercase tracking-tight">{t.title}</h3>
@@ -272,7 +278,54 @@ export default function AdminDashboard() {
               </MotionDiv>
             ))}
 
-            {(activeTab === 'QUESTS' ? submissions.length : activeTab === 'SUPPORT' ? tickets.length : history.length) === 0 && (
+            {activeTab === 'RAFFLES' && (
+              <div className="flex flex-col gap-6">
+                <div className="p-8 border border-yellow-500/20 rounded-[32px] bg-yellow-500/5 flex justify-between items-center">
+                  <div>
+                    <h2 className="text-xl font-black italic uppercase">Lobby Maintenance</h2>
+                    <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest">Clear ghost pools and expired sessions</p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      const res = await fetch('/api/admin/clear-expired', {
+                        method: 'POST',
+                        headers: { 'x-admin-wallet': publicKey?.toString() || '' }
+                      });
+                      if (res.ok) {
+                        const data = await res.json();
+                        toast.success(`${data.count} POOLS WIPED FROM MATRIX`);
+                        fetchData();
+                      }
+                    }}
+                    className="bg-red-500 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase hover:bg-white hover:text-black transition-all"
+                  >
+                    Purge Expired Pools
+                  </button>
+                </div>
+
+                <div className="mt-10">
+                  <h3 className="text-yellow-500 font-black italic mb-4 uppercase tracking-widest text-xs">Completed Matrix Pools</h3>
+                  <div className="grid gap-4">
+                    {raffleHistory.length > 0 ? raffleHistory.map((h: any) => (
+                      <div key={h.id} className="p-4 border border-white/5 bg-zinc-900/40 rounded-2xl flex justify-between items-center">
+                        <div>
+                          <p className="text-[10px] font-mono text-zinc-500 uppercase">POOL_ID: {h.id}</p>
+                          <p className="text-sm font-black text-white italic">WINNER: <span className="text-yellow-500">{h.winnerAddress ? `${h.winnerAddress.slice(0, 8)}...` : 'NONE'}</span></p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] font-black text-zinc-500 uppercase">{h.entries?.length || 0} PARTICIPANTS</p>
+                          <p className="text-[9px] text-zinc-600">{new Date(h.updatedAt).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                    )) : (
+                      <p className="text-zinc-600 text-[10px] uppercase font-black italic">No history recorded</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {(activeTab === 'QUESTS' ? submissions.length : activeTab === 'SUPPORT' ? tickets.length : activeTab === 'HISTORY' ? history.length : 0) === 0 && activeTab !== 'RAFFLES' && (
               <div className="text-center py-32 border-2 border-dashed border-zinc-900 rounded-[40px] bg-zinc-900/5">
                 <ShieldAlert className="mx-auto text-zinc-800 mb-4" size={40} />
                 <p className="text-zinc-600 font-black italic uppercase tracking-[0.5em] text-[10px]">Terminal clear // No transmissions found</p>

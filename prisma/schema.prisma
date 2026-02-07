@@ -52,6 +52,7 @@ model PendingReward {
   userId        String
   user          User     @relation(fields: [userId], references: [walletAddress])
   asset         String   // "SOL" or "USDC"
+  type      String   @default("REWARD") // <--- "REWARD" or "REFUND" on raffle
   amount        Float
   isClaimed     Boolean  @default(false)
   createdAt     DateTime @default(now())
@@ -151,4 +152,27 @@ model MultiplierBoost {
 
   @@index([userAddress])
   @@index([mintAddress])
+}
+
+model RafflePool {
+  id           String        @id @default(cuid())
+  entryFee     Float         // 500, 1000, etc.
+  status       String        @default("OPEN") // OPEN, DRAWING, COMPLETED, EXPIRED
+  winnerAddress String?
+  expiresAt    DateTime
+  createdAt    DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  entries      RaffleEntry[]
+}
+
+model RaffleEntry {
+  id            String     @id @default(cuid())
+  poolId        String
+  walletAddress String
+  txSignature   String     @unique
+  status        String      @default("PENDING")
+  pool          RafflePool @relation(fields: [poolId], references: [id])
+  createdAt     DateTime   @default(now())
+
+  @@unique([poolId, walletAddress]) // Prevents one user entering same pool twice
 }

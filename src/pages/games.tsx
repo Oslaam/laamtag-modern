@@ -3,6 +3,7 @@ import SeekerGuard from '../components/SeekerGuard';
 import GuessGameComponent from '../components/GuessGame';
 import SpinGame from '../components/SpinGame';
 import DiceTerminal from '../components/DiceTerminal';
+import RaffleLobby from '../components/RaffleLobby';
 import { useWallet } from '@solana/wallet-adapter-react';
 import dynamic from 'next/dynamic';
 const ShooterContainer = dynamic(
@@ -15,7 +16,8 @@ import { Toaster } from 'react-hot-toast';
 import { History, ChevronLeft } from 'lucide-react';
 
 export default function GamesPage() {
-    const [activeGame, setActiveGame] = useState<'GUESS' | 'SPIN' | 'SHOOTER' | 'DICE' | null>(null);
+    // Added 'RAFFLE' to the activeGame type
+    const [activeGame, setActiveGame] = useState<'GUESS' | 'SPIN' | 'SHOOTER' | 'DICE' | 'RAFFLE' | null>(null);
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [user, setUser] = useState<any>(null);
 
@@ -24,10 +26,9 @@ export default function GamesPage() {
 
     // 3. Update fetchUser to use the wallet address
     const fetchUser = useCallback(async () => {
-        if (!publicKey) return; // Don't fetch if wallet isn't connected
+        if (!publicKey) return;
 
         try {
-            // This is the critical fix: adding the ?address= parameter
             const res = await fetch(`/api/user/me?address=${publicKey.toBase58()}`);
             const data = await res.json();
 
@@ -83,7 +84,7 @@ export default function GamesPage() {
 
                     <div style={{ marginTop: '40px' }}>
                         {!activeGame ? (
-                            /* UPDATED GRID: Added Probability Matrix */
+                            /* GRID REMAINS 2 COLUMNS */
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                                 <ModuleCard
                                     title="Frequency Jammer"
@@ -109,6 +110,12 @@ export default function GamesPage() {
                                     imageSrc="/assets/images/dice.jpg"
                                     onClick={() => setActiveGame('DICE')}
                                 />
+                                <ModuleCard
+                                    title="Data Scraper Raffle"
+                                    desc="POOL ENTRY & REFUNDS"
+                                    imageSrc="/assets/images/raffle.png"
+                                    onClick={() => setActiveGame('RAFFLE')}
+                                />
                             </div>
                         ) : (
                             <div className="terminal-card" style={{ padding: '24px' }}>
@@ -117,7 +124,8 @@ export default function GamesPage() {
                                         {activeGame === 'GUESS' ? 'COST: 1 TAG PER ATTEMPT' :
                                             activeGame === 'SPIN' ? 'COST: 5 TAG PER ATTEMPT' :
                                                 activeGame === 'DICE' ? 'AUTHORIZED ACCESS ONLY' :
-                                                    'MISSION: ELIMINATE TO EARN'}
+                                                    activeGame === 'RAFFLE' ? 'DATA SCRAPING IN PROGRESS' :
+                                                        'MISSION: ELIMINATE TO EARN'}
                                     </p>
                                 </div>
 
@@ -125,12 +133,14 @@ export default function GamesPage() {
                                 {activeGame === 'SPIN' && <SpinGame />}
                                 {activeGame === 'SHOOTER' && <ShooterContainer />}
                                 {activeGame === 'DICE' && user && <DiceTerminal user={user} refreshUser={mutate} />}
+                                {activeGame === 'RAFFLE' && <RaffleLobby />}
 
                                 <div style={{ marginTop: '32px', background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
                                     <h4 style={{ fontSize: '10px', fontWeight: 900, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: '12px' }}>
                                         {activeGame === 'GUESS' ? 'Jammer Rewards' :
                                             activeGame === 'SPIN' ? 'Reactor Loot' :
-                                                activeGame === 'DICE' ? 'Matrix Yield' : 'Void Rewards'}
+                                                activeGame === 'DICE' ? 'Matrix Yield' :
+                                                    activeGame === 'RAFFLE' ? 'Scraper Pool' : 'Void Rewards'}
                                     </h4>
 
                                     {activeGame === 'DICE' && (

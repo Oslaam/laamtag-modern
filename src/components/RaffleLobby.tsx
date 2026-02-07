@@ -1,0 +1,328 @@
+import { useState, useEffect } from 'react';
+import { Timer, Users, ArrowRight, Loader2, Plus, Trophy, Medal, Award, Shield, CheckCircle2, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
+import { useConnection, useWallet } from '@solana/wallet-adapter-react';
+import { PublicKey, Transaction } from '@solana/web3.js';
+import { createTransferCheckedInstruction, getAssociatedTokenAddress } from '@solana/spl-token';
+import axios from 'axios';
+import toast from 'react-hot-toast';
+import RaffleRefundSection from './RaffleRefundSection';
+import RaffleHistory from './RaffleHistory';
+
+const SKR_MINT = new PublicKey("SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3");
+const TREASURY = new PublicKey("CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc");
+
+function useCountdown(targetDate: string | Date) {
+    const [timeLeft, setTimeLeft] = useState(0);
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const now = new Date().getTime();
+            const target = new Date(targetDate).getTime();
+            setTimeLeft(Math.max(0, target - now));
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [targetDate]);
+
+    const hours = Math.floor((timeLeft / (1000 * 60 * 60)) % 24);
+    const minutes = Math.floor((timeLeft / (1000 * 60)) % 60);
+    const seconds = Math.floor((timeLeft / 1000) % 60);
+    return { hours, minutes, seconds, expired: timeLeft <= 0 };
+}
+
+const RaffleCard = ({
+    pool,
+    onJoin,
+    loading,
+    userWallet,
+    isArchived = false
+}: {
+    pool: any,
+    onJoin: (id: string, fee: number) => void,
+    loading: boolean,
+    userWallet: string | null,
+    isArchived?: boolean
+}) => {
+    const { hours, minutes, seconds, expired } = useCountdown(pool.expiresAt);
+    const participantCount = pool.entries?.length || 0;
+    const hasJoined = pool.entries?.some((e: any) => e.walletAddress === userWallet);
+    const isLocked = pool.status === 'LOCKED';
+    const isRefunded = pool.status === 'EXPIRED';
+
+    // Vibrant Color Logic (No Grayscale)
+    const getStatusColor = () => {
+        if (isLocked) return '#22c55e'; // Success Green
+        if (isRefunded || expired) return '#ef4444'; // Error Red
+        return '#eab308'; // Active Gold
+    };
+
+    const accentColor = getStatusColor();
+
+    return (
+        <div className="terminal-card" style={{
+            padding: '20px',
+            border: `1px solid ${accentColor}44`, // 44 is hex alpha for lower opacity border
+            background: 'rgba(0,0,0,0.4)',
+            transition: 'all 0.3s ease',
+            position: 'relative'
+        }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
+                <span style={{ color: accentColor, fontWeight: 900, fontSize: '12px', letterSpacing: '1px' }}>
+                    {pool.entryFee} $SKR POOL
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: accentColor, fontSize: '10px', fontWeight: 900 }}>
+                    {isLocked ? (
+                        <><CheckCircle2 size={12} /> COMPLETED</>
+                    ) : isRefunded ? (
+                        <><AlertCircle size={12} /> REFUNDED</>
+                    ) : (
+                        <><Timer size={12} /> {expired ? 'EXPIRED' : `${hours}h ${minutes}m ${seconds}s`}</>
+                    )}
+                </div>
+            </div>
+
+            {/* Progress Bars with matching status color */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+                {[...Array(5)].map((_, i) => (
+                    <div key={i} style={{
+                        height: '6px', flex: 1,
+                        background: i < participantCount ? accentColor : 'rgba(255,255,255,0.1)',
+                        boxShadow: i < participantCount ? `0 0 10px ${accentColor}66` : 'none',
+                        borderRadius: '2px'
+                    }} />
+                ))}
+            </div>
+
+            {/* Winner Section for Completed Pools */}
+            {isLocked && pool.entries && (
+                <div style={{ marginBottom: '20px', padding: '12px', background: 'rgba(34, 197, 94, 0.08)', border: '1px solid rgba(34, 197, 94, 0.3)', borderRadius: '8px' }}>
+                    <p style={{ fontSize: '10px', color: '#22c55e', fontWeight: 900, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Trophy size={14} /> DRAW RESULTS
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {[
+                            { status: 'WINNER_1ST', icon: <Medal size={12} color="#eab308" />, label: '1ST' },
+                            { status: 'WINNER_2ND', icon: <Award size={12} color="#94a3b8" />, label: '2ND' },
+                            { status: 'WINNER_3RD', icon: <Award size={12} color="#b45309" />, label: '3RD' }
+                        ].map((rank, i) => {
+                            const entry = pool.entries.find((e: any) => e.status === rank.status);
+                            return (
+                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#fff' }}>
+                                        {rank.icon}
+                                        <span style={{ fontWeight: 800 }}>{rank.label}</span>
+                                    </div>
+                                    <span style={{ fontFamily: 'monospace' }}>
+                                        {entry ? `${entry.walletAddress.slice(0, 4)}...${entry.walletAddress.slice(-4)}` : '---'}
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* Refund Badge for Failed Pools */}
+            {isRefunded && (
+                <div style={{ marginBottom: '20px', padding: '12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: '8px' }}>
+                    <p style={{ fontSize: '10px', color: '#ef4444', fontWeight: 900, margin: 0, display: 'flex', alignItems: 'center', gap: '8px', textAlign: 'center' }}>
+                        <AlertCircle size={14} /> REFUNDED: POOL DID NOT FILL
+                    </p>
+                </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: '10px', color: 'rgba(115, 74, 74, 0.6)' }}>
+                    <Users size={10} style={{ display: 'inline', marginRight: '4px' }} />
+                    {participantCount}/5 SECURED
+                </div>
+
+                <button
+                    onClick={() => onJoin(pool.id, pool.entryFee)}
+                    disabled={expired || participantCount >= 5 || loading || hasJoined || isRefunded}
+                    className="terminal-button"
+                    style={{
+                        padding: '8px 16px',
+                        fontSize: '10px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        borderColor: hasJoined ? '#22c55e' : (isRefunded ? '#ef4444' : accentColor),
+                        color: hasJoined ? '#22c55e' : (isRefunded ? '#ef4444' : 'white'),
+                        opacity: (isLocked || isRefunded) ? 0.7 : 1
+                    }}
+                >
+                    {loading ? (
+                        <Loader2 className="animate-spin" size={12} />
+                    ) : hasJoined ? (
+                        'JOINED'
+                    ) : isRefunded ? (
+                        'REFUNDED'
+                    ) : (participantCount >= 5 || isLocked) ? (
+                        'LOCKED'
+                    ) : (
+                        'ENTER'
+                    )}
+                    <ArrowRight size={12} />
+                </button>
+            </div>
+        </div>
+    );
+};
+
+export default function RaffleLobby() {
+    const { connection } = useConnection();
+    const { publicKey, sendTransaction } = useWallet();
+    const [pools, setPools] = useState<any[]>([]);
+    const [isActionLoading, setIsActionLoading] = useState(false);
+    const [showArchive, setShowArchive] = useState(false);
+
+    const fetchPools = async () => {
+        try {
+            const res = await axios.get('/api/games/raffle/get-pools');
+            setPools(res.data.pools || []);
+        } catch (e) { console.error("Pool Fetch Error", e); }
+    };
+
+    useEffect(() => {
+        fetchPools();
+        const int = setInterval(fetchPools, 10000);
+        return () => clearInterval(int);
+    }, []);
+
+    const activePools = pools.filter(p =>
+        p.status === 'OPEN' && new Date(p.expiresAt).getTime() > Date.now()
+    );
+
+    const finishedPools = pools.filter(p =>
+        p.status === 'LOCKED' ||
+        p.status === 'EXPIRED' ||
+        (p.status === 'OPEN' && new Date(p.expiresAt).getTime() <= Date.now())
+    );
+
+    const latestFinished = finishedPools[0];
+    const archivedPools = finishedPools.slice(1);
+
+    const createNewPool = async () => {
+        setIsActionLoading(true);
+        try {
+            await axios.post('/api/games/raffle/create-pool');
+            toast.success("NEW POOL INITIALIZED");
+            fetchPools();
+        } catch (e) { toast.error("Failed to create pool"); }
+        finally { setIsActionLoading(false); }
+    };
+
+    const handleJoin = async (poolId: string, fee: number) => {
+        if (!publicKey) return toast.error("Connect Wallet First");
+        setIsActionLoading(true);
+        try {
+            const userATA = await getAssociatedTokenAddress(SKR_MINT, publicKey);
+            const treasuryATA = await getAssociatedTokenAddress(SKR_MINT, TREASURY);
+
+            const tx = new Transaction().add(
+                createTransferCheckedInstruction(userATA, SKR_MINT, treasuryATA, publicKey, fee * 1_000_000, 6)
+            );
+
+            const signature = await sendTransaction(tx, connection);
+            await connection.confirmTransaction(signature, 'confirmed');
+
+            await axios.post('/api/games/raffle/join', { poolId, walletAddress: publicKey.toBase58(), signature });
+            toast.success("ENTRY SECURED");
+            fetchPools();
+        } catch (err) { toast.error("Transaction Failed"); }
+        finally { setIsActionLoading(false); }
+    };
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {publicKey && <RaffleRefundSection walletAddress={publicKey.toBase58()} />}
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '15px' }}>
+                <div>
+                    <h3 style={{ color: '#eab308', margin: 0, fontSize: '14px', fontWeight: 900 }}>MATRIX SPRINT LOBBY</h3>
+                    <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', margin: 0 }}>MULTIPLE POOLS ACTIVE</p>
+                </div>
+                <button
+                    onClick={createNewPool}
+                    disabled={isActionLoading}
+                    className="terminal-button"
+                    style={{ background: '#eab308', color: 'black', padding: '10px 20px' }}
+                >
+                    <Plus size={14} style={{ marginRight: '5px' }} /> START NEW POOL
+                </button>
+            </div>
+
+            <div className="terminal-card" style={{ marginBottom: '20px', borderLeft: '4px solid #eab308', background: 'rgba(234, 179, 8, 0.05)' }}>
+                <h4 style={{ color: '#eab308', fontSize: '12px', marginBottom: '10px', fontWeight: 900 }}>SYSTEM PROTOCOL: MATRIX SPRINT</h4>
+                <ul style={{ color: 'rgba(255,255,255,0.7)', fontSize: '11px', lineHeight: '1.6', listStyle: 'none', padding: 0 }}>
+                    <li>• <strong>Objective:</strong> Each pool requires 5 participants to trigger the draw.</li>
+                    <li>• <strong>Prize Pool:</strong> 1st: <span style={{ color: '#22c55e' }}>1,000 SKR</span> | 2nd: 700 SKR | 3rd: 600 SKR</li>
+                    <li>• <strong>Challenger Rewards:</strong> 4th & 5th place receive 10,000 LaamPoints + 200 TAG Tickets.</li>
+                    <li>• <strong>Refunds:</strong> If a pool doesn't fill within 3 hours, you can claim your SKR back.</li>
+                </ul>
+            </div>
+
+            {activePools.map((pool: any) => (
+                <RaffleCard
+                    key={pool.id}
+                    pool={pool}
+                    onJoin={handleJoin}
+                    loading={isActionLoading}
+                    userWallet={publicKey?.toBase58() || null}
+                />
+            ))}
+
+            {latestFinished && (
+                <div style={{ marginTop: '10px' }}>
+                    <p style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontWeight: 900, marginBottom: '8px', letterSpacing: '1px' }}>
+                        LATEST RESULT
+                    </p>
+                    <RaffleCard
+                        key={latestFinished.id}
+                        pool={latestFinished}
+                        onJoin={handleJoin}
+                        loading={isActionLoading}
+                        userWallet={publicKey?.toBase58() || null}
+                    />
+                </div>
+            )}
+
+            {archivedPools.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
+                    <button
+                        onClick={() => setShowArchive(!showArchive)}
+                        style={{
+                            background: 'rgba(255,255,255,0.03)',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            borderRadius: '8px',
+                            padding: '8px 16px',
+                            color: 'rgba(255,255,255,0.4)',
+                            fontSize: '10px',
+                            fontWeight: 900,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                        }}
+                    >
+                        {showArchive ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                        {showArchive ? 'HIDE HISTORY' : `SHOW PREVIOUS (${archivedPools.length})`}
+                    </button>
+
+                    {showArchive && archivedPools.map((pool: any) => (
+                        <div key={pool.id} style={{ width: '100%' }}>
+                            <RaffleCard
+                                pool={pool}
+                                onJoin={handleJoin}
+                                loading={isActionLoading}
+                                userWallet={publicKey?.toBase58() || null}
+                                isArchived={true}
+                            />
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {publicKey && <RaffleHistory walletAddress={publicKey.toBase58()} />}
+        </div>
+    );
+}

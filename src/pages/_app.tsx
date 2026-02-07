@@ -75,29 +75,28 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
             return;
         };
 
-        if (isAdmin) {
-            const tRes = await fetch('/api/admin/tickets', {
-                headers: { 'x-admin-wallet': publicKey.toString() }
-            });
-            if (tRes.ok) {
-                const tData = await tRes.json();
-                // Filter only the pending ones
-                const count = tData.filter((t: any) => t.status === 'Pending').length;
-                setPendingCount(count);
-            }
-        }
-
         try {
+            // ADMIN CHECK (Safe inside try)
+            if (isAdmin) {
+                const tRes = await fetch('/api/admin/tickets', {
+                    headers: { 'x-admin-wallet': publicKey.toString() }
+                });
+                if (tRes.ok) {
+                    const tData = await tRes.json();
+                    const count = tData.filter((t: any) => t.status === 'Pending').length;
+                    setPendingCount(count);
+                }
+            }
+
+            // SOLANA BALANCE (Now safe inside try)
             const solBalance = await connection.getBalance(publicKey);
+
+            // USER DATABASE (Now safe inside try)
             const res = await fetch(`/api/user/${publicKey.toString()}`);
 
             if (res.ok) {
                 const data = await res.json();
-
-                // ✅ FIX 1: Use laamPoints (from Prisma) instead of laamAmount
                 const currentPoints = data.laamPoints || 0;
-
-                // ✅ FIX 2: Dynamic calculation ensures TIER is always correct
                 const rankData = getRank(currentPoints);
 
                 setStats({
@@ -111,11 +110,12 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
                 });
             }
         } catch (err) {
-            console.error("Fetch Stats Error:", err);
+            // If anything above fails, we just log it. 
+            // The UI stays visible and the user can keep playing.
+            console.warn("Network hiccup: Could not refresh stats. Will retry in 30s.");
         }
-    }, [publicKey, connection]);
-
-    // ✅ SINGLE CLEAN EFFECT (Merged your two previous ones)
+    }, [publicKey, connection, isAdmin]);
+    
     useEffect(() => {
         // Initial call when wallet connects
         fetchStats();
@@ -136,24 +136,22 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
         };
     }, [publicKey, connection, fetchStats]);
 
-    // ... rest of your UI code remains the same ...
-
-   const allContentItems: FooterItem[] = [
-    { name: 'Mint', icon: <Coins size={20} color="#eab308" />, path: '/mint', type: 'link' }, // Gold
-    { name: 'Quests', icon: <ScrollText size={20} color="#60a5fa" />, path: '/quests', type: 'link' }, // Blue
-    { name: 'Vault', icon: <Layers size={20} color="#a855f7" />, path: '/vault', type: 'link' }, // Purple
-    { name: 'Games', icon: <Gamepad2 size={20} color="#f43f5e" />, path: '/games', type: 'link' }, // Rose/Red
-    { name: 'Arena', icon: <Swords size={20} color="#9f3e99" />, path: '/arena', type: 'link' }, // Muted Gray (Locked vibe)
-    { name: 'Shop', icon: <ShoppingCart size={20} color="#fb923c" />, path: '/shop', type: 'link' }, // Orange
-    { name: 'Staking', icon: <DoorClosed size={20} color="#2dd4bf" />, path: '/staking', type: 'link' }, // Teal
-    { name: 'Trade', icon: <Repeat size={20} color="#4ade80" />, path: '/swap', type: 'link' }, // Green (Money/Flow)
-    { name: 'Bank', icon: <FileText size={20} color="#fbbf24" />, path: '/bank', type: 'link' }, // Amber
-    { name: 'Domain', icon: <Plus size={20} color="#9a823c" />, path: '/laam', type: 'link' }, // Gold (Matches your .laam branding)
-    { name: 'Profile', icon: <User size={20} color="#aa4747" />, path: '/profile', type: 'link' }, // White
-    { name: 'Rank', icon: <BarChart3 size={20} color="#facc15" />, path: '/leaderboard', type: 'link' }, // Yellow
-    { name: 'Contact', icon: <Mail size={20} color="#324d72" />, path: '/contact', type: 'link' }, // Slate
-    { name: 'History', icon: <History size={20} color="#698bb4" />, type: 'action', action: 'history' }, // Light Slate
-];
+    const allContentItems: FooterItem[] = [
+        { name: 'Mint', icon: <Coins size={20} color="#eab308" />, path: '/mint', type: 'link' }, // Gold
+        { name: 'Quests', icon: <ScrollText size={20} color="#60a5fa" />, path: '/quests', type: 'link' }, // Blue
+        { name: 'Vault', icon: <Layers size={20} color="#a855f7" />, path: '/vault', type: 'link' }, // Purple
+        { name: 'Games', icon: <Gamepad2 size={20} color="#f43f5e" />, path: '/games', type: 'link' }, // Rose/Red
+        { name: 'Arena', icon: <Swords size={20} color="#9f3e99" />, path: '/arena', type: 'link' }, // Muted Gray (Locked vibe)
+        { name: 'Shop', icon: <ShoppingCart size={20} color="#fb923c" />, path: '/shop', type: 'link' }, // Orange
+        { name: 'Staking', icon: <DoorClosed size={20} color="#2dd4bf" />, path: '/staking', type: 'link' }, // Teal
+        { name: 'Trade', icon: <Repeat size={20} color="#4ade80" />, path: '/swap', type: 'link' }, // Green (Money/Flow)
+        { name: 'Bank', icon: <FileText size={20} color="#fbbf24" />, path: '/bank', type: 'link' }, // Amber
+        { name: 'Domain', icon: <Plus size={20} color="#9a823c" />, path: '/laam', type: 'link' }, // Gold (Matches your .laam branding)
+        { name: 'Profile', icon: <User size={20} color="#aa4747" />, path: '/profile', type: 'link' }, // White
+        { name: 'Rank', icon: <BarChart3 size={20} color="#facc15" />, path: '/leaderboard', type: 'link' }, // Yellow
+        { name: 'Contact', icon: <Mail size={20} color="#324d72" />, path: '/contact', type: 'link' }, // Slate
+        { name: 'History', icon: <History size={20} color="#698bb4" />, type: 'action', action: 'history' }, // Light Slate
+    ];
     const topRow = allContentItems.slice(0, 4);
     const toggleButton: FooterItem = {
         name: expanded ? 'Less' : 'More',
