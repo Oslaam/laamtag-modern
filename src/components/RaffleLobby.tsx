@@ -1,15 +1,22 @@
 import { useState, useEffect } from 'react';
 import { Timer, Users, ArrowRight, Loader2, Plus, Trophy, Medal, Award, CheckCircle2, ChevronDown, ChevronUp, AlertCircle, Eye } from 'lucide-react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { PublicKey, Transaction } from '@solana/web3.js';
-import { createTransferCheckedInstruction, getAssociatedTokenAddress } from '@solana/spl-token';
+import { PublicKey } from '@solana/web3.js';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import RaffleRefundSection from './RaffleRefundSection';
 import RaffleHistory from './RaffleHistory';
 
+// Umi & Metaplex Imports
+import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
+import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-adapters";
+import { transferTokens, setComputeUnitPrice } from "@metaplex-foundation/mpl-toolbox";
+import { publicKey as umiPublicKey } from "@metaplex-foundation/umi";
+import { base58 } from "@metaplex-foundation/umi/serializers";
+
 const SKR_MINT = new PublicKey("SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3");
 const TREASURY = new PublicKey("CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc");
+const RPC_URL = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
 
 function useCountdown(targetDate: string | Date) {
     const [timeLeft, setTimeLeft] = useState(0);
@@ -167,7 +174,7 @@ const RaffleCard = ({
 
 export default function RaffleLobby() {
     const { connection } = useConnection();
-    const { publicKey, sendTransaction } = useWallet();
+    const { publicKey, wallet } = useWallet();
     const [pools, setPools] = useState<any[]>([]);
     const [isActionLoading, setIsActionLoading] = useState(false);
     const [showArchive, setShowArchive] = useState(false);
@@ -177,7 +184,6 @@ export default function RaffleLobby() {
         try {
             const res = await axios.get('/api/games/raffle/get-pools');
             setPools(res.data.pools || []);
-            // Subtly fluctuate live users for realism
             setLiveUsers(prev => Math.max(3, prev + (Math.random() > 0.5 ? 1 : -1)));
         } catch (e) { console.error("Pool Fetch Error", e); }
     };
@@ -218,44 +224,32 @@ export default function RaffleLobby() {
     };
 
     const handleJoin = async (poolId: string, fee: number) => {
-        if (!publicKey) return toast.error("Connect Wallet First");
+        // 1. Fixed the 'wallet' check and passed it safely
+        if (!publicKey || !wallet) return toast.error("Connect Wallet First");
         setIsActionLoading(true);
 
         try {
-            const userATA = await getAssociatedTokenAddress(SKR_MINT, publicKey);
-            const treasuryATA = await getAssociatedTokenAddress(SKR_MINT, TREASURY);
+            // Use 'as any' if the compiler still grumbles about the adapter interface
+            const umi = createUmi(RPC_URL).use(walletAdapterIdentity(wallet as any));
 
-            // 1. Fetch fresh blockhash (Fixes the "recentBlockhash required" error on Seeker)
-            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+            const SKR_MINT_UMI = umiPublicKey("SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3");
+            const TREASURY_UMI = umiPublicKey("CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc");
+            const atomicAmount = BigInt(Math.floor(fee * 1_000_000));
 
-            // 2. Initialize Transaction with required metadata for Mobile Wallet Adapter
-            const tx = new Transaction({
-                feePayer: publicKey,
-                recentBlockhash: blockhash,
-            }).add(
-                createTransferCheckedInstruction(
-                    userATA,
-                    SKR_MINT,
-                    treasuryATA,
-                    publicKey,
-                    fee * 1_000_000,
-                    6
-                )
-            );
+            // 2. Build Transaction with correct property names
+            const result = await setComputeUnitPrice(umi, { microLamports: 10000 })
+                .add(transferTokens(umi, {
+                    source: umi.identity.publicKey, // Umi handles the ATA derivation internally or takes the account
+                    destination: TREASURY_UMI,
+                    authority: umi.identity,        // Use 'authority' instead of 'sourceOwner'
+                    amount: atomicAmount,
+                }))
+                .sendAndConfirm(umi);
 
-            // 3. Send Transaction
-            const signature = await sendTransaction(tx, connection, {
-                preflightCommitment: 'confirmed'
-            });
+            // 3. Decode Signature
+            const signature = base58.deserialize(result.signature)[0];
 
-            // 4. Confirm using the blockhash strategy for reliability on mobile
-            await connection.confirmTransaction({
-                signature,
-                blockhash,
-                lastValidBlockHeight
-            }, 'confirmed');
-
-            // 5. Submit to your backend
+            // 4. Record on Backend
             await axios.post('/api/games/raffle/join', {
                 poolId,
                 walletAddress: publicKey.toBase58(),
@@ -265,9 +259,8 @@ export default function RaffleLobby() {
             toast.success("ENTRY SECURED");
             fetchPools();
         } catch (err: any) {
-            console.error("Raffle Join Error:", err);
-            // Enhanced error message to help debug Seeker-specific issues
-            toast.error(err.message || "Transaction Failed");
+            console.error("Umi Raffle Error:", err);
+            toast.error(err.message || "Transaction failed");
         } finally {
             setIsActionLoading(false);
         }
