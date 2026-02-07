@@ -11,7 +11,9 @@ import {
     mplToolbox,
     transferTokens,
     findAssociatedTokenPda,
-    createTokenIfMissing
+    createTokenIfMissing,
+    setComputeUnitLimit,   
+    setComputeUnitPrice     
 } from '@metaplex-foundation/mpl-toolbox';
 
 const SKR_MINT = publicKey("SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3");
@@ -21,7 +23,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { walletAddress } = req.body;
 
     try {
-        // 1. Fetch ONLY "REFUND" types for this user that haven't been claimed
         const refunds = await prisma.pendingReward.findMany({
             where: {
                 userId: walletAddress,
@@ -37,7 +38,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             return res.status(400).json({ message: "No refunds found to claim." });
         }
 
-        // 2. Setup Umi
         const umi = createUmi(process.env.NEXT_PUBLIC_RPC_URL || "https://api.mainnet-beta.solana.com")
             .use(mplToolbox());
 
@@ -46,11 +46,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         const secretKeyBuffer = base58.serialize(privateKeyString);
         const treasuryKeypair = umi.eddsa.createKeypairFromSecretKey(secretKeyBuffer);
-
         const treasurySigner = createSignerFromKeypair(umi, treasuryKeypair);
         umi.use(keypairIdentity(treasurySigner));
 
-        // 3. Process Payout
         const userOwner = publicKey(walletAddress);
         const decimals = 1_000_000;
         const atomicAmount = BigInt(Math.floor(totalRefund * decimals));
@@ -64,11 +62,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             owner: userOwner
         });
 
-        const result = await createTokenIfMissing(umi, {
-            mint: SKR_MINT,
-            owner: userOwner,
-            payer: treasurySigner,
-        })
+        // BUILD TRANSACTION WITH PRIORITY FEES
+        const result = await setComputeUnitLimit(umi, { units: 100_000 }) // Optimized limit
+            .prepend(setComputeUnitPrice(umi, { microLamports: 10_000 })) // Small tip for speed
+            .add(
+                createTokenIfMissing(umi, {
+                    mint: SKR_MINT,
+                    owner: userOwner,
+                    payer: treasurySigner,
+                })
+            )
             .add(
                 transferTokens(umi, {
                     source: sourceATA,
@@ -81,9 +84,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         const signature = base58.deserialize(result.signature)[0];
 
-        // 4. Cleanup Database
-        // We update isClaimed to true FIRST, then delete, just to be extremely safe 
-        // against race conditions during high traffic.
         await prisma.$transaction([
             prisma.pendingReward.updateMany({
                 where: { id: { in: refunds.map(r => r.id) } },

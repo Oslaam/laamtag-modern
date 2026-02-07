@@ -220,22 +220,57 @@ export default function RaffleLobby() {
     const handleJoin = async (poolId: string, fee: number) => {
         if (!publicKey) return toast.error("Connect Wallet First");
         setIsActionLoading(true);
+
         try {
             const userATA = await getAssociatedTokenAddress(SKR_MINT, publicKey);
             const treasuryATA = await getAssociatedTokenAddress(SKR_MINT, TREASURY);
 
-            const tx = new Transaction().add(
-                createTransferCheckedInstruction(userATA, SKR_MINT, treasuryATA, publicKey, fee * 1_000_000, 6)
+            // 1. Fetch fresh blockhash (Fixes the "recentBlockhash required" error on Seeker)
+            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+
+            // 2. Initialize Transaction with required metadata for Mobile Wallet Adapter
+            const tx = new Transaction({
+                feePayer: publicKey,
+                recentBlockhash: blockhash,
+            }).add(
+                createTransferCheckedInstruction(
+                    userATA,
+                    SKR_MINT,
+                    treasuryATA,
+                    publicKey,
+                    fee * 1_000_000,
+                    6
+                )
             );
 
-            const signature = await sendTransaction(tx, connection);
-            await connection.confirmTransaction(signature, 'confirmed');
+            // 3. Send Transaction
+            const signature = await sendTransaction(tx, connection, {
+                preflightCommitment: 'confirmed'
+            });
 
-            await axios.post('/api/games/raffle/join', { poolId, walletAddress: publicKey.toBase58(), signature });
+            // 4. Confirm using the blockhash strategy for reliability on mobile
+            await connection.confirmTransaction({
+                signature,
+                blockhash,
+                lastValidBlockHeight
+            }, 'confirmed');
+
+            // 5. Submit to your backend
+            await axios.post('/api/games/raffle/join', {
+                poolId,
+                walletAddress: publicKey.toBase58(),
+                signature
+            });
+
             toast.success("ENTRY SECURED");
             fetchPools();
-        } catch (err) { toast.error("Transaction Failed"); }
-        finally { setIsActionLoading(false); }
+        } catch (err: any) {
+            console.error("Raffle Join Error:", err);
+            // Enhanced error message to help debug Seeker-specific issues
+            toast.error(err.message || "Transaction Failed");
+        } finally {
+            setIsActionLoading(false);
+        }
     };
 
     return (

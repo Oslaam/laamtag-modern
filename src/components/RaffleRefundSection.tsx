@@ -20,8 +20,11 @@ export default function RaffleRefundSection({ walletAddress }: { walletAddress: 
     }, [walletAddress]);
 
     const handleClaim = async () => {
+        if (!walletAddress) return;
         setLoading(true);
+
         try {
+            // Trigger the backend to send the refund transaction
             const res = await fetch('/api/user/raffle-claim-refund', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -30,20 +33,22 @@ export default function RaffleRefundSection({ walletAddress }: { walletAddress: 
 
             const data = await res.json();
 
-            if (res.ok) {
+            if (res.ok && data.signature) {
+                // Success: The backend sent the SKR back
                 setRefundableAmount(0);
-                setTxSig(data.signature); // Store the signature for the link
-                alert(data.message);
+                setTxSig(data.signature);
+                // Using a more modern notification if you have toast, otherwise alert is fine
+                alert("REFUND PROCESSED: " + data.message);
             } else {
-                alert(data.message || "Refund failed.");
+                alert(data.message || "Refund failed. Please try again.");
             }
         } catch (err) {
+            console.error("Refund Error:", err);
             alert("An error occurred during the refund process.");
         } finally {
             setLoading(false);
         }
     };
-
     if (refundableAmount === 0 && !txSig) return null;
 
     return (

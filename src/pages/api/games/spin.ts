@@ -16,15 +16,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         const rewards = [
-            { label: "1 TAG", type: "TAG", value: 1, chance: 33 },
+            { label: "1 TAG", type: "TAG", value: 1, chance: 35 },
             { label: "5 TAG", type: "TAG", value: 5, chance: 13 },
             { label: "50 L", type: "LAAM", value: 50, chance: 20 },
             { label: "100 L", type: "LAAM", value: 100, chance: 10 },
-            { label: "500 L", type: "LAAM", value: 500, chance: 7.5 },
-            { label: "1 USDC", type: "USDC", value: 1, chance: 0.5 },
-            { label: "0.01 SOL", type: "SOL", value: 0.01, chance: 0.5 },
-            { label: "EMPTY", type: "EMPTY", value: 0, chance: 12 },
-            { label: "GEN BOX", type: "GEN_BOX", value: 0, chance: 0.5 },
+            { label: "500 L", type: "LAAM", value: 500, chance: 8.0 },
+            { label: "1 USDC", type: "USDC", value: 1, chance: 0.3 },
+            { label: "0.01 SOL", type: "SOL", value: 0.01, chance: 0.3 },
+            { label: "EMPTY", type: "EMPTY", value: 0, chance: 10 },
+            { label: "GEN BOX", type: "GEN_BOX", value: 0, chance: 0.4 },
             {
                 label: "SPEC BOX",
                 type: "SPEC_BOX",

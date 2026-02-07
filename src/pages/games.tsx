@@ -17,7 +17,7 @@ import { History, ChevronLeft } from 'lucide-react';
 
 export default function GamesPage() {
     // Added 'RAFFLE' to the activeGame type
-    const [activeGame, setActiveGame] = useState<'GUESS' | 'SPIN' | 'SHOOTER' | 'DICE' | 'RAFFLE' | null>(null);
+    const [activeGame, setActiveGame] = useState<'GUESS' | 'SPIN' | 'SHOOTER' | 'DICE' | 'RAFFLE' | 'THUGGER' | null>(null);
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [user, setUser] = useState<any>(null);
 
@@ -133,7 +133,7 @@ export default function GamesPage() {
                                 {activeGame === 'SPIN' && <SpinGame />}
                                 {activeGame === 'SHOOTER' && <ShooterContainer />}
                                 {activeGame === 'DICE' && user && <DiceTerminal user={user} refreshUser={mutate} />}
-                                {activeGame === 'RAFFLE' && <RaffleLobby />}
+                                {/* {activeGame === 'RAFFLE' && <RaffleLobby />} */}
 
                                 <div style={{ marginTop: '32px', background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
                                     <h4 style={{ fontSize: '10px', fontWeight: 900, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: '12px' }}>
