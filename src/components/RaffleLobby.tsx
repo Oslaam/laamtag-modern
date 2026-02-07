@@ -224,32 +224,35 @@ export default function RaffleLobby() {
     };
 
     const handleJoin = async (poolId: string, fee: number) => {
-        // 1. Fixed the 'wallet' check and passed it safely
-        if (!publicKey || !wallet) return toast.error("Connect Wallet First");
+        // 1. Check if the wallet is actually connected
+        if (!publicKey || !wallet || !wallet.adapter.connected) {
+            return toast.error("Please connect your wallet first!");
+        }
+
         setIsActionLoading(true);
 
         try {
-            // Use 'as any' if the compiler still grumbles about the adapter interface
-            const umi = createUmi(RPC_URL).use(walletAdapterIdentity(wallet as any));
+            // 2. Pass the adapter directly to Umi
+            const umi = createUmi(RPC_URL)
+                .use(walletAdapterIdentity(wallet.adapter as any)); // Use wallet.adapter specifically
 
             const SKR_MINT_UMI = umiPublicKey("SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3");
             const TREASURY_UMI = umiPublicKey("CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc");
             const atomicAmount = BigInt(Math.floor(fee * 1_000_000));
 
-            // 2. Build Transaction with correct property names
-            const result = await setComputeUnitPrice(umi, { microLamports: 10000 })
+            // 3. IMPORTANT: Explicitly use the publicKey from the hook to avoid 
+            // Umi trying to read an uninitialized property
+            const result = await setComputeUnitPrice(umi, { microLamports: 50000 })
                 .add(transferTokens(umi, {
-                    source: umi.identity.publicKey, // Umi handles the ATA derivation internally or takes the account
+                    source: umiPublicKey(publicKey.toBase58()), // Force the source from our hook
                     destination: TREASURY_UMI,
-                    authority: umi.identity,        // Use 'authority' instead of 'sourceOwner'
+                    authority: umi.identity,
                     amount: atomicAmount,
                 }))
                 .sendAndConfirm(umi);
 
-            // 3. Decode Signature
             const signature = base58.deserialize(result.signature)[0];
 
-            // 4. Record on Backend
             await axios.post('/api/games/raffle/join', {
                 poolId,
                 walletAddress: publicKey.toBase58(),
