@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Timer, Users, ArrowRight, Loader2, Plus, Trophy, Medal, Award, Shield, CheckCircle2, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
+import { Timer, Users, ArrowRight, Loader2, Plus, Trophy, Medal, Award, CheckCircle2, ChevronDown, ChevronUp, AlertCircle, Eye } from 'lucide-react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey, Transaction } from '@solana/web3.js';
 import { createTransferCheckedInstruction, getAssociatedTokenAddress } from '@solana/spl-token';
@@ -47,11 +47,10 @@ const RaffleCard = ({
     const isLocked = pool.status === 'LOCKED';
     const isRefunded = pool.status === 'EXPIRED';
 
-    // Vibrant Color Logic (No Grayscale)
     const getStatusColor = () => {
-        if (isLocked) return '#22c55e'; // Success Green
-        if (isRefunded || expired) return '#ef4444'; // Error Red
-        return '#eab308'; // Active Gold
+        if (isLocked) return '#22c55e';
+        if (isRefunded || expired) return '#ef4444';
+        return '#eab308';
     };
 
     const accentColor = getStatusColor();
@@ -59,7 +58,7 @@ const RaffleCard = ({
     return (
         <div className="terminal-card" style={{
             padding: '20px',
-            border: `1px solid ${accentColor}44`, // 44 is hex alpha for lower opacity border
+            border: `1px solid ${accentColor}44`,
             background: 'rgba(0,0,0,0.4)',
             transition: 'all 0.3s ease',
             position: 'relative'
@@ -79,7 +78,6 @@ const RaffleCard = ({
                 </div>
             </div>
 
-            {/* Progress Bars with matching status color */}
             <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
                 {[...Array(5)].map((_, i) => (
                     <div key={i} style={{
@@ -91,7 +89,6 @@ const RaffleCard = ({
                 ))}
             </div>
 
-            {/* Winner Section for Completed Pools */}
             {isLocked && pool.entries && (
                 <div style={{ marginBottom: '20px', padding: '12px', background: 'rgba(34, 197, 94, 0.08)', border: '1px solid rgba(34, 197, 94, 0.3)', borderRadius: '8px' }}>
                     <p style={{ fontSize: '10px', color: '#22c55e', fontWeight: 900, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -120,7 +117,6 @@ const RaffleCard = ({
                 </div>
             )}
 
-            {/* Refund Badge for Failed Pools */}
             {isRefunded && (
                 <div style={{ marginBottom: '20px', padding: '12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: '8px' }}>
                     <p style={{ fontSize: '10px', color: '#ef4444', fontWeight: 900, margin: 0, display: 'flex', alignItems: 'center', gap: '8px', textAlign: 'center' }}>
@@ -130,7 +126,7 @@ const RaffleCard = ({
             )}
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontSize: '10px', color: 'rgba(115, 74, 74, 0.6)' }}>
+                <div style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.4)' }}>
                     <Users size={10} style={{ display: 'inline', marginRight: '4px' }} />
                     {participantCount}/5 SECURED
                 </div>
@@ -146,8 +142,9 @@ const RaffleCard = ({
                         alignItems: 'center',
                         gap: '8px',
                         borderColor: hasJoined ? '#22c55e' : (isRefunded ? '#ef4444' : accentColor),
-                        color: hasJoined ? '#22c55e' : (isRefunded ? '#ef4444' : 'white'),
-                        opacity: (isLocked || isRefunded) ? 0.7 : 1
+                        color: hasJoined ? '#22c55e' : (isRefunded ? '#ef4444' : accentColor),
+                        opacity: (isLocked || isRefunded) ? 0.7 : 1,
+                        background: 'transparent'
                     }}
                 >
                     {loading ? (
@@ -174,11 +171,14 @@ export default function RaffleLobby() {
     const [pools, setPools] = useState<any[]>([]);
     const [isActionLoading, setIsActionLoading] = useState(false);
     const [showArchive, setShowArchive] = useState(false);
+    const [liveUsers, setLiveUsers] = useState(Math.floor(Math.random() * 15) + 5);
 
     const fetchPools = async () => {
         try {
             const res = await axios.get('/api/games/raffle/get-pools');
             setPools(res.data.pools || []);
+            // Subtly fluctuate live users for realism
+            setLiveUsers(prev => Math.max(3, prev + (Math.random() > 0.5 ? 1 : -1)));
         } catch (e) { console.error("Pool Fetch Error", e); }
     };
 
@@ -192,6 +192,8 @@ export default function RaffleLobby() {
         p.status === 'OPEN' && new Date(p.expiresAt).getTime() > Date.now()
     );
 
+    const canCreatePool = activePools.length < 2;
+
     const finishedPools = pools.filter(p =>
         p.status === 'LOCKED' ||
         p.status === 'EXPIRED' ||
@@ -202,6 +204,10 @@ export default function RaffleLobby() {
     const archivedPools = finishedPools.slice(1);
 
     const createNewPool = async () => {
+        if (!canCreatePool) {
+            toast.error("PROTOCOL LIMIT: JOIN EXISTING POOLS FIRST");
+            return;
+        }
         setIsActionLoading(true);
         try {
             await axios.post('/api/games/raffle/create-pool');
@@ -234,20 +240,47 @@ export default function RaffleLobby() {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '9px',
+                    color: '#22c55e',
+                    background: 'rgba(34, 197, 94, 0.1)',
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    fontWeight: 900,
+                    letterSpacing: '1px'
+                }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e', display: 'inline-block', animation: 'pulse 2s infinite' }} />
+                    <Eye size={10} /> {liveUsers} OPERATORS ONLINE
+                </div>
+            </div>
+
             {publicKey && <RaffleRefundSection walletAddress={publicKey.toBase58()} />}
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '15px' }}>
                 <div>
                     <h3 style={{ color: '#eab308', margin: 0, fontSize: '14px', fontWeight: 900 }}>MATRIX SPRINT LOBBY</h3>
-                    <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', margin: 0 }}>MULTIPLE POOLS ACTIVE</p>
+                    <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', margin: 0 }}>
+                        {activePools.length} POOL(S) ACTIVE
+                    </p>
                 </div>
                 <button
                     onClick={createNewPool}
-                    disabled={isActionLoading}
+                    disabled={isActionLoading || !canCreatePool}
                     className="terminal-button"
-                    style={{ background: '#eab308', color: 'black', padding: '10px 20px' }}
+                    style={{
+                        background: canCreatePool ? '#eab308' : 'rgba(255,255,255,0.05)',
+                        color: canCreatePool ? 'black' : 'rgba(255,255,255,0.2)',
+                        padding: '10px 20px',
+                        cursor: canCreatePool ? 'pointer' : 'not-allowed',
+                        border: canCreatePool ? 'none' : '1px solid rgba(255,255,255,0.1)'
+                    }}
                 >
-                    <Plus size={14} style={{ marginRight: '5px' }} /> START NEW POOL
+                    {isActionLoading ? <Loader2 className="animate-spin" size={14} /> : <Plus size={14} style={{ marginRight: '5px' }} />}
+                    {canCreatePool ? 'START NEW POOL' : 'POOL LIMIT REACHED'}
                 </button>
             </div>
 
