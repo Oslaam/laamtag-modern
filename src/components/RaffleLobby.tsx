@@ -13,6 +13,7 @@ import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-ad
 import { transferTokens, setComputeUnitPrice } from "@metaplex-foundation/mpl-toolbox";
 import { publicKey as umiPublicKey } from "@metaplex-foundation/umi";
 import { base58 } from "@metaplex-foundation/umi/serializers";
+import { findAssociatedTokenPda } from "@metaplex-foundation/mpl-toolbox";
 
 const SKR_MINT = new PublicKey("SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3");
 const TREASURY = new PublicKey("CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc");
@@ -223,51 +224,63 @@ export default function RaffleLobby() {
         finally { setIsActionLoading(false); }
     };
 
-    const handleJoin = async (poolId: string, fee: number) => {
-        // 1. Check if the wallet is actually connected
-        if (!publicKey || !wallet || !wallet.adapter.connected) {
-            return toast.error("Please connect your wallet first!");
-        }
+   const handleJoin = async (poolId: string, fee: number) => {
+    if (!publicKey || !wallet || !wallet.adapter.connected) {
+        return toast.error("Please connect your wallet first!");
+    }
 
-        setIsActionLoading(true);
+    setIsActionLoading(true);
 
-        try {
-            // 2. Pass the adapter directly to Umi
-            const umi = createUmi(RPC_URL)
-                .use(walletAdapterIdentity(wallet.adapter as any)); // Use wallet.adapter specifically
+    try {
+        const umi = createUmi(RPC_URL).use(walletAdapterIdentity(wallet.adapter as any));
 
-            const SKR_MINT_UMI = umiPublicKey("SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3");
-            const TREASURY_UMI = umiPublicKey("CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc");
-            const atomicAmount = BigInt(Math.floor(fee * 1_000_000));
+        const SKR_MINT_UMI = umiPublicKey("SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3");
+        const TREASURY_WALLET_UMI = umiPublicKey("CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc");
+        const userWalletUmi = umiPublicKey(publicKey.toBase58());
 
-            // 3. IMPORTANT: Explicitly use the publicKey from the hook to avoid 
-            // Umi trying to read an uninitialized property
-            const result = await setComputeUnitPrice(umi, { microLamports: 50000 })
-                .add(transferTokens(umi, {
-                    source: umiPublicKey(publicKey.toBase58()), // Force the source from our hook
-                    destination: TREASURY_UMI,
-                    authority: umi.identity,
-                    amount: atomicAmount,
-                }))
-                .sendAndConfirm(umi);
+        // Derive only the PublicKey [0] from the PDA tuple
+        const sourceAccount = findAssociatedTokenPda(umi, {
+            mint: SKR_MINT_UMI,
+            owner: userWalletUmi,
+        })[0];
 
-            const signature = base58.deserialize(result.signature)[0];
+        const destinationAccount = findAssociatedTokenPda(umi, {
+            mint: SKR_MINT_UMI,
+            owner: TREASURY_WALLET_UMI,
+        })[0];
 
-            await axios.post('/api/games/raffle/join', {
-                poolId,
-                walletAddress: publicKey.toBase58(),
-                signature
-            });
+        const atomicAmount = BigInt(Math.floor(fee * 1_000_000));
 
-            toast.success("ENTRY SECURED");
-            fetchPools();
-        } catch (err: any) {
-            console.error("Umi Raffle Error:", err);
-            toast.error(err.message || "Transaction failed");
-        } finally {
-            setIsActionLoading(false);
-        }
-    };
+        const result = await setComputeUnitPrice(umi, { microLamports: 50000 })
+            .add(transferTokens(umi, {
+                source: sourceAccount,
+                destination: destinationAccount,
+                authority: umi.identity,
+                amount: atomicAmount,
+            }))
+            .sendAndConfirm(umi);
+
+        const signature = base58.deserialize(result.signature)[0];
+
+        await axios.post('/api/games/raffle/join', {
+            poolId,
+            walletAddress: publicKey.toBase58(),
+            signature
+        });
+
+        toast.success("ENTRY SECURED");
+        fetchPools();
+    } catch (err: any) {
+        console.error("Umi Raffle Error:", err);
+        const errorMsg = err.message || "Transaction failed";
+        toast.error(errorMsg.includes("Simulation failed") 
+            ? "Check your $SKR balance or network" 
+            : errorMsg
+        );
+    } finally {
+        setIsActionLoading(false);
+    }
+};
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
