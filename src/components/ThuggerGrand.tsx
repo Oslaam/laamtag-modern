@@ -7,6 +7,7 @@ import { Sky, Environment, KeyboardControls, Loader } from '@react-three/drei';
 import { Physics, RigidBody } from '@react-three/rapier';
 import Ecctrl, { EcctrlJoystick } from 'ecctrl';
 import * as THREE from 'three';
+import { useWallet } from '@solana/wallet-adapter-react';
 
 import Weapon from './ThuggerGrandWeapon';
 import CharacterModel from './ThuggerGrandCharacterModel';
@@ -42,29 +43,36 @@ function ArenaComponent({ onExit, level, enemies, playerRef, walletAddress }: an
     return (
         <div className="fixed inset-0 w-full h-full bg-black z-[10000]">
             <KeyboardControls map={[{ name: "jump", keys: ["Space"] }]}>
-                <Canvas shadows camera={{ fov: 45 }} onPointerDown={() => handleShoot()}>
+                {/* Fixed: Added height: '100vh' and set a better camera position */}
+                <Canvas
+                    shadows
+                    camera={{ position: [0, 5, 10], fov: 45 }}
+                    onPointerDown={() => handleShoot()}
+                    style={{ height: '100vh', width: '100vw' }}
+                >
                     <Suspense fallback={null}>
                         <Sky sunPosition={[100, 20, 100]} />
-                        
-                        {/* Lighting to fix dark screen */}
-                        <ambientLight intensity={0.7} />
-                        <directionalLight position={[10, 10, 5]} intensity={1.5} castShadow />
+
+                        {/* Improved Lighting */}
+                        <ambientLight intensity={1.5} />
+                        <directionalLight position={[10, 10, 5]} intensity={2} castShadow />
                         <Environment preset="city" />
 
                         <Physics gravity={[0, -9.81, 0]}>
-                            <Ecctrl capsuleRadius={0.3}>
+                            {/* Start the player slightly above the floor */}
+                            <Ecctrl capsuleRadius={0.3} position={[0, 2, 0]}>
                                 <group ref={playerRef}>
                                     <CharacterModel />
                                 </group>
                             </Ecctrl>
 
                             {enemies?.map((en: any) => (
-                                <Enemy 
-                                    key={en.id} 
-                                    position={en.pos} 
-                                    playerRef={playerRef} 
-                                    walletAddress={walletAddress} 
-                                    level={level} 
+                                <Enemy
+                                    key={en.id}
+                                    position={en.pos}
+                                    playerRef={playerRef}
+                                    walletAddress={walletAddress}
+                                    level={level}
                                 />
                             ))}
 
@@ -75,7 +83,7 @@ function ArenaComponent({ onExit, level, enemies, playerRef, walletAddress }: an
                             <RigidBody type="fixed">
                                 <mesh receiveShadow position={[0, -0.5, 0]}>
                                     <boxGeometry args={[500, 1, 500]} />
-                                    <meshStandardMaterial color="#111" />
+                                    <meshStandardMaterial color="#222" />
                                 </mesh>
                             </RigidBody>
                         </Physics>
@@ -107,7 +115,8 @@ export default function ThuggerGrand() {
     const playerRef = useRef(null);
 
     // Replace this with your actual user's wallet address from your Auth/Wallet context
-    const walletAddress = "REPLACE_WITH_ACTUAL_WALLET_ADDRESS";
+    const { publicKey } = useWallet();
+    const walletAddress = publicKey ? publicKey.toBase58() : null;
 
     useEffect(() => {
         setIsMounted(true);
@@ -152,8 +161,8 @@ export default function ThuggerGrand() {
                         <p className="text-yellow-500 font-black animate-pulse">
                             {loading ? "VERIFYING TAG..." : `ENTRY FEE: ${hasDiedOnce ? '5 TAG' : '10 TAG'}`}
                         </p>
-                        <button 
-                            onClick={handleEnterArena} 
+                        <button
+                            onClick={handleEnterArena}
                             disabled={loading}
                             className={styles.engageButton}
                         >

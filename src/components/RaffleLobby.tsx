@@ -13,11 +13,11 @@ import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-ad
 import { publicKey as umiPublicKey } from "@metaplex-foundation/umi";
 import { base58 } from "@metaplex-foundation/umi/serializers";
 
-import { 
-    mplToolbox, 
-    transferTokens, 
-    findAssociatedTokenPda, 
-    setComputeUnitPrice 
+import {
+    mplToolbox,
+    transferTokens,
+    findAssociatedTokenPda,
+    setComputeUnitPrice
 } from "@metaplex-foundation/mpl-toolbox";
 
 const SKR_MINT = new PublicKey("SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3");
@@ -111,7 +111,9 @@ const RaffleCard = ({
                         {[
                             { status: 'WINNER_1ST', icon: <Medal size={12} color="#eab308" />, label: '1ST' },
                             { status: 'WINNER_2ND', icon: <Award size={12} color="#94a3b8" />, label: '2ND' },
-                            { status: 'WINNER_3RD', icon: <Award size={12} color="#b45309" />, label: '3RD' }
+                            { status: 'WINNER_3RD', icon: <Award size={12} color="#b45309" />, label: '3RD' },
+                            { status: 'CHALLENGER_4TH', icon: <Award size={12} color="#d90f0f" />, label: '4TH' },
+                            { status: 'CHALLENGER_5TH', icon: <Award size={12} color="#d90f0f" />, label: '5TH' }
                         ].map((rank, i) => {
                             const entry = pool.entries.find((e: any) => e.status === rank.status);
                             return (
@@ -229,66 +231,66 @@ export default function RaffleLobby() {
         finally { setIsActionLoading(false); }
     };
 
-  const handleJoin = async (poolId: string, fee: number) => {
-    if (!publicKey || !wallet || !wallet.adapter.connected) {
-        return toast.error("Please connect your wallet first!");
-    }
+    const handleJoin = async (poolId: string, fee: number) => {
+        if (!publicKey || !wallet || !wallet.adapter.connected) {
+            return toast.error("Please connect your wallet first!");
+        }
 
-    setIsActionLoading(true);
+        setIsActionLoading(true);
 
-    try {
-        // ADD .use(mplToolbox()) HERE
-        const umi = createUmi(RPC_URL)
-            .use(walletAdapterIdentity(wallet.adapter as any))
-            .use(mplToolbox()); 
+        try {
+            // ADD .use(mplToolbox()) HERE
+            const umi = createUmi(RPC_URL)
+                .use(walletAdapterIdentity(wallet.adapter as any))
+                .use(mplToolbox());
 
-        const SKR_MINT_UMI = umiPublicKey("SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3");
-        const TREASURY_WALLET_UMI = umiPublicKey("CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc");
-        const userWalletUmi = umiPublicKey(publicKey.toBase58());
+            const SKR_MINT_UMI = umiPublicKey("SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3");
+            const TREASURY_WALLET_UMI = umiPublicKey("CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc");
+            const userWalletUmi = umiPublicKey(publicKey.toBase58());
 
-        // Now Umi will recognize the program and derive these correctly
-        const sourceAccount = findAssociatedTokenPda(umi, {
-            mint: SKR_MINT_UMI,
-            owner: userWalletUmi,
-        })[0];
+            // Now Umi will recognize the program and derive these correctly
+            const sourceAccount = findAssociatedTokenPda(umi, {
+                mint: SKR_MINT_UMI,
+                owner: userWalletUmi,
+            })[0];
 
-        const destinationAccount = findAssociatedTokenPda(umi, {
-            mint: SKR_MINT_UMI,
-            owner: TREASURY_WALLET_UMI,
-        })[0];
+            const destinationAccount = findAssociatedTokenPda(umi, {
+                mint: SKR_MINT_UMI,
+                owner: TREASURY_WALLET_UMI,
+            })[0];
 
-        const atomicAmount = BigInt(Math.floor(fee * 1_000_000));
+            const atomicAmount = BigInt(Math.floor(fee * 1_000_000));
 
-        const result = await setComputeUnitPrice(umi, { microLamports: 50000 })
-            .add(transferTokens(umi, {
-                source: sourceAccount,
-                destination: destinationAccount,
-                authority: umi.identity,
-                amount: atomicAmount,
-            }))
-            .sendAndConfirm(umi);
+            const result = await setComputeUnitPrice(umi, { microLamports: 50000 })
+                .add(transferTokens(umi, {
+                    source: sourceAccount,
+                    destination: destinationAccount,
+                    authority: umi.identity,
+                    amount: atomicAmount,
+                }))
+                .sendAndConfirm(umi);
 
-        const signature = base58.deserialize(result.signature)[0];
+            const signature = base58.deserialize(result.signature)[0];
 
-        await axios.post('/api/games/raffle/join', {
-            poolId,
-            walletAddress: publicKey.toBase58(),
-            signature
-        });
+            await axios.post('/api/games/raffle/join', {
+                poolId,
+                walletAddress: publicKey.toBase58(),
+                signature
+            });
 
-        toast.success("ENTRY SECURED");
-        fetchPools();
-    } catch (err: any) {
-        console.error("Umi Raffle Error:", err);
-        const errorMsg = err.message || "Transaction failed";
-        toast.error(errorMsg.includes("Simulation failed") 
-            ? "Check your $SKR balance or network" 
-            : errorMsg
-        );
-    } finally {
-        setIsActionLoading(false);
-    }
-};
+            toast.success("ENTRY SECURED");
+            fetchPools();
+        } catch (err: any) {
+            console.error("Umi Raffle Error:", err);
+            const errorMsg = err.message || "Transaction failed";
+            toast.error(errorMsg.includes("Simulation failed")
+                ? "Check your $SKR balance or network"
+                : errorMsg
+            );
+        } finally {
+            setIsActionLoading(false);
+        }
+    };
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
