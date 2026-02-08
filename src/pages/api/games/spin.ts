@@ -16,9 +16,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         const rewards = [
-            { label: "1 TAG", type: "TAG", value: 1, chance: 25 },
+            { label: "1 TAG", type: "TAG", value: 1, chance: 20 },
             { label: "5 TAG", type: "TAG", value: 5, chance: 13 },
-            { label: "50 L", type: "LAAM", value: 50, chance: 25 },
+            { label: "50 L", type: "LAAM", value: 50, chance: 30 },
             { label: "100 L", type: "LAAM", value: 100, chance: 10.3 },
             { label: "500 L", type: "LAAM", value: 500, chance: 13.7 },
             { label: "1 USDC", type: "USDC", value: 1, chance: 0 },
