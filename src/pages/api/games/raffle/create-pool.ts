@@ -10,8 +10,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             data: {
                 entryFee: 500, // Fixed fee for this tier
                 status: 'OPEN',
-                // Set expiry to 3 hours from now
-                expiresAt: new Date(Date.now() + 3 * 60 * 60 * 1000),
+                // Set expiry to 6 hours from now
+                expiresAt: new Date(Date.now() + 6 * 60 * 60 * 1000),
             }
         });
 

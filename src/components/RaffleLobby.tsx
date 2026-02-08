@@ -13,7 +13,6 @@ import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-ad
 import { publicKey as umiPublicKey } from "@metaplex-foundation/umi";
 import { base58 } from "@metaplex-foundation/umi/serializers";
 
-// UPDATED THIS LINE: added mplToolbox
 import { 
     mplToolbox, 
     transferTokens, 
@@ -343,7 +342,7 @@ export default function RaffleLobby() {
                     <li>• <strong>Objective:</strong> Each pool requires 5 participants to trigger the draw.</li>
                     <li>• <strong>Prize Pool:</strong> 1st: <span style={{ color: '#22c55e' }}>1,000 SKR</span> | 2nd: 700 SKR | 3rd: 600 SKR</li>
                     <li>• <strong>Challenger Rewards:</strong> 4th & 5th place receive 10,000 LaamPoints + 200 TAG Tickets.</li>
-                    <li>• <strong>Refunds:</strong> If a pool doesn't fill within 3 hours, you can claim your SKR back.</li>
+                    <li>• <strong>Refunds:</strong> If a pool doesn't fill within 6 hours, you can claim your SKR back.</li>
                 </ul>
             </div>
 
