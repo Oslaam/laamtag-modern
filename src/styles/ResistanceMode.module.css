@@ -2,17 +2,17 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     min-height: 100vh;
     background: #0f0f0f;
-    padding: 20px;
+    padding: 10px;
     font-family: 'Courier New', Courier, monospace;
+    transition: all 0.3s ease;
 }
 
 .consoleShell {
     background: #2d2d2d;
     width: 100%;
-    /* Increased size for better visibility */
     max-width: 420px;
     border-radius: 20px 20px 60px 20px;
     padding: 25px;
@@ -35,7 +35,6 @@
 .gameCanvas {
     width: 100%;
     height: 100%;
-    /* Keep pixelated to maintain the retro aesthetic */
     image-rendering: pixelated;
     image-rendering: crisp-edges;
     display: block;
@@ -48,67 +47,101 @@
     padding: 10px 10px;
 }
 
+/* --- D-PAD DESIGN --- */
 .dPad {
-    width: 110px;
-    height: 110px;
     position: relative;
+    width: 130px;
+    height: 130px;
     background: #1a1a1a;
-    border-radius: 15px;
+    border-radius: 50%;
+    box-shadow: inset 0 0 10px #000, 4px 4px 10px rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .dBtn {
     position: absolute;
     background: #333;
     border: 2px solid #444;
+    color: #555;
     cursor: pointer;
     touch-action: none;
+    transition: all 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    box-shadow: 0 4px 0 #111;
+}
+
+.dBtn:active {
+    background: #444;
+    transform: translateY(2px);
+    box-shadow: 0 2px 0 #111;
+    color: #00ff41;
 }
 
 .up {
-    width: 36px;
-    height: 42px;
-    top: 0;
-    left: 37px;
+    width: 38px;
+    height: 44px;
+    top: 5px;
     border-radius: 6px 6px 0 0;
 }
 
 .down {
-    width: 36px;
-    height: 42px;
-    bottom: 0;
-    left: 37px;
+    width: 38px;
+    height: 44px;
+    bottom: 5px;
     border-radius: 0 0 6px 6px;
 }
 
 .left {
-    width: 42px;
-    height: 36px;
-    top: 37px;
-    left: 0;
+    width: 44px;
+    height: 38px;
+    left: 5px;
     border-radius: 6px 0 0 6px;
 }
 
 .right {
-    width: 42px;
-    height: 36px;
-    top: 37px;
-    right: 0;
+    width: 44px;
+    height: 38px;
+    right: 5px;
     border-radius: 0 6px 6px 0;
 }
 
+.up::after {
+    content: '▲';
+}
+
+.down::after {
+    content: '▼';
+}
+
+.left::after {
+    content: '◀';
+}
+
+.right::after {
+    content: '▶';
+}
+
+/* --- ACTION BUTTON --- */
 .circleBtn {
-    width: 70px;
-    height: 70px;
+    width: 75px;
+    height: 75px;
     border-radius: 50%;
     border: 5px solid #111;
     background: #00ff41;
     color: #000;
     font-weight: 900;
-    font-size: 24px;
+    font-size: 28px;
+    cursor: pointer;
     box-shadow: 0 6px 0 #008f25;
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: 0.1s;
 }
 
 .circleBtn:active {
@@ -116,6 +149,7 @@
     box-shadow: 0 2px 0 #008f25;
 }
 
+/* --- OVERLAYS & PANELS --- */
 .infoPanel {
     background: #1a1a1a;
     border: 2px solid #333;
@@ -131,14 +165,8 @@
 .infoPanel h2 {
     color: #00ff41;
     margin-top: 0;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     letter-spacing: 2px;
-}
-
-.infoPanel p {
-    color: #ccc;
-    font-size: 0.9rem;
-    line-height: 1.5;
 }
 
 .rewardBadges {
@@ -162,11 +190,12 @@
     border: 2px solid #333;
     width: 100%;
     max-width: 420px;
-    margin-top: 40px;
+    margin-top: 30px;
     border-radius: 12px;
     overflow: hidden;
 }
 
+/* --- LEADERBOARD HEADER & STATS --- */
 .boardHeader {
     display: flex;
     justify-content: space-between;
@@ -176,10 +205,31 @@
     border-bottom: 2px solid #333;
 }
 
-.boardHeader h3 {
+.boardTitleSection {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.boardTitleSection h3 {
     margin: 0;
-    color: #fff;
     font-size: 1rem;
+    letter-spacing: 1px;
+    color: #fff;
+}
+
+.statsRow {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.statsRow small {
+    color: #eab308;
+    font-size: 0.65rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .toggleGroup {
@@ -193,22 +243,16 @@
     background: transparent;
     border: none;
     color: #666;
-    font-family: inherit;
     font-size: 0.7rem;
     padding: 5px 12px;
     cursor: pointer;
     border-radius: 15px;
     font-weight: bold;
-    transition: 0.2s;
 }
 
 .toggleGroup button.activeToggle {
     background: #00ff41;
     color: #000;
-}
-
-.boardList {
-    padding: 10px;
 }
 
 .boardItem {
@@ -219,66 +263,72 @@
     font-size: 0.9rem;
 }
 
-.boardItem:last-child {
-    border: none;
+/* --- NEW: PERSONAL BEST & HIGHLIGHTS --- */
+.personalBestRow {
+    display: flex;
+    justify-content: space-between;
+    padding: 15px 10px;
+    background: rgba(0, 255, 65, 0.05);
+    border-bottom: 1px solid rgba(0, 255, 65, 0.2);
+    font-size: 0.9rem;
+    position: relative;
+    overflow: hidden;
 }
 
+.personalBestRow::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 4px;
+    background: #00ff41;
+    box-shadow: 0 0 10px #00ff41;
+}
+
+.personalBestRow .rank {
+    font-weight: bold;
+    color: #00ff41;
+    text-shadow: 0 0 5px rgba(0, 255, 65, 0.5);
+}
+
+.personalBestRow .wallet {
+    color: #00ff41;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.divider {
+    height: 8px;
+    background: #111;
+    border-bottom: 1px solid #333;
+}
+
+.highlight {
+    background: rgba(234, 179, 8, 0.08) !important;
+}
+
+.highlight .rank {
+    color: #eab308 !important;
+    text-shadow: 0 0 8px #eab308;
+}
+
+/* --- STANDARD LIST DEFAULTS --- */
 .rank {
     color: #00ff41;
-    width: 30px;
+    width: 45px;
 }
 
 .wallet {
     color: #aaa;
     font-family: monospace;
+    flex-grow: 1;
 }
 
 .points {
     color: #fff;
     font-weight: bold;
 }
-
-@media (max-width: 450px) {
-
-    .infoPanel,
-    .leaderboardContainer {
-        max-width: 95vw;
-    }
-}
-
-/* Mobile Responsiveness for Solana Mobile */
-@media (max-width: 450px) {
-    .consoleShell {
-        max-width: 95vw;
-        padding: 15px;
-    }
-
-    .dPad {
-        width: 90px;
-        height: 90px;
-    }
-
-    .up,
-    .down {
-        width: 30px;
-        height: 35px;
-        left: 30px;
-    }
-
-    .left,
-    .right {
-        width: 35px;
-        height: 30px;
-        top: 30px;
-    }
-
-    .circleBtn {
-        width: 60px;
-        height: 60px;
-    }
-}
-
-/* ... existing styles ... */
 
 .levelOverlay {
     position: absolute;
@@ -302,20 +352,6 @@
     max-width: 80%;
 }
 
-.unlockBox h3 {
-    color: #eab308;
-    margin: 0 0 10px 0;
-    font-size: 1.2rem;
-    letter-spacing: 3px;
-}
-
-.unlockBox p {
-    color: #fff;
-    font-size: 0.7rem;
-    margin-bottom: 20px;
-    line-height: 1.4;
-}
-
 .unlockBtn {
     background: #eab308;
     color: #000;
@@ -323,10 +359,8 @@
     padding: 10px 20px;
     font-family: inherit;
     font-weight: 900;
-    font-size: 0.8rem;
-    cursor: pointer;
     box-shadow: 0 4px 0 #856404;
-    transition: all 0.1s;
+    cursor: pointer;
 }
 
 .unlockBtn:active {
@@ -334,9 +368,53 @@
     box-shadow: 0 2px 0 #856404;
 }
 
-.unlockBtn:disabled {
-    background: #444;
-    box-shadow: none;
-    color: #666;
-    cursor: not-allowed;
+/* --- MOBILE RESPONSIVENESS --- */
+@media (max-width: 450px) {
+    .consoleShell {
+        max-width: 100%;
+        width: 100vw;
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+        padding: 15px 10px;
+    }
+
+    .dPad {
+        width: 100px;
+        height: 100px;
+    }
+
+    .up,
+    .down {
+        width: 32px;
+        height: 38px;
+        left: 34px;
+    }
+
+    .left,
+    .right {
+        width: 38px;
+        height: 32px;
+        top: 34px;
+    }
+
+    .circleBtn {
+        width: 65px;
+        height: 65px;
+    }
+
+    .boardHeader {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .toggleGroup {
+        width: 100%;
+        justify-content: space-around;
+    }
+
+    .statsRow small {
+        font-size: 0.6rem;
+    }
 }

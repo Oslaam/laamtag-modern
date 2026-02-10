@@ -14,34 +14,46 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const finalWallet = walletAddress || (req.query.walletAddress as string);
 
     try {
-        // 1. FETCH LEADERBOARD
+        // 1. FETCH LEADERBOARD (Updated with Personal Best Logic)
         if (req.method === 'GET' || action === 'GET_LEADERBOARD') {
             const isDaily = req.query.type === 'daily' || type === 'daily';
             const dateFilter = isDaily ? new Date(new Date().setHours(0, 0, 0, 0)) : new Date(0);
 
-            // Group by userId (wallet) to ensure one entry per person
+            // Fetch Global Top 10
             const topScores = await prisma.activity.groupBy({
                 by: ['userId'],
                 where: {
                     type: 'RESISTANCE_SCORE',
                     createdAt: { gte: dateFilter }
                 },
-                _max: {
-                    amount: true // Get their highest score
-                },
-                orderBy: {
-                    _max: {
-                        amount: 'desc' // Rank by those highest scores
-                    }
-                },
+                _max: { amount: true },
+                orderBy: { _max: { amount: 'desc' } },
                 take: 10,
             });
 
-            // Map the grouped data to match your frontend format
-            return res.status(200).json(topScores.map(s => ({
-                wallet: s.userId,
-                score: s._max.amount
-            })));
+            // Fetch specific user's best score for the requested period
+            let userBest = 0;
+            if (finalWallet) {
+                const bestRecord = await prisma.activity.findFirst({
+                    where: {
+                        userId: finalWallet,
+                        type: 'RESISTANCE_SCORE',
+                        createdAt: { gte: dateFilter }
+                    },
+                    orderBy: { amount: 'desc' },
+                    select: { amount: true }
+                });
+                userBest = bestRecord?.amount || 0;
+            }
+
+            // Returning combined object for the frontend
+            return res.status(200).json({
+                leaderboard: topScores.map(s => ({
+                    wallet: s.userId,
+                    score: s._max.amount
+                })),
+                userBest
+            });
         }
 
         if (!finalWallet) return res.status(400).json({ error: "Missing wallet address" });
@@ -88,27 +100,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             });
         }
 
-        // 3. SECURE SUBMIT SCORE (With Move Validation)
+        // 3. SECURE SUBMIT SCORE (Daily Reset & Storage Optimized)
         if (action === 'SUBMIT_SCORE') {
             const user = await prisma.user.findUnique({ where: { walletAddress: finalWallet } });
             if (!user?.hasResistanceUnlocked) return res.status(403).json({ error: "Unlock required" });
 
-            // --- MOVE VALIDATION LOGIC ---
             if (!history || !Array.isArray(history)) {
                 return res.status(400).json({ error: "Missing move history" });
             }
 
-            // Anti-Bot: Check average speed (400ms is human limit for selecting boxes)
             const avgTimePerMove = duration / history.length;
             if (avgTimePerMove < 400) {
                 return res.status(403).json({ error: "Suspiciously fast play detected." });
             }
 
-            // Verify Logic: Sum moves
             let calculatedScore = 0;
             for (const move of history) {
                 const { coords, pointsEarned } = move;
-                // Calculate size of selection box
                 const width = Math.abs(coords.x2 - coords.x1) + 1;
                 const height = Math.abs(coords.y2 - coords.y1) + 1;
                 const maxPossiblePoints = width * height;
@@ -119,14 +127,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 calculatedScore += pointsEarned;
             }
 
-            // Final score check
             if (calculatedScore !== score) {
                 return res.status(403).json({ error: "Score verification failed." });
             }
 
-            // Save Score
-            const today = new Date(new Date().setHours(0, 0, 0, 0));
-            const existingScore = await prisma.activity.findFirst({
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const dailyBest = await prisma.activity.findFirst({
                 where: {
                     userId: finalWallet,
                     type: 'RESISTANCE_SCORE',
@@ -134,17 +142,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 }
             });
 
-            if (!existingScore || score > existingScore.amount) {
-                if (existingScore) await prisma.activity.delete({ where: { id: existingScore.id } });
-
-                await prisma.activity.create({
-                    data: {
-                        userId: finalWallet,
-                        type: 'RESISTANCE_SCORE',
-                        amount: score,
-                        asset: 'POINTS'
-                    }
-                });
+            if (!dailyBest || score > dailyBest.amount) {
+                if (dailyBest) {
+                    await prisma.activity.update({
+                        where: { id: dailyBest.id },
+                        data: { amount: score }
+                    });
+                } else {
+                    await prisma.activity.create({
+                        data: {
+                            userId: finalWallet,
+                            type: 'RESISTANCE_SCORE',
+                            amount: score,
+                            asset: 'POINTS'
+                        }
+                    });
+                }
             }
             return res.status(200).json({ success: true });
         }

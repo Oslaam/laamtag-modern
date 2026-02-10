@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { X, TrendingUp, Zap, History, Clock } from 'lucide-react';
 
-type FilterType = 'ALL' | 'WINS' | 'COSTS' | 'STAKING' | 'NFT' | 'SKR';
+type FilterType = 'ALL' | 'WINS' | 'COSTS' | 'STAKING' | 'NFT';
 
 export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
     const { publicKey } = useWallet();
@@ -11,8 +11,6 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
     const [stats, setStats] = useState({ todayEarned: 0, streak: 0 });
     const [loading, setLoading] = useState(true);
     const [activeFilter, setActiveFilter] = useState<FilterType>('ALL');
-    const [claimableSKR, setClaimableSKR] = useState(0);
-    const [isClaiming, setIsClaiming] = useState(false);
 
     useEffect(() => {
         if (isOpen && publicKey) {
@@ -29,6 +27,9 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
 
     useEffect(() => {
         const filtered = rawHistory.filter(item => {
+            // GLOBAL RULE: Never show game points in history
+            if (item.asset === 'POINTS') return false;
+
             if (activeFilter === 'ALL') return true;
 
             if (activeFilter === 'COSTS') {
@@ -36,11 +37,10 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
                     item.type.includes('FEE') ||
                     item.type.includes('LOSS') ||
                     item.type.includes('SPENT') ||
-                    item.type.includes('ENTRY'); // Matches RAFFLE_ENTRY_COST
+                    item.type.includes('ENTRY');
             }
 
             if (activeFilter === 'WINS') {
-                // Now includes RAFFLE_WIN and RAFFLE_REWARD types
                 return item.type.includes('WIN') || item.type.includes('REWARD');
             }
 
@@ -75,7 +75,6 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
                 overflow: 'hidden',
                 border: '1px solid rgba(255,255,255,0.1)'
             }}>
-
                 {/* HEADER */}
                 <div style={{ padding: '24px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -140,13 +139,7 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
                                 </h3>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                     {groupedHistory[date].map((item: any) => {
-                                        // 1. IMPROVED LOGIC: Check for 'ENTRY' so Raffle Costs show as Red
-                                        const isCost = item.type.includes('COST') ||
-                                            item.type.includes('FEE') ||
-                                            item.type.includes('LOSS') ||
-                                            item.type.includes('ENTRY') || // This catches RAFFLE_ENTRY_COST
-                                            item.amount < 0;
-
+                                        const isCost = item.type.includes('COST') || item.type.includes('FEE') || item.type.includes('LOSS') || item.type.includes('ENTRY') || item.amount < 0;
                                         const themeColor = isCost ? '#ef4444' : '#22c55e';
                                         const bgColor = isCost ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)';
                                         const displayAmount = isCost ? `-${Math.abs(item.amount)}` : `+${Math.abs(item.amount)}`;
@@ -171,7 +164,6 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
                                                             background: item.asset === 'SKR' ? 'rgba(234, 179, 8, 0.1)' : bgColor,
                                                             color: item.asset === 'SKR' ? '#eab308' : themeColor
                                                         }}>
-                                                            {/* 2. UI FIX: This replaces ALL underscores with spaces */}
                                                             {item.type.split('_').join(' ')}
                                                         </span>
                                                         <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', gap: '2px' }}>
@@ -184,12 +176,7 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
                                                     </p>
                                                 </div>
                                                 <div style={{ textAlign: 'right' }}>
-                                                    <p style={{
-                                                        fontSize: '13px',
-                                                        fontWeight: 900,
-                                                        margin: 0,
-                                                        color: themeColor
-                                                    }}>
+                                                    <p style={{ fontSize: '13px', fontWeight: 900, margin: 0, color: themeColor }}>
                                                         {displayAmount}
                                                     </p>
                                                     <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', margin: 0 }}>{item.asset}</p>
