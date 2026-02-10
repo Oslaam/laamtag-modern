@@ -47,10 +47,7 @@ export default function ResistanceMode() {
     const [isUnlocked, setIsUnlocked] = useState(false);
     const [isActionLoading, setIsActionLoading] = useState(false);
     const [leaderboard, setLeaderboard] = useState<any[]>([]);
-
-    // --- NEW: PERSONAL BEST STATE ---
     const [userBestScore, setUserBestScore] = useState(0);
-
     const [dailyResetTime, setDailyResetTime] = useState("");
     const [daysSinceStart, setDaysSinceStart] = useState(0);
 
@@ -58,34 +55,46 @@ export default function ResistanceMode() {
     const moveInterval = useRef<NodeJS.Timeout | null>(null);
     const moveDelay = useRef<NodeJS.Timeout | null>(null);
 
+    // --- UPDATED: UTC RESET TIMER ---
     useEffect(() => {
         const startDate = new Date("2026-02-10");
-        const now = new Date();
-        const diffTime = Math.abs(now.getTime() - startDate.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        setDaysSinceStart(diffDays);
 
         const timer = setInterval(() => {
-            const nowTime = new Date();
-            const tomorrow = new Date();
-            tomorrow.setHours(24, 0, 0, 0);
-            const diff = tomorrow.getTime() - nowTime.getTime();
+            const now = new Date();
+
+            // Calculate Days Since Launch (UTC)
+            const diffTime = Math.abs(now.getTime() - startDate.getTime());
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            setDaysSinceStart(diffDays);
+
+            // Calculate Time Until UTC Midnight
+            const nextReset = new Date(Date.UTC(
+                now.getUTCFullYear(),
+                now.getUTCMonth(),
+                now.getUTCDate() + 1,
+                0, 0, 0
+            ));
+
+            const diff = nextReset.getTime() - now.getTime();
+
             const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
             const m = Math.floor((diff / 1000 / 60) % 60);
             const s = Math.floor((diff / 1000) % 60);
+
             setDailyResetTime(`${h}h ${m}m ${s}s`);
+
+            // Auto-refresh leaderboard when clock hits zero
+            if (h === 0 && m === 0 && s === 0) {
+                fetchLeaderboard();
+            }
         }, 1000);
         return () => clearInterval(timer);
     }, []);
 
-    // --- UPDATED DATA FETCHING ---
     const fetchLeaderboard = useCallback(async () => {
         try {
-            // Pass walletAddress so API can find personal best
             const walletParam = publicKey ? `&walletAddress=${publicKey.toBase58()}` : '';
             const res = await axios.get(`/api/games/resistance-mode?type=${leaderboardType}${walletParam}`);
-
-            // API now returns { leaderboard: [], userBest: number }
             setLeaderboard(res.data.leaderboard);
             setUserBestScore(res.data.userBest || 0);
         } catch (e) { console.error("Leaderboard Error", e); }
@@ -118,6 +127,7 @@ export default function ResistanceMode() {
     const handleLevelComplete = async () => {
         setGameState('IDLE');
         setShowRewardOverlay(true);
+        // Log progress is optional, but keep it for analytics
         try {
             await axios.post('/api/games/resistance-mode', {
                 action: 'LOG_PROGRESS',
@@ -230,6 +240,7 @@ export default function ResistanceMode() {
         }
     };
 
+    // Canvas Rendering
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -349,7 +360,7 @@ export default function ResistanceMode() {
                     <h2>HOW TO PLAY</h2>
                     <p>Use the <b>D-Pad</b> to move. Press <b>A</b> to start a selection, then <b>A</b> again on another number. If the numbers in your box sum to <b>10</b>, they clear!</p>
                     <div className={styles.rewardBadges}>
-                        <span>🏆 Mission Completed = 1,000 LAAM & 50 TAG</span>
+                        <span>🏆 Mission Completed = 1,000 LAAM & 20 TAG</span>
                         <span>⭐ Top 3 Daily = Daily Bonus</span>
                     </div>
                 </div>
@@ -392,7 +403,7 @@ export default function ResistanceMode() {
                         <div className={styles.boardTitleSection}>
                             <h3>RANKINGS</h3>
                             <div className={styles.statsRow}>
-                                <small>Daily: {dailyResetTime}</small>
+                                <small>Reset in: {dailyResetTime}</small>
                                 <small>Overall: Day {daysSinceStart} Completed</small>
                             </div>
                         </div>
@@ -402,7 +413,6 @@ export default function ResistanceMode() {
                         </div>
                     </div>
                     <div className={styles.boardList}>
-                        {/* --- NEW: PERSONAL BEST BADGE --- */}
                         {connected && (
                             <div className={styles.personalBestRow}>
                                 <span className={styles.rank}>YOU</span>
@@ -410,9 +420,7 @@ export default function ResistanceMode() {
                                 <span className={styles.points}>{userBestScore}</span>
                             </div>
                         )}
-
                         <div className={styles.divider} />
-
                         {leaderboard.map((user, index) => (
                             <div
                                 key={index}

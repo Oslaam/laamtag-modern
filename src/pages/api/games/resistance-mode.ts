@@ -13,11 +13,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { walletAddress, action, score, signature, type, history, duration } = req.body;
     const finalWallet = walletAddress || (req.query.walletAddress as string);
 
+    // --- UTC Reset Logic ---
+    // This creates a timestamp for 00:00:00 UTC of the current day.
+    const now = new Date();
+    const utcMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+
     try {
-        // 1. FETCH LEADERBOARD (Updated with Personal Best Logic)
+        // 1. FETCH LEADERBOARD
         if (req.method === 'GET' || action === 'GET_LEADERBOARD') {
             const isDaily = req.query.type === 'daily' || type === 'daily';
-            const dateFilter = isDaily ? new Date(new Date().setHours(0, 0, 0, 0)) : new Date(0);
+            // Use utcMidnight for daily reset, or Epoch 0 for All-Time
+            const dateFilter = isDaily ? utcMidnight : new Date(0);
 
             // Fetch Global Top 10
             const topScores = await prisma.activity.groupBy({
@@ -46,7 +52,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 userBest = bestRecord?.amount || 0;
             }
 
-            // Returning combined object for the frontend
             return res.status(200).json({
                 leaderboard: topScores.map(s => ({
                     wallet: s.userId,
@@ -100,7 +105,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             });
         }
 
-        // 3. SECURE SUBMIT SCORE (Daily Reset & Storage Optimized)
+        // 3. SECURE SUBMIT SCORE
         if (action === 'SUBMIT_SCORE') {
             const user = await prisma.user.findUnique({ where: { walletAddress: finalWallet } });
             if (!user?.hasResistanceUnlocked) return res.status(403).json({ error: "Unlock required" });
@@ -109,11 +114,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 return res.status(400).json({ error: "Missing move history" });
             }
 
+            // Simple Anti-Cheat: Speed check
             const avgTimePerMove = duration / history.length;
             if (avgTimePerMove < 400) {
                 return res.status(403).json({ error: "Suspiciously fast play detected." });
             }
 
+            // Score Verification
             let calculatedScore = 0;
             for (const move of history) {
                 const { coords, pointsEarned } = move;
@@ -131,14 +138,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 return res.status(403).json({ error: "Score verification failed." });
             }
 
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
+            // DAILY RESET LOGIC: Find existing record for TODAY (UTC)
             const dailyBest = await prisma.activity.findFirst({
                 where: {
                     userId: finalWallet,
                     type: 'RESISTANCE_SCORE',
-                    createdAt: { gte: today }
+                    createdAt: { gte: utcMidnight } // Always use UTC midnight for the reset check
                 }
             });
 

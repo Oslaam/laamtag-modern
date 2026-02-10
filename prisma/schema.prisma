@@ -185,7 +185,7 @@ model PushSubscription {
   subscription  Json     
   userAgent     String?  // Optional: helps you identify which device this is
   createdAt     DateTime @default(now())
-  @@index([walletAddress])
+  @@unique([walletAddress, userAgent])
 }
 
 model ResistanceScore {

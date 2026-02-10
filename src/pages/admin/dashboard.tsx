@@ -11,7 +11,7 @@ import confetti from 'canvas-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckCircle2, MessageSquare, ExternalLink, ShieldAlert,
-  Clock, XCircle, ChevronLeft, Terminal, Bell, Zap, Send, Gift, Coins
+  Clock, XCircle, ChevronLeft, Terminal, Bell, Zap, Send, Gift, Coins, Activity
 } from 'lucide-react';
 
 const MotionDiv = motion.div as any;
@@ -24,7 +24,6 @@ const ADMIN_WALLETS = [
 export default function AdminDashboard() {
   const { publicKey, signMessage } = useWallet();
   const router = useRouter();
-  // Added ALERTS to the tabs
   const [activeTab, setActiveTab] = useState<'QUESTS' | 'SUPPORT' | 'HISTORY' | 'RAFFLES' | 'ALERTS'>('QUESTS');
   const [submissions, setSubmissions] = useState([]);
   const [tickets, setTickets] = useState([]);
@@ -79,7 +78,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // --- NEW BROADCAST LOGIC ---
   const broadcastAlert = async (type: string) => {
     if (!publicKey) return;
     const confirmSend = confirm(`Broadcast ${type.toUpperCase()} alert to all users?`);
@@ -108,6 +106,27 @@ export default function AdminDashboard() {
       toast.success(`Broadcast Complete: ${successCount} devices pinged!`, { id: loadingToast });
     } catch (err) {
       toast.error("Broadcast failed", { id: loadingToast });
+    }
+  };
+
+  const runDiagnosticPing = async () => {
+    if (!publicKey) return toast.error("Connect Wallet!");
+    const loadingToast = toast.loading("Sending Diagnostic Ping...");
+
+    try {
+      const res = await fetch('/api/admin/test-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress: publicKey.toString() })
+      });
+
+      if (res.ok) {
+        toast.success("DIAGNOSTIC_SENT: Check your device", { id: loadingToast });
+      } else {
+        toast.error("FAIL: No subscription found for this wallet", { id: loadingToast });
+      }
+    } catch (err) {
+      toast.error("NETWORK_ERROR: Ping failed", { id: loadingToast });
     }
   };
 
@@ -159,7 +178,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // Helper for tab counts
   const getCount = (tab: string) => {
     if (tab === 'QUESTS') return submissions.length;
     if (tab === 'SUPPORT') return tickets.filter((t: any) => t.status === 'Pending').length;
@@ -221,7 +239,6 @@ export default function AdminDashboard() {
           <WalletMultiButton className="!bg-yellow-500 !text-black !font-black !rounded-xl !h-12 !px-8 hover:!bg-white transition-all" />
         </div>
 
-        {/* --- TAB NAVIGATION WITH COUNTS --- */}
         <div className="flex flex-wrap gap-2 mb-8 bg-zinc-900/50 p-1.5 rounded-2xl border border-white/5">
           {['QUESTS', 'SUPPORT', 'HISTORY', 'RAFFLES', 'ALERTS'].map((tab) => {
             const count = getCount(tab);
@@ -250,7 +267,6 @@ export default function AdminDashboard() {
         ) : (
           <div className="grid gap-4">
 
-            {/* ALERTS TAB CONTENT */}
             {activeTab === 'ALERTS' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="p-8 border border-yellow-500/20 rounded-[32px] bg-zinc-900/40">
@@ -275,6 +291,17 @@ export default function AdminDashboard() {
                       <span className="flex items-center gap-3"><Coins size={16} /> Staking Rewards</span>
                       <ChevronLeft size={14} className="rotate-180 opacity-0 group-hover:opacity-100 transition-all" />
                     </button>
+
+                    <div className="h-px bg-white/5 my-4" />
+
+                    {/* DIAGNOSTIC PING SECTION */}
+                    <button
+                      onClick={runDiagnosticPing}
+                      className="flex items-center justify-between bg-blue-500/10 border border-blue-500/30 p-5 rounded-2xl text-[10px] font-black uppercase text-blue-400 hover:bg-blue-500 hover:text-white transition-all group"
+                    >
+                      <span className="flex items-center gap-3"><Activity size={16} /> System Diagnostic</span>
+                      <span className="font-mono opacity-60 group-hover:opacity-100">PING_SELF</span>
+                    </button>
                   </div>
                 </div>
 
@@ -286,7 +313,6 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {/* EXISTING TABS: QUESTS */}
             {activeTab === 'QUESTS' && submissions.map((s: any) => (
               <MotionDiv layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={s.id} className="p-6 border border-zinc-800 rounded-[32px] bg-zinc-900/40 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 hover:border-yellow-500/30 transition-all group">
                 <div className="flex-1">
@@ -322,9 +348,6 @@ export default function AdminDashboard() {
                 </div>
               </MotionDiv>
             ))}
-
-            {/* HISTORY, SUPPORT, RAFFLES follow the same structure as before... */}
-            {/* (Keeping your logic for other tabs the same) */}
 
             {activeTab === 'HISTORY' && history.map((h: any) => (
               <div key={h.id} className="p-5 border border-white/5 rounded-2xl bg-zinc-900/20 flex justify-between items-center opacity-70 hover:opacity-100 transition-opacity">
@@ -369,10 +392,8 @@ export default function AdminDashboard() {
               </MotionDiv>
             ))}
 
-            {/* RAFFLES CONTENT (kept the same) */}
             {activeTab === 'RAFFLES' && (
               <div className="flex flex-col gap-6">
-                {/* ... your raffle purge UI ... */}
                 <div className="p-8 border border-yellow-500/20 rounded-[32px] bg-yellow-500/5 flex justify-between items-center">
                   <div>
                     <h2 className="text-xl font-black italic uppercase">Lobby Maintenance</h2>
@@ -395,11 +416,9 @@ export default function AdminDashboard() {
                     Purge Expired Pools
                   </button>
                 </div>
-                {/* ... your raffle history UI ... */}
               </div>
             )}
 
-            {/* EMPTY STATE */}
             {(activeTab === 'QUESTS' ? submissions.length : activeTab === 'SUPPORT' ? tickets.length : activeTab === 'HISTORY' ? history.length : 0) === 0 && !['RAFFLES', 'ALERTS'].includes(activeTab) && (
               <div className="text-center py-32 border-2 border-dashed border-zinc-900 rounded-[40px] bg-zinc-900/5">
                 <ShieldAlert className="mx-auto text-zinc-800 mb-4" size={40} />
