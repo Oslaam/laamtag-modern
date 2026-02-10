@@ -7,7 +7,6 @@ import bs58 from 'bs58';
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method !== 'POST') return res.status(405).end();
 
-    // 1. Extract wallet, signature, and message from body for security verification
     const { walletAddress, signature, message } = req.body;
 
     if (!signature || !message || !walletAddress) {
@@ -15,7 +14,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
-        // 2. VERIFY THE SIGNATURE (Security Fix)
         const signatureUint8 = bs58.decode(signature);
         const messageUint8 = new TextEncoder().encode(message);
         const pubKeyUint8 = bs58.decode(walletAddress);
@@ -30,7 +28,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             return res.status(401).json({ message: "Security Breach: Invalid Signature." });
         }
 
-        // --- AUTHENTICATED LOGIC BELOW ---
         const stakedNfts = await prisma.stakedNFT.findMany({
             where: { ownerAddress: walletAddress }
         });
@@ -45,36 +42,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const TAG_PER_HOUR = 20 / 24;
 
         for (const nft of stakedNfts) {
-            const hoursSinceStaked = (now.getTime() - new Date(nft.stakedAt).getTime()) / (1000 * 60 * 60);
+            const nowTime = now.getTime();
+            const stakedAtTime = new Date(nft.stakedAt).getTime();
+            const lastClaimedTime = new Date(nft.lastClaimed).getTime();
 
-            // Only proceed if staked for at least 48 hours
+            // 1. Initial 48h Warm-up check
+            const hoursSinceStaked = (nowTime - stakedAtTime) / (1000 * 60 * 60);
             if (hoursSinceStaked < 48) continue;
 
-            const lastSync = new Date(nft.lastClaimed);
-            const hoursSinceLastSync = (now.getTime() - lastSync.getTime()) / (1000 * 60 * 60);
+            // 2. Calculate TOTAL time passed since the last successful claim (No Loss Math)
+            const hoursSinceLastSync = (nowTime - lastClaimedTime) / (1000 * 60 * 60);
 
-            // ONLY proceed if the 24h cycle is complete
+            // 3. User can claim as long as at least 24h has passed since last claim
             if (hoursSinceLastSync >= 24) {
-                // Find the boost that is active RIGHT NOW for this NFT
                 const activeBoost = await prisma.multiplierBoost.findFirst({
                     where: {
                         mintAddress: nft.mintAddress,
-                        activatedAt: { lte: now }, // Must have already started
-                        expiresAt: { gt: now }      // Must not have ended yet
+                        activatedAt: { lte: now },
+                        expiresAt: { gt: now }
                     },
-                    orderBy: { multiplier: 'desc' } // Best one first if overlap
+                    orderBy: { multiplier: 'desc' }
                 });
 
                 const multiplier = activeBoost ? activeBoost.multiplier : 1;
 
-                // Calculate rewards USING the multiplier
+                // 4. ACCUMULATION LOGIC: Multiply hourly rate by the TOTAL elapsed hours
                 const nftLaamReward = (LAAM_PER_HOUR * hoursSinceLastSync) * multiplier;
                 const nftTagReward = (TAG_PER_HOUR * hoursSinceLastSync) * multiplier;
 
                 totalLaamToDeposit += nftLaamReward;
                 totalTagToDeposit += nftTagReward;
 
-                // Update DB for this specific NFT
+                // 5. Update the NFT's lastClaimed to NOW
                 await prisma.stakedNFT.update({
                     where: { mintAddress: nft.mintAddress },
                     data: { lastClaimed: now }
@@ -92,7 +91,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             }
         }
 
-        // Update the User profile if rewards were earned
         if (totalLaamToDeposit > 0 || totalTagToDeposit > 0) {
             await prisma.user.update({
                 where: { walletAddress },
