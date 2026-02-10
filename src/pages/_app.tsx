@@ -54,7 +54,6 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [expanded, setExpanded] = useState(false);
 
-    // Default state
     const [stats, setStats] = useState({
         laam: 0,
         tag: 0,
@@ -69,6 +68,17 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
     const isGamePage = router.pathname.includes('/games/shooter');
     const isAdmin = publicKey && ADMIN_WALLETS.includes(publicKey.toString());
 
+    // --- SERVICE WORKER REGISTRATION ---
+    useEffect(() => {
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('SW Registered:', reg.scope))
+                    .catch(err => console.error('SW Registration failed:', err));
+            });
+        }
+    }, []);
+
     const fetchStats = useCallback(async () => {
         if (!publicKey || !connection) {
             setStats({ laam: 0, tag: 0, sol: 0, tier: 'BRONZE', username: '', currentStage: 1, weaponLevel: 1 });
@@ -76,7 +86,6 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
         };
 
         try {
-            // ADMIN CHECK (Safe inside try)
             if (isAdmin) {
                 const tRes = await fetch('/api/admin/tickets', {
                     headers: { 'x-admin-wallet': publicKey.toString() }
@@ -88,10 +97,7 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
                 }
             }
 
-            // SOLANA BALANCE (Now safe inside try)
             const solBalance = await connection.getBalance(publicKey);
-
-            // USER DATABASE (Now safe inside try)
             const res = await fetch(`/api/user/${publicKey.toString()}`);
 
             if (res.ok) {
@@ -110,24 +116,14 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
                 });
             }
         } catch (err) {
-            // If anything above fails, we just log it. 
-            // The UI stays visible and the user can keep playing.
-            console.warn("Network hiccup: Could not refresh stats. Will retry in 30s.");
+            console.warn("Network hiccup: Could not refresh stats.");
         }
     }, [publicKey, connection, isAdmin]);
-    
+
     useEffect(() => {
-        // Initial call when wallet connects
         fetchStats();
-
-        const handleBalanceUpdate = () => {
-            console.log("🔔 Balance Update Triggered");
-            fetchStats();
-        };
-
+        const handleBalanceUpdate = () => fetchStats();
         window.addEventListener('balanceUpdate', handleBalanceUpdate);
-
-        // Refresh every 30s
         const intervalId = setInterval(fetchStats, 30000);
 
         return () => {
@@ -137,21 +133,22 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
     }, [publicKey, connection, fetchStats]);
 
     const allContentItems: FooterItem[] = [
-        { name: 'Mint', icon: <Coins size={20} color="#eab308" />, path: '/mint', type: 'link' }, // Gold
-        { name: 'Quests', icon: <ScrollText size={20} color="#60a5fa" />, path: '/quests', type: 'link' }, // Blue
-        { name: 'Vault', icon: <Layers size={20} color="#a855f7" />, path: '/vault', type: 'link' }, // Purple
-        { name: 'Games', icon: <Gamepad2 size={20} color="#f43f5e" />, path: '/games', type: 'link' }, // Rose/Red
-        { name: 'Arena', icon: <Swords size={20} color="#9f3e99" />, path: '/arena', type: 'link' }, // Muted Gray (Locked vibe)
-        { name: 'Shop', icon: <ShoppingCart size={20} color="#fb923c" />, path: '/shop', type: 'link' }, // Orange
-        { name: 'Staking', icon: <DoorClosed size={20} color="#2dd4bf" />, path: '/staking', type: 'link' }, // Teal
-        { name: 'Trade', icon: <Repeat size={20} color="#4ade80" />, path: '/swap', type: 'link' }, // Green (Money/Flow)
-        { name: 'Bank', icon: <FileText size={20} color="#fbbf24" />, path: '/bank', type: 'link' }, // Amber
-        { name: 'Domain', icon: <Plus size={20} color="#9a823c" />, path: '/laam', type: 'link' }, // Gold (Matches your .laam branding)
-        { name: 'Profile', icon: <User size={20} color="#aa4747" />, path: '/profile', type: 'link' }, // White
-        { name: 'Rank', icon: <BarChart3 size={20} color="#facc15" />, path: '/leaderboard', type: 'link' }, // Yellow
-        { name: 'Contact', icon: <Mail size={20} color="#324d72" />, path: '/contact', type: 'link' }, // Slate
-        { name: 'History', icon: <History size={20} color="#698bb4" />, type: 'action', action: 'history' }, // Light Slate
+        { name: 'Mint', icon: <Coins size={20} color="#eab308" />, path: '/mint', type: 'link' },
+        { name: 'Quests', icon: <ScrollText size={20} color="#60a5fa" />, path: '/quests', type: 'link' },
+        { name: 'Vault', icon: <Layers size={20} color="#a855f7" />, path: '/vault', type: 'link' },
+        { name: 'Games', icon: <Gamepad2 size={20} color="#f43f5e" />, path: '/games', type: 'link' },
+        { name: 'Arena', icon: <Swords size={20} color="#9f3e99" />, path: '/arena', type: 'link' },
+        { name: 'Shop', icon: <ShoppingCart size={20} color="#fb923c" />, path: '/shop', type: 'link' },
+        { name: 'Staking', icon: <DoorClosed size={20} color="#2dd4bf" />, path: '/staking', type: 'link' },
+        { name: 'Trade', icon: <Repeat size={20} color="#4ade80" />, path: '/swap', type: 'link' },
+        { name: 'Bank', icon: <FileText size={20} color="#fbbf24" />, path: '/bank', type: 'link' },
+        { name: 'Domain', icon: <Plus size={20} color="#9a823c" />, path: '/laam', type: 'link' },
+        { name: 'Profile', icon: <User size={20} color="#aa4747" />, path: '/profile', type: 'link' },
+        { name: 'Rank', icon: <BarChart3 size={20} color="#facc15" />, path: '/leaderboard', type: 'link' },
+        { name: 'Contact', icon: <Mail size={20} color="#324d72" />, path: '/contact', type: 'link' },
+        { name: 'History', icon: <History size={20} color="#698bb4" />, type: 'action', action: 'history' },
     ];
+
     const topRow = allContentItems.slice(0, 4);
     const toggleButton: FooterItem = {
         name: expanded ? 'Less' : 'More',
@@ -188,16 +185,9 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
                             <div style={{ padding: '0 12px' }}>
                                 <p className="stat-label">OPERATOR</p>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    {/* Domain verification badge */}
-                                    {stats.username && (
-                                        <Crown size={10} color="#eab308" style={{ filter: 'drop-shadow(0 0 3px #eab308)' }} />
-                                    )}
-                                    <p className="stat-value" style={{
-                                        color: stats.username ? '#eab308' : '#fff',
-                                        textTransform: 'uppercase',
-                                        fontSize: stats.username ? '11px' : '10px'
-                                    }}>
-                                        {stats.username ? stats.username : 'SEEKER'}
+                                    {stats.username && <Crown size={10} color="#eab308" />}
+                                    <p className="stat-value" style={{ color: stats.username ? '#eab308' : '#fff' }}>
+                                        {stats.username || 'SEEKER'}
                                     </p>
                                 </div>
                             </div>
@@ -214,21 +204,17 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
 
             <main className={isGamePage ? "game-content-fullscreen" : "main-content"}>
                 <div className={isGamePage ? "" : "content-wrapper"}>
-                    {/* Inject stats if it's the game container */}
-                    {router.pathname === '/games/shooter' ? (
-                        <div className="w-full h-full">
-                            {children}
-                        </div>
-                    ) : children}
+                    {children}
                 </div>
             </main>
 
             {!isGamePage && (
                 <footer className="main-footer">
                     <div className="footer-grid">
-                        {finalGridItems.map((item: FooterItem, idx: number) => {
+                        {finalGridItems.map((item, idx) => {
                             const isUrlActive = item.path ? router.pathname === item.path : false;
                             const itemClass = `footer-item ${item.highlight ? 'highlight' : ''} ${isUrlActive ? 'active' : ''}`;
+
                             if (item.type === 'link' && item.path) {
                                 return (
                                     <Link key={`${item.name}-${idx}`} href={item.path} className={itemClass}>

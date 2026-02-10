@@ -4,7 +4,6 @@ import GuessGameComponent from '../components/GuessGame';
 import SpinGame from '../components/SpinGame';
 import DiceTerminal from '../components/DiceTerminal';
 import RaffleLobby from '../components/RaffleLobby';
-import ThuggerGrand from '../components/ThuggerGrand';
 import { useWallet } from '@solana/wallet-adapter-react';
 import dynamic from 'next/dynamic';
 const ShooterContainer = dynamic(
@@ -15,10 +14,10 @@ import LootVault from '../components/LootVault';
 import HistoryModal from '../components/HistoryModal';
 import { Toaster } from 'react-hot-toast';
 import { History, ChevronLeft } from 'lucide-react';
+import ResistanceMode from '../components/ResistanceMode';
 
 export default function GamesPage() {
-    // Added 'RAFFLE' to the activeGame type
-    const [activeGame, setActiveGame] = useState<'GUESS' | 'SPIN' | 'SHOOTER' | 'DICE' | 'RAFFLE' | 'THUGGER' | null>(null);
+    const [activeGame, setActiveGame] = useState<'GUESS' | 'SPIN' | 'SHOOTER' | 'DICE' | 'RAFFLE' | 'RESISTANCE' | null>(null);
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [user, setUser] = useState<any>(null);
 
@@ -118,11 +117,12 @@ export default function GamesPage() {
                                     onClick={() => setActiveGame('RAFFLE')}
                                 />
                                 <ModuleCard
-                                    title="Thugger Grand"
-                                    desc="ELIMATES THE ENEMIES TO EARN"
-                                    imageSrc="/assets/images/thugger.jpg"
-                                    onClick={() => setActiveGame('THUGGER')}
+                                    title="Resistance"
+                                    desc="UNLOCK WITH $SKR // PLAY FOR MODE REWARDS"
+                                    imageSrc="/assets/images/resistance.png" 
+                                    onClick={() => setActiveGame('RESISTANCE')}
                                 />
+                                
                             </div>
                         ) : (
                             <div className="terminal-card" style={{ padding: '24px' }}>
@@ -132,7 +132,7 @@ export default function GamesPage() {
                                             activeGame === 'SPIN' ? 'COST: 5 TAG PER ATTEMPT' :
                                                 activeGame === 'DICE' ? 'AUTHORIZED ACCESS ONLY' :
                                                     activeGame === 'RAFFLE' ? 'DATA SCRAPING IN PROGRESS' :
-                                                        'MISSION: ELIMINATE TO EARN'}
+                                                        'MISSION: MERGE RIGHT TO EARN'}
                                     </p>
                                 </div>
 
@@ -141,7 +141,7 @@ export default function GamesPage() {
                                 {activeGame === 'SHOOTER' && <ShooterContainer />}
                                 {activeGame === 'DICE' && user && <DiceTerminal user={user} refreshUser={mutate} />}
                                 {activeGame === 'RAFFLE' && <RaffleLobby />}
-                                {/* {activeGame === 'THUGGER' && <ThuggerGrand />} */}
+                                {activeGame === 'RESISTANCE' && <ResistanceMode />}
 
                                 <div style={{ marginTop: '32px', background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
                                     <h4 style={{ fontSize: '10px', fontWeight: 900, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: '12px' }}>

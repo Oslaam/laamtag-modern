@@ -21,19 +21,17 @@ model User {
   quests             UserQuest[]
   activities         Activity[]
   pendingRewards     PendingReward[]
-  // Game Progress
+  pushSubscriptions  PushSubscription[]
   shooterLevel   Int      @default(1)
   shooterStage   Int      @default(1)
-  // Stats (Weapon levels)
-thuggerLevel     Int     @default(1)
-thuggerHighScore Int     @default(0)
-skrBalance       Float   @default(0)
+  skrBalance       Float   @default(0)
   weaponLevel        Int              @default(1)
   shieldLevel        Int              @default(0)
   shoeLevel          Int              @default(1)
   lifeLevel          Int              @default(1)
   currentStage       Int              @default(1)
   hasPaidDiceEntry   Boolean          @default(false)
+  hasResistanceUnlocked Boolean       @default(false)
   boosts             MultiplierBoost[]
   lastLaamCheckIn DateTime?
   lastTagCheckIn  DateTime?
@@ -178,4 +176,25 @@ model RaffleEntry {
   createdAt     DateTime   @default(now())
 
   @@unique([poolId, walletAddress]) // Prevents one user entering same pool twice
+}
+
+model PushSubscription {
+  id            String   @id @default(cuid())
+  walletAddress String
+  user          User     @relation(fields: [walletAddress], references: [walletAddress])
+  subscription  Json     
+  userAgent     String?  // Optional: helps you identify which device this is
+  createdAt     DateTime @default(now())
+  @@index([walletAddress])
+}
+
+model ResistanceScore {
+  id            String   @id @default(cuid())
+  walletAddress String
+  initialGrid   String   // Store as a comma-separated string or JSON
+  score         Int
+  createdAt     DateTime @default(now())
+  
+  @@index([walletAddress])
+  @@index([createdAt]) // For Daily Leaderboard filtering
 }

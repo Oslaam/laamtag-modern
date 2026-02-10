@@ -13,12 +13,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         tagTickets: true,
         rank: true,
         personalMinted: true,
+        hasResistanceUnlocked: true, // Added this
       }
     });
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // NEW: Count staked NFTs to determine "Free Mint" eligibility
+    // Count staked NFTs to determine "Free Mint" eligibility
     const stakedCount = await prisma.stakedNFT.count({
       where: { ownerAddress: address as string }
     });
@@ -27,8 +28,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({
       ...user,
       stakedCount,
-      hasDomain: !!user.username, // Boolean: true if they have a name
-      isEligibleFree: stakedCount > 0
+      hasDomain: !!user.username,
+      isEligibleFree: stakedCount > 0,
+      hasResistanceUnlocked: user.hasResistanceUnlocked // Explicitly return the unlock status
     });
   } catch (error) {
     console.error(error);
