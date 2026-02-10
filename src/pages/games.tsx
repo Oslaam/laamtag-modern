@@ -117,7 +117,7 @@ export default function GamesPage() {
                                     onClick={() => setActiveGame('RAFFLE')}
                                 />
                                 <ModuleCard
-                                    title="Resistance"
+                                    title="Resistance Mode"
                                     desc="UNLOCK WITH $SKR // PLAY FOR MODE REWARDS"
                                     imageSrc="/assets/images/resistance.png" 
                                     onClick={() => setActiveGame('RESISTANCE')}
