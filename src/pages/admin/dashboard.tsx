@@ -80,32 +80,45 @@ export default function AdminDashboard() {
 
   const broadcastAlert = async (type: string) => {
     if (!publicKey) return;
-    const confirmSend = confirm(`Broadcast ${type.toUpperCase()} alert to all users?`);
+
+    let questTitle = "";
+    let targetWallet = ""; // To hold the wallet for refunds
+
+    if (type === 'NEW_QUEST') {
+      questTitle = prompt("Enter the Mission Title (e.g., 'LaamTag New Quest'):") || "";
+      if (!questTitle) return;
+    }
+
+    // NEW: If it's a refund, ask for the wallet address here
+    if (type === 'RAFFLE_REFUND') {
+      targetWallet = prompt("Enter User Wallet Address for Refund Alert:") || "";
+      if (!targetWallet) return;
+    }
+
+    const confirmSend = confirm(`Broadcast ${type.toUpperCase()} alert?`);
     if (!confirmSend) return;
 
-    const loadingToast = toast.loading("Broadcasting to the Matrix...");
+    const loadingToast = toast.loading("Broadcasting...");
 
     try {
-      const subRes = await fetch('/api/admin/get-subscriptions', {
-        headers: { 'x-admin-wallet': publicKey.toString() }
-      });
-      const subscribers = await subRes.json();
+      const apiType = type.toUpperCase() === 'QUEST' ? 'NEW_QUEST' :
+        type.toUpperCase() === 'DAILY' ? 'DAILY_REMINDER' :
+          type.toUpperCase() === 'STAKING' ? 'STAKING_ALERT' : type.toUpperCase();
 
-      let successCount = 0;
-      for (const sub of subscribers) {
-        const res = await fetch('/api/notifications/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            subscription: sub.subscription,
-            type: type
-          })
-        });
-        if (res.ok) successCount++;
+      // FIXED FETCH CALL: Added &targetWallet=${targetWallet}
+      const res = await fetch(`/api/notifications/automation?auth_key=${process.env.NEXT_PUBLIC_CRON_SECRET}&type=${apiType}&questTitle=${encodeURIComponent(questTitle)}&targetWallet=${targetWallet}`);
+
+      const data = await res.json();
+
+      if (res.ok) {
+        toast.success(`SYSTEM: Broadcast complete!`, { id: loadingToast });
+        // REFRESH DATA: This keeps your dashboard counts/lists updated
+        fetchData();
+      } else {
+        throw new Error(data.error || "Broadcast failed");
       }
-      toast.success(`Broadcast Complete: ${successCount} devices pinged!`, { id: loadingToast });
     } catch (err) {
-      toast.error("Broadcast failed", { id: loadingToast });
+      toast.error("FAIL: Error occurred", { id: loadingToast });
     }
   };
 
@@ -289,6 +302,13 @@ export default function AdminDashboard() {
                     </button>
                     <button onClick={() => broadcastAlert('staking')} className="flex items-center justify-between bg-white/5 border border-white/10 p-5 rounded-2xl text-[10px] font-black uppercase hover:bg-yellow-500 hover:text-black transition-all group">
                       <span className="flex items-center gap-3"><Coins size={16} /> Staking Rewards</span>
+                      <ChevronLeft size={14} className="rotate-180 opacity-0 group-hover:opacity-100 transition-all" />
+                    </button>
+                    <button
+                      onClick={() => broadcastAlert('RAFFLE_REFUND')}
+                      className="flex items-center justify-between bg-red-500/10 border border-red-500/20 p-5 rounded-2xl text-[10px] font-black uppercase hover:bg-red-500 hover:text-white transition-all group"
+                    >
+                      <span className="flex items-center gap-3"><Activity size={16} /> Refund Issued</span>
                       <ChevronLeft size={14} className="rotate-180 opacity-0 group-hover:opacity-100 transition-all" />
                     </button>
 

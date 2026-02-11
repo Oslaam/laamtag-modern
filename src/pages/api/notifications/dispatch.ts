@@ -52,6 +52,22 @@ export default async function handler(req, res) {
                     include: { pushSubscriptions: true }
                 });
                 break;
+
+            case 'RAFFLE_START':
+                targets = await prisma.user.findMany({
+                    where: { pushSubscriptions: { some: {} } },
+                    include: { pushSubscriptions: true }
+                });
+                break;
+
+            case 'RAFFLE_REFUND':
+                // Only notify the specific user getting a refund
+                const { walletAddress } = req.body;
+                targets = await prisma.user.findMany({
+                    where: { walletAddress, pushSubscriptions: { some: {} } },
+                    include: { pushSubscriptions: true }
+                });
+                break;
         }
 
         // Send the actual messages
