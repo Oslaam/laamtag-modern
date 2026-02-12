@@ -6,19 +6,29 @@ import { logActivity } from '../../lib/activityLogger';
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method not allowed' });
 
-  // ADDED: referralCodeUsed from frontend
   const { walletAddress, questId, pointsReward, referralCodeUsed } = req.body;
 
   try {
     const quest = await prisma.quest.findUnique({ where: { id: questId } });
-    if (quest?.limit && quest.claimedCount >= quest.limit) {
+
+    if (!quest) return res.status(404).json({ message: "Quest not found" });
+
+    // --- EXPIRATION CHECK (3 DAYS) ---
+    const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+    const questAge = Date.now() - new Date(quest.createdAt).getTime();
+
+    if (questAge > THREE_DAYS_MS) {
+      return res.status(400).json({ message: "Intelligence expired! This mission is no longer active." });
+    }
+    // ---------------------------------
+
+    if (quest.limit && quest.claimedCount >= quest.limit) {
       return res.status(400).json({ message: "This special task is full!" });
     }
 
     const isTagQuest = questId === 'tag-daily-checkin';
     const currentUser = await prisma.user.findUnique({ where: { walletAddress } });
 
-    // LOGIC: If user is new, determine their referrer
     let referrerWallet: string | null = null;
     if (!currentUser && referralCodeUsed && referralCodeUsed !== "LAAM-2026-TAG") {
       const recruiter = await prisma.user.findUnique({
@@ -32,7 +42,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       walletAddress,
       hasAccess: true,
       referredBy: referrerWallet,
-      // Generate their own referral code for future use
       referralCode: `TAG-${Math.random().toString(36).substring(2, 7).toUpperCase()}`
     };
 

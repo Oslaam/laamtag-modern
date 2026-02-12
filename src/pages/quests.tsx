@@ -1,9 +1,10 @@
 'use client';
 
 import { useWallet } from '@solana/wallet-adapter-react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import SeekerGuard from '../components/SeekerGuard';
+import { ChevronDown, ChevronUp, Clock, XCircle, CheckCircle2, Lock } from 'lucide-react';
 
 const isAlreadyClaimedToday = (lastCheckInDate: string | Date | null) => {
   if (!lastCheckInDate) return false;
@@ -15,13 +16,14 @@ const isAlreadyClaimedToday = (lastCheckInDate: string | Date | null) => {
 
 export default function QuestsPage() {
   const { publicKey } = useWallet();
-  const [dbQuests, setDbQuests] = useState([]);
+  const [dbQuests, setDbQuests] = useState<any[]>([]);
   const [questStatuses, setQuestStatuses] = useState<Record<string, string>>({});
   const [userCheckins, setUserCheckins] = useState<{ laam: Date | null, tag: Date | null }>({ laam: null, tag: null });
   const [isClaiming, setIsClaiming] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState("");
   const [clickedQuests, setClickedQuests] = useState<Record<string, boolean>>({});
   const [proofLinks, setProofLinks] = useState<Record<string, string>>({});
+  const [showAllArchived, setShowAllArchived] = useState(false);
 
   const fetchQuests = useCallback(async () => {
     try {
@@ -72,7 +74,33 @@ export default function QuestsPage() {
     return () => clearInterval(timer);
   }, [fetchQuests]);
 
-  // UPDATED: Added referralCodeUsed to daily check-ins
+  const { available, pending, archived } = useMemo(() => {
+    const now = new Date().getTime();
+    const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+
+    return dbQuests.reduce((acc: any, q: any) => {
+      const status = questStatuses[q.id];
+      const createdTime = new Date(q.createdAt || Date.now()).getTime();
+      const isExpired = (now - createdTime) > THREE_DAYS_MS;
+
+      if (q.type === 'daily') return acc;
+
+      if (status === 'REJECTED' || status === 'COMPLETED' || status === 'APPROVED' || (isExpired && !status)) {
+        acc.archived.push({ ...q, displayStatus: status || 'EXPIRED' });
+      }
+      else if (status === 'PENDING') {
+        acc.pending.push(q);
+      }
+      else {
+        acc.available.push({
+          ...q,
+          hoursRemaining: Math.max(0, Math.ceil((THREE_DAYS_MS - (now - createdTime)) / (1000 * 60 * 60)))
+        });
+      }
+      return acc;
+    }, { available: [], pending: [], archived: [] });
+  }, [dbQuests, questStatuses]);
+
   const claimDaily = async (assetType: 'LAAM' | 'TAG') => {
     if (!publicKey) return toast.error("Connect wallet!");
     const referralCodeUsed = sessionStorage.getItem('pending_referral_code');
@@ -97,7 +125,6 @@ export default function QuestsPage() {
     } finally { setIsClaiming(null); }
   };
 
-  // UPDATED: Added referralCodeUsed to standard quest claims
   const claimQuest = async (questId: string, reward: number) => {
     if (!publicKey) return toast.error("Connect wallet!");
     const referralCodeUsed = sessionStorage.getItem('pending_referral_code');
@@ -116,8 +143,7 @@ export default function QuestsPage() {
       if (res.ok) {
         toast.success("Reward Claimed!");
         fetchQuests();
-      }
-      else {
+      } else {
         const errorData = await res.json();
         toast.error(errorData.message || "Failed to claim");
       }
@@ -125,7 +151,6 @@ export default function QuestsPage() {
     finally { setIsClaiming(null); }
   };
 
-  // UPDATED: Added referralCodeUsed to social submissions
   const submitSocialQuest = async (questId: string) => {
     const link = proofLinks[questId];
     if (!link) return toast.error("Please provide proof!");
@@ -158,12 +183,6 @@ export default function QuestsPage() {
 
   const isLaamClaimed = isAlreadyClaimedToday(userCheckins.laam);
   const isTagClaimed = isAlreadyClaimedToday(userCheckins.tag);
-
-  const availableQuests = dbQuests.filter((q: any) =>
-    q.type !== 'daily' && (!questStatuses[q.id] || questStatuses[q.id] === 'REJECTED')
-  );
-  const pendingQuests = dbQuests.filter((q: any) => questStatuses[q.id] === 'PENDING');
-  const completedQuests = dbQuests.filter((q: any) => questStatuses[q.id] === 'COMPLETED' || questStatuses[q.id] === 'APPROVED');
 
   return (
     <SeekerGuard>
@@ -204,9 +223,9 @@ export default function QuestsPage() {
           </div>
 
           {/* SECTION: AVAILABLE */}
-          <h2 style={headerStyle}><span>Available Intelligence</span> <span>[{availableQuests.length}]</span></h2>
+          <h2 style={headerStyle}><span>Available Intelligence</span> <span>[{available.length}]</span></h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '48px' }}>
-            {availableQuests.map((quest: any) => {
+            {available.map((quest: any) => {
               const hasClicked = clickedQuests[quest.id];
               const isSocialType = ['social', 'social_username', 'social_any_link'].includes(quest.type);
               return (
@@ -215,7 +234,12 @@ export default function QuestsPage() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
                         <h3 style={{ fontSize: '14px', fontWeight: 900 }}>{quest.title}</h3>
-                        <span style={{ color: '#eab308', fontSize: '10px' }}>+{quest.reward} LAAM</span>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <span style={{ color: '#eab308', fontSize: '10px' }}>+{quest.reward} LAAM</span>
+                          <span style={{ color: '#ef4444', fontSize: '9px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                            <Clock size={10} /> {quest.hoursRemaining}H LEFT
+                          </span>
+                        </div>
                       </div>
                       {quest.link && !hasClicked ? (
                         <button onClick={() => handleSocialClick(quest.id, quest.link)} style={claimButtonStyle}>MISSION LINK</button>
@@ -245,11 +269,11 @@ export default function QuestsPage() {
           </div>
 
           {/* SECTION: PENDING */}
-          {pendingQuests.length > 0 && (
+          {pending.length > 0 && (
             <>
-              <h2 style={{ ...headerStyle, color: '#60a5fa' }}><span>Under Review</span> <span>[{pendingQuests.length}]</span></h2>
+              <h2 style={{ ...headerStyle, color: '#60a5fa' }}><span>Under Review</span> <span>[{pending.length}]</span></h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '48px' }}>
-                {pendingQuests.map((quest: any) => (
+                {pending.map((quest: any) => (
                   <div key={quest.id} className="terminal-card" style={{ border: '1px solid #60a5fa', opacity: 0.8 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
@@ -265,24 +289,86 @@ export default function QuestsPage() {
           )}
 
           {/* SECTION: ARCHIVED */}
-          {completedQuests.length > 0 && (
+          {archived.length > 0 && (
             <>
               <h2 style={{ ...headerStyle, color: 'rgba(255,255,255,0.2)' }}>
-                <span>Archived Data</span>
-                <span>[{completedQuests.length}]</span>
+                <span>Archived Data (Logs)</span>
+                <span>[{archived.length}]</span>
               </h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', opacity: 0.5 }}>
-                {completedQuests.map((quest: any) => (
-                  <div key={quest.id} className="terminal-card" style={{ background: 'rgba(0,0,0,0.3)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <h3 style={{ fontSize: '14px', fontWeight: 900, textDecoration: 'line-through' }}>{quest.title}</h3>
-                        <span style={{ color: '#22c55e', fontSize: '9px' }}>DATA SECURED</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {(showAllArchived ? archived : archived.slice(0, 3)).map((quest: any) => {
+                  const isRejected = quest.displayStatus === 'REJECTED';
+                  const isExpired = quest.displayStatus === 'EXPIRED';
+                  const isSuccess = ['COMPLETED', 'APPROVED'].includes(quest.displayStatus);
+                  const isLocked = isRejected || isExpired;
+
+                  return (
+                    <div
+                      key={quest.id}
+                      className="terminal-card"
+                      style={{
+                        background: 'rgba(0,0,0,0.3)',
+                        opacity: isLocked ? 0.5 : 0.8,
+                        position: 'relative',
+                        overflow: 'hidden',
+                        cursor: isLocked ? 'not-allowed' : 'default'
+                      }}
+                    >
+                      {/* LOCKED OVERLAY */}
+                      {isLocked && (
+                        <div style={{
+                          position: 'absolute', inset: 0,
+                          background: 'rgba(0,0,0,0.4)', backdropFilter: 'grayscale(1)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#fff', fontSize: '10px', fontWeight: 900 }}>
+                            <Lock size={12} /> MISSION LOCKED
+                          </div>
+                        </div>
+                      )}
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', filter: isLocked ? 'blur(1px)' : 'none' }}>
+                        <div>
+                          <h3 style={{
+                            fontSize: '14px',
+                            fontWeight: 900,
+                            textDecoration: isSuccess ? 'line-through' : 'none',
+                            color: isExpired ? '#6b7280' : 'inherit'
+                          }}>
+                            {quest.title}
+                          </h3>
+                          <span style={{
+                            fontSize: '9px',
+                            fontWeight: 900,
+                            textTransform: 'uppercase',
+                            color: isRejected ? '#ef4444' : isExpired ? '#6b7280' : '#22c55e'
+                          }}>
+                            {isExpired ? "EXPIRED" : quest.displayStatus}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {isRejected && <XCircle size={14} color="#ef4444" />}
+                          {isExpired && <Clock size={14} color="#6b7280" />}
+                          {isSuccess && <div style={{ color: '#22c55e', fontSize: '10px', fontWeight: 900 }}>SECURED ✓</div>}
+                        </div>
                       </div>
-                      <div style={{ padding: '10px 20px', fontSize: '10px', fontWeight: 900, color: '#22c55e' }}>CLAIMED ✓</div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
+
+                {archived.length > 3 && (
+                  <button
+                    onClick={() => setShowAllArchived(!showAllArchived)}
+                    style={{
+                      background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)',
+                      padding: '10px', borderRadius: '8px', fontSize: '9px', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '10px'
+                    }}
+                  >
+                    {showAllArchived ? <><ChevronUp size={12} /> SHOW LESS</> : <><ChevronDown size={12} /> VIEW ALL LOGS</>}
+                  </button>
+                )}
               </div>
             </>
           )}
