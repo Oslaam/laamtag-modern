@@ -33,7 +33,6 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
     const { connection } = useConnection();
     const { publicKey, connected, connecting } = useWallet();
 
-    const [hasPasscode, setHasPasscode] = useState<boolean>(false);
     const [isOpening, setIsOpening] = useState(false);
     const [initializing, setInitializing] = useState(true);
 
@@ -59,49 +58,25 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
             const isBypass = BYPASS_WALLETS.includes(walletAddress);
 
             try {
-                // STEP 1: SCAN FOR SGT NFT
-                // Only non-admins and non-bypass wallets need to actually hold the SGT
-                if (!isAdmin && !isBypass) {
-                    // Note: If you don't have verify-only.ts, you may need a different check here.
-                    // For now, this logic remains consistent with your request.
-                    const sgtRes = await fetch(`/api/user/verify-only?address=${walletAddress}`);
+                // STEP 1: Check Database First (This stops the "Gate Loop" on refresh)
+                const dbRes = await fetch(`/api/user/${walletAddress}`);
+                const dbUser = await dbRes.json();
 
-                    // If the file is missing, this fetch will fail. 
-                    // You might need to implement the SGT check logic here or create the API file.
-                    if (sgtRes.ok) {
-                        const sgtData = await sgtRes.json();
-                        if (!sgtData?.hasAccess) {
-                            setHasSgt(false);
-                            setInitializing(false);
-                            return;
-                        }
-                    } else {
-                        // If API is missing, we default to block for safety
-                        setHasSgt(false);
-                        setInitializing(false);
-                        return;
-                    }
+                // If DB confirms access, or they are Admin/Bypass, let them in immediately
+                if (isAdmin || isBypass || dbUser?.hasAccess || sessionStorage.getItem('portal_unlocked') === 'true') {
+                    setDbAccess(true);
+                    setHasSgt(true);
+                    setInitializing(false);
+                    return;
                 }
 
-                // If they reached here, they have SGT OR they are Admin/Bypass
-                setHasSgt(true);
-
-                // STEP 2: CHECK DATABASE FOR HASACCESS
-                if (isAdmin) {
-                    // Admins skip the gate entirely
-                    setDbAccess(true);
-                    setHasPasscode(true);
+                // STEP 2: Only check SGT if they aren't already validated in the DB
+                const sgtRes = await fetch(`/api/user/verify-only?address=${walletAddress}`);
+                if (sgtRes.ok) {
+                    const sgtData = await sgtRes.json();
+                    setHasSgt(sgtData?.hasAccess || false);
                 } else {
-                    // Bypass wallets AND SGT Holders MUST check the DB
-                    const dbRes = await fetch(`/api/user/${walletAddress}`);
-                    const dbUser = await dbRes.json();
-
-                    if (dbUser?.hasAccess || sessionStorage.getItem('portal_unlocked') === 'true') {
-                        setDbAccess(true);
-                        setHasPasscode(true);
-                    } else {
-                        setDbAccess(false); // SGT/Bypass valid, but Gate is locked in DB
-                    }
+                    setHasSgt(false);
                 }
 
             } catch (err) {
@@ -116,8 +91,11 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
     }, [publicKey, connecting]);
 
     const handleUnlockPortal = async () => {
-        if (!inputCode || !publicKey) return;
+        if (!inputCode || !publicKey || verifying) return;
+
         setVerifying(true);
+        setError('');
+
         try {
             const res = await fetch('/api/access/validate', {
                 method: 'POST',
@@ -132,9 +110,9 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
             if (data.success) {
                 sessionStorage.setItem('portal_unlocked', 'true');
                 setIsOpening(true);
+                // Delay setting dbAccess to allow the "Door Opening" animation to play
                 setTimeout(() => {
                     setDbAccess(true);
-                    setHasPasscode(true);
                 }, 1000);
             } else {
                 setError(data.message || "INVALID ACCESS CODE");
@@ -147,8 +125,8 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
     };
 
     // --- RENDER LOGIC ---
-    // 1. LOADING STATE
-    // Remain in loading until we have a definitive answer from both checks
+
+    // 1. INITIALIZING STATE
     if (initializing || (connected && hasSgt === null)) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-black fixed inset-0 z-[10000]">
@@ -174,48 +152,13 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
         );
     }
 
-    // 3. SUCCESS STATE (PRIORITY)
-    // If the database says they have access, let them in IMMEDIATELY.
-    // This bypasses any buggy or slow SGT checks on mobile.
+    // 3. ACCESS GRANTED (Admin, Bypass, or DB Verified SGT Holder)
     if (dbAccess) {
         return <>{children}</>;
     }
 
-    // 4. THE GATE (SECONDARY ACCESS)
-    // If they have the SGT but haven't "unlocked" the gate in the DB yet, show the gate.
-    // OR if the SGT check is failing/slow, we still show the gate so they can use a code.
-    if (!dbAccess) {
-        return (
-            <div className={styles.portalContainer}>
-                <div className={`${styles.doorLeft} ${isOpening ? styles.doorLeftOpen : ''}`} />
-                <div className={`${styles.doorRight} ${isOpening ? styles.doorRightOpen : ''}`} />
-                <div className={`${styles.lockInterface} ${isOpening ? styles.fadeOut : ''}`}>
-                    <div className={styles.iconContainer}><KeyRound className={styles.keyIcon} size={64} /></div>
-                    <h1 className={styles.portalTitle}>LAAMTAG GATE</h1>
-                    <p className={styles.portalSubtitle}>
-                        {hasSgt ? "SGT Verified. Enter Registration Code." : "Enter Access Code to Proceed."}
-                    </p>
-                    <div className={styles.inputGroup}>
-                        <input
-                            type="text"
-                            placeholder="ADMIN OR REFERRAL CODE"
-                            value={inputCode}
-                            onChange={(e) => setInputCode(e.target.value.toUpperCase())}
-                            className={styles.portalInput}
-                        />
-                        {error && <p className={styles.errorText}>{error}</p>}
-                        <button onClick={handleUnlockPortal} disabled={verifying} className={styles.unlockButton}>
-                            {verifying ? <Loader2 className="animate-spin" size={16} /> : 'ACTIVATE ACCESS'}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    // 5. FINAL DENIAL (LAST RESORT)
-    // Only show this if the user is NOT in the DB and we are SURE they don't have an SGT.
-    if (hasSgt === false && !dbAccess) {
+    // 4. ACCESS DENIED (No SGT and not in DB)
+    if (hasSgt === false) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-black">
                 <div className="terminal-card max-w-md w-full text-center p-10 border border-red-500/30">
@@ -228,62 +171,42 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
         );
     }
 
-    return <>{children}</>;
-
-    if (!publicKey) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-black">
-                <div className="terminal-card max-w-md w-full text-center p-10 border border-yellow-500/20">
-                    <Lock className="mx-auto mb-4 text-yellow-500" size={48} />
-                    <h2 className="text-yellow-500 font-black uppercase tracking-widest mb-2">System Offline</h2>
-                    <p className="text-xs mb-6 opacity-60">IDENTIFY YOUR WALLET TO PROCEED.</p>
-                    <div className="flex justify-center">
-                        <WalletMultiButton className="!bg-yellow-500 !text-black" />
-                    </div>
+    // 5. THE GATE (Connected with SGT, but not yet validated/stored in DB)
+    return (
+        <div className={styles.portalContainer}>
+            <div className={`${styles.doorLeft} ${isOpening ? styles.doorLeftOpen : ''}`} />
+            <div className={`${styles.doorRight} ${isOpening ? styles.doorRightOpen : ''}`} />
+            <div className={`${styles.lockInterface} ${isOpening ? styles.fadeOut : ''}`}>
+                <div className={styles.iconContainer}><KeyRound className={styles.keyIcon} size={64} /></div>
+                <h1 className={styles.portalTitle}>LAAMTAG GATE</h1>
+                <p className={styles.portalSubtitle}>
+                    {hasSgt ? "SGT Verified. Enter Registration Code." : "Enter Access Code to Proceed."}
+                </p>
+                <div className={styles.inputGroup}>
+                    <input
+                        type="text"
+                        placeholder="ADMIN OR REFERRAL CODE"
+                        value={inputCode}
+                        onChange={(e) => setInputCode(e.target.value.toUpperCase())}
+                        className={styles.portalInput}
+                    />
+                    {error && <p className={styles.errorText}>{error}</p>}
+                    <button
+                        onClick={handleUnlockPortal}
+                        disabled={verifying || !inputCode}
+                        className={`${styles.unlockButton} ${verifying ? styles.buttonDisabled : ''}`}
+                    >
+                        {verifying ? (
+                            <div className="flex items-center gap-2">
+                                <Loader2 className="animate-spin" size={18} />
+                                <span>VERIFYING...</span>
+                            </div>
+                        ) : (
+                            'ACTIVATE ACCESS'
+                        )}
+                    </button>
                 </div>
             </div>
-        );
-    }
-
-    if (hasSgt === false) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-black">
-                <div className="terminal-card max-w-md w-full text-center p-10 border border-red-500/30">
-                    <ShieldAlert className="mx-auto mb-4 text-red-500" size={48} />
-                    <h2 className="text-red-500 font-black uppercase tracking-widest mb-2">Access Denied</h2>
-                    <p className="text-xs mb-4 text-white/80">SEEKER GENESIS TOKEN NOT FOUND.</p>
-                    <p className="text-[9px] opacity-40 uppercase">You must hold an SGT NFT to access the LaamTag Hub.</p>
-                </div>
-            </div>
-        );
-    }
-
-    if (!dbAccess) {
-        return (
-            <div className={styles.portalContainer}>
-                <div className={`${styles.doorLeft} ${isOpening ? styles.doorLeftOpen : ''}`} />
-                <div className={`${styles.doorRight} ${isOpening ? styles.doorRightOpen : ''}`} />
-                <div className={`${styles.lockInterface} ${isOpening ? styles.fadeOut : ''}`}>
-                    <div className={styles.iconContainer}><KeyRound className={styles.keyIcon} size={64} /></div>
-                    <h1 className={styles.portalTitle}>LAAMTAG GATE</h1>
-                    <p className={styles.portalSubtitle}>SGT Verified. Enter Registration Code.</p>
-                    <div className={styles.inputGroup}>
-                        <input
-                            type="text"
-                            placeholder="ADMIN OR REFERRAL CODE"
-                            value={inputCode}
-                            onChange={(e) => setInputCode(e.target.value.toUpperCase())}
-                            className={styles.portalInput}
-                        />
-                        {error && <p className={styles.errorText}>{error}</p>}
-                        <button onClick={handleUnlockPortal} disabled={verifying} className={styles.unlockButton}>
-                            {verifying ? <Loader2 className="animate-spin" size={16} /> : 'ACTIVATE ACCESS'}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    return <>{children}</>;
+        </div>
+    );
 }
