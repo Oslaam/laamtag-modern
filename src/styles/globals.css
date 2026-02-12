@@ -6,26 +6,33 @@ body {
   color: #fff;
   font-family: system-ui, -apple-system, sans-serif;
   overflow-x: clip;
+  /* Ensures no weird scroll snapping or phantom space */
+  height: auto;
 }
 
 /* THE LAYOUT CONTAINERS */
 .app-container {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  /* Use dvh (dynamic viewport height) for better mobile support */
+  min-height: 100dvh;
   width: 100%;
 }
 
 .main-content {
   flex: 1;
   padding: 1rem;
+  display: flex;
+  flex-direction: column;
 }
 
 .content-wrapper {
   max-width: 600px;
   margin: 0 auto;
   width: 100%;
-  padding-bottom: 200px;
+  /* Reduced from 200px to 100px to eliminate the "black hole" space */
+  /* This provides just enough room to clear the fixed footer nav */
+  padding-bottom: 100px;
 }
 
 /* HEADER STYLES */
@@ -106,14 +113,15 @@ body {
   background: rgba(0, 0, 0, 0.95);
   backdrop-filter: blur(20px);
   border-top: 1px solid rgba(234, 179, 8, 0.2);
-  padding: 1rem 1rem 2.5rem 1rem;
+  /* Adjusted padding for a tighter fit */
+  padding: 1rem 1rem 1.5rem 1rem;
   transition: all 0.3s ease;
 }
 
 .footer-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 1.5rem 0.25rem;
+  gap: 1rem 0.25rem;
   max-width: 500px;
   margin: 0 auto;
   justify-items: center;
