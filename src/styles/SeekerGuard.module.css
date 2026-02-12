@@ -1,0 +1,234 @@
+.portalContainer {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    overflow: hidden;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Background scanning effect during loading */
+.portalContainer::after {
+    content: '';
+    position: absolute;
+    top: -100%;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to bottom,
+            transparent,
+            rgba(234, 179, 8, 0.05),
+            transparent);
+    animation: scan 3s linear infinite;
+    pointer-events: none;
+}
+
+.doorLeft,
+.doorRight {
+    position: absolute;
+    top: 0;
+    width: 50%;
+    height: 100%;
+    background: #0a0a0a;
+    transition: transform 1.2s cubic-bezier(0.7, 0, 0.3, 1);
+    z-index: 1;
+    display: flex;
+    align-items: center;
+}
+
+.doorLeft {
+    left: 0;
+    border-right: 1px solid rgba(234, 179, 8, 0.2);
+    justify-content: flex-end;
+}
+
+.doorRight {
+    right: 0;
+    border-left: 1px solid rgba(234, 179, 8, 0.2);
+    justify-content: flex-start;
+}
+
+/* Added a subtle glow to the edge of the doors */
+.doorLeft::after,
+.doorRight::after {
+    content: '';
+    width: 2px;
+    height: 100%;
+    background: #eab308;
+    box-shadow: 0 0 15px #eab308;
+    opacity: 0.3;
+}
+
+.doorLeftOpen {
+    transform: translateX(-100%);
+}
+
+.doorRightOpen {
+    transform: translateX(100%);
+}
+
+.lockInterface {
+    position: relative;
+    z-index: 10;
+    max-width: 400px;
+    width: 100%;
+    padding: 2rem;
+    text-align: center;
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.fadeOut {
+    opacity: 0;
+    transform: scale(0.9);
+    pointer-events: none;
+}
+
+.iconContainer {
+    margin-bottom: 2rem;
+    position: relative;
+    display: flex;
+    justify-content: center;
+}
+
+.keyIcon {
+    color: #eab308;
+    filter: drop-shadow(0 0 10px rgba(234, 179, 8, 0.5));
+    animation: pulse 2s infinite;
+}
+
+.portalTitle {
+    color: #eab308;
+    font-weight: 900;
+    letter-spacing: 0.5em;
+    font-size: 1.25rem;
+    margin-bottom: 0.5rem;
+    text-shadow: 0 0 10px rgba(234, 179, 8, 0.3);
+}
+
+.portalSubtitle {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    margin-bottom: 2rem;
+}
+
+.inputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.portalInput {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid rgba(234, 179, 8, 0.3);
+    padding: 1rem;
+    border-radius: 0.75rem;
+    color: #eab308;
+    text-align: center;
+    font-family: monospace;
+    outline: none;
+    transition: all 0.3s ease;
+    letter-spacing: 0.2em;
+}
+
+.portalInput:focus {
+    border-color: #eab308;
+    box-shadow: 0 0 20px rgba(234, 179, 8, 0.15);
+}
+
+.errorText {
+    color: #ef4444;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    animation: bounce 0.5s ease;
+}
+
+.unlockButton {
+    width: 100%;
+    padding: 1rem;
+    background: #eab308;
+    color: #000;
+    font-weight: 900;
+    border-radius: 0.75rem;
+    font-size: 11px;
+    text-transform: uppercase;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.unlockButton:hover:not(:disabled) {
+    transform: translateY(-2px);
+    background: #facc15;
+    box-shadow: 0 5px 15px rgba(234, 179, 8, 0.4);
+}
+
+.unlockButton:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.unlockButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.resetButton {
+    margin-top: 1.5rem;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-decoration: underline;
+    transition: color 0.2s ease;
+}
+
+.resetButton:hover {
+    color: #eab308;
+}
+
+/* Animations */
+@keyframes scan {
+    0% {
+        top: -100%;
+    }
+
+    100% {
+        top: 100%;
+    }
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+        filter: drop-shadow(0 0 10px rgba(234, 179, 8, 0.5));
+    }
+
+    50% {
+        opacity: 0.7;
+        transform: scale(0.92);
+        filter: drop-shadow(0 0 20px rgba(234, 179, 8, 0.8));
+    }
+}
+
+@keyframes bounce {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-5px);
+    }
+}

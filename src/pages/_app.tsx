@@ -8,6 +8,7 @@ import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { ContextProvider } from '../contexts/ContextProvider';
 import RankUpModal from '../components/RankUpModal';
 import HistoryModal from '../components/HistoryModal';
+import ActivityTicker from '../components/ActivityTicker';
 import { useRankWatcher } from '../hooks/useRankWatcher';
 import dynamic from 'next/dynamic';
 import { getRank } from '../utils/ranks';
@@ -45,6 +46,7 @@ const GlobalLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
     if (!mounted) return null;
     return <InnerLayout>{children}</InnerLayout>;
 };
+
 const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
     const { publicKey } = useWallet();
     const { connection } = useConnection();
@@ -68,7 +70,6 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
     const isGamePage = router.pathname.includes('/games/shooter');
     const isAdmin = publicKey && ADMIN_WALLETS.includes(publicKey.toString());
 
-    // --- SERVICE WORKER REGISTRATION ---
     useEffect(() => {
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
@@ -163,7 +164,10 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
         : [...topRow, toggleButton];
 
     return (
-        <div className="app-container">
+        <div className={`app-container ${isGamePage ? 'game-mode' : ''}`}>
+            {/* 1. Ticker at the absolute top for sticky behavior */}
+            {!isGamePage && <ActivityTicker />}
+
             <RankUpModal isOpen={showRankModal} newRank={newRank} onClose={() => setShowRankModal(false)} />
             <HistoryModal isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
 
@@ -252,23 +256,13 @@ const App: FC<AppProps> = ({ Component, pageProps }) => (
     <ContextProvider>
         <Head>
             <title>LaamTag - Terminal</title>
-            {/* 1. Mobile specific viewport settings */}
             <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover" />
-
-            {/* 2. Link to your manifest file */}
             <link rel="manifest" href="/manifest.json" />
-
-            {/* 3. Theme color for the Android status bar */}
             <meta name="theme-color" content="#eab308" />
-
-            {/* 4. iOS support (optional but good) */}
             <meta name="mobile-web-app-capable" content="yes" />
             <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-
-            {/* Web favicon */}
             <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
             <link rel="icon" type="image/png" sizes="56x56" href="/favicon-56.png" />
-
         </Head>
         <GlobalLayout>
             <Component {...pageProps} />

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { X, TrendingUp, Zap, History, Clock } from 'lucide-react';
+import { X, TrendingUp, Zap, History, Clock, Users } from 'lucide-react';
 
 type FilterType = 'ALL' | 'WINS' | 'COSTS' | 'STAKING' | 'NFT';
 
@@ -140,8 +140,10 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                     {groupedHistory[date].map((item: any) => {
                                         const isCost = item.type.includes('COST') || item.type.includes('FEE') || item.type.includes('LOSS') || item.type.includes('ENTRY') || item.amount < 0;
-                                        const themeColor = isCost ? '#ef4444' : '#22c55e';
-                                        const bgColor = isCost ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)';
+                                        const isRecruit = item.type.includes('RECRUIT'); // Check for Recruit Reward
+
+                                        const themeColor = isCost ? '#ef4444' : (isRecruit ? '#8b5cf6' : '#22c55e'); // Purple for Recruit
+                                        const bgColor = isCost ? 'rgba(239, 68, 68, 0.1)' : (isRecruit ? 'rgba(139, 92, 246, 0.1)' : 'rgba(34, 197, 94, 0.1)');
                                         const displayAmount = isCost ? `-${Math.abs(item.amount)}` : `+${Math.abs(item.amount)}`;
 
                                         return (
@@ -154,32 +156,49 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
                                                 borderRadius: '12px',
                                                 border: '1px solid rgba(255,255,255,0.05)'
                                             }}>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                        <span style={{
-                                                            fontSize: '7px',
-                                                            fontWeight: 900,
-                                                            padding: '2px 6px',
-                                                            borderRadius: '4px',
-                                                            background: item.asset === 'SKR' ? 'rgba(234, 179, 8, 0.1)' : bgColor,
-                                                            color: item.asset === 'SKR' ? '#eab308' : themeColor
-                                                        }}>
-                                                            {item.type.split('_').join(' ')}
-                                                        </span>
-                                                        <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', gap: '2px' }}>
-                                                            <Clock size={8} />
-                                                            {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                        </span>
+                                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                                    {/* ICON SECTION */}
+                                                    <div style={{
+                                                        width: '32px',
+                                                        height: '32px',
+                                                        borderRadius: '8px',
+                                                        background: bgColor,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        color: themeColor
+                                                    }}>
+                                                        {isRecruit ? <Users size={16} /> : (isCost ? <Zap size={16} /> : <TrendingUp size={16} />)}
                                                     </div>
-                                                    <p style={{ fontSize: '10px', fontWeight: 900, color: '#fff', margin: 0 }}>
-                                                        {item.asset} {isCost ? 'EXPENSE' : 'INCOME'}
-                                                    </p>
+
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            <span style={{
+                                                                fontSize: '7px',
+                                                                fontWeight: 900,
+                                                                padding: '2px 6px',
+                                                                borderRadius: '4px',
+                                                                background: item.asset === 'SKR' ? 'rgba(234, 179, 8, 0.1)' : bgColor,
+                                                                color: item.asset === 'SKR' ? '#eab308' : themeColor,
+                                                                textTransform: 'uppercase'
+                                                            }}>
+                                                                {item.type.split('_').join(' ')}
+                                                            </span>
+                                                        </div>
+                                                        <p style={{ fontSize: '10px', fontWeight: 900, color: '#fff', margin: 0 }}>
+                                                            {item.asset} {isCost ? 'EXPENSE' : 'INCOME'}
+                                                        </p>
+                                                    </div>
                                                 </div>
+
                                                 <div style={{ textAlign: 'right' }}>
                                                     <p style={{ fontSize: '13px', fontWeight: 900, margin: 0, color: themeColor }}>
                                                         {displayAmount}
                                                     </p>
-                                                    <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', margin: 0 }}>{item.asset}</p>
+                                                    <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '2px' }}>
+                                                        <Clock size={8} />
+                                                        {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
                                                 </div>
                                             </div>
                                         );

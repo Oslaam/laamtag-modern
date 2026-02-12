@@ -106,10 +106,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             signature = base58.deserialize(result.signature)[0];
         }
 
-        // 5. Cleanup Database
-        await prisma.pendingReward.deleteMany({
-            where: { id: { in: rewards.map(r => r.id) } }
-        });
+        // 5. Cleanup Database & Log Activity
+        await prisma.$transaction([
+            // Delete the pending rewards that were just paid out
+            prisma.pendingReward.deleteMany({
+                where: { id: { in: rewards.map(r => r.id) } }
+            }),
+
+            // Create a record in the Activity table for the History Modal
+            prisma.activity.create({
+                data: {
+                    userId: walletAddress,
+                    type: "VAULT_CLAIM", // This tells the history it came from the Loot Vault
+                    asset: assetType,    // "SKR", "SOL", or "USDC"
+                    amount: userAmount,  // The actual amount sent to their wallet
+                    signature: signature // The Solana transaction hash
+                }
+            })
+        ]);
 
         return res.status(200).json({
             success: true,

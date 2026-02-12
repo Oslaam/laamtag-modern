@@ -1,38 +1,112 @@
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Coins, Trophy, ShieldCheck, History, ExternalLink, Crown } from 'lucide-react';
+import axios from 'axios';
+import {
+  ArrowLeft, Coins, Trophy, ShieldCheck, History, ExternalLink,
+  Crown, Users, UserPlus, Fingerprint, Gift, Zap
+} from 'lucide-react';
 import NftGallery from '../components/NftGallery';
 import HistoryModal from '../components/HistoryModal';
 
 export default function ProfilePage() {
   const { publicKey } = useWallet();
   const [userData, setUserData] = useState<{
+    walletAddress: string;
     laamPoints: number;
     rank: string;
     personalMinted: number;
     username?: string;
+    referralCode?: string;
+    referredBy?: string;
+    referralProgress: number;
+    claimableRewards: number;
+    _count?: { referrals: number };
   } | null>(null);
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [claiming, setClaiming] = useState(false);
+  const [isActivating, setIsActivating] = useState(false);
 
-  // 1. INITIAL FETCH
-  useEffect(() => {
+  // 1. RE-USABLE FETCH FUNCTION
+  const fetchProfile = async () => {
     if (!publicKey) return;
-    fetch(`/api/user/${publicKey.toString()}`)
-      .then(res => res.json())
-      .then(statsData => {
-        setUserData(statsData || null);
-      })
-      .catch(err => console.error("Profile fetch error", err));
+    try {
+      const res = await fetch(`/api/user/${publicKey.toString()}`);
+      const statsData = await res.json();
+      setUserData(statsData || null);
+    } catch (err) {
+      console.error("Profile fetch error", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchProfile();
   }, [publicKey]);
 
-  // Fallback name for users without a domain
+  // Handle Crate Claim
+  const handleClaim = async () => {
+    if (!userData || userData.claimableRewards <= 0) return;
+    setClaiming(true);
+    try {
+      const res = await axios.post('/api/user/referral-claim-crate', {
+        walletAddress: userData.walletAddress
+      });
+      if (res.data.success) {
+        alert(res.data.message);
+        fetchProfile();
+      }
+    } catch (err) {
+      alert("Claim failed. Please try again later.");
+    } finally {
+      setClaiming(false);
+    }
+  };
+
+  const handleActivateCode = async () => {
+    if (!publicKey || isActivating) return;
+    setIsActivating(true);
+    try {
+      const res = await axios.get(`/api/user/referral?walletAddress=${publicKey.toString()}`);
+      if (res.data.referralCode) {
+        await fetchProfile();
+      }
+    } catch (err) {
+      alert("Activation failed. Please check your connection.");
+    } finally {
+      setIsActivating(false);
+    }
+  };
+
+  const copyCode = () => {
+    if (!userData?.referralCode) return;
+    navigator.clipboard.writeText(userData.referralCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const walletSnippet = publicKey ? publicKey.toString().slice(0, 4) : '';
   const displayName = userData?.username || `SEEKER_${walletSnippet}`;
 
   return (
     <div className="main-content">
+      <style jsx>{`
+        @keyframes pulse-glow {
+          0% { box-shadow: 0 0 5px rgba(234, 179, 8, 0.5); transform: scale(1); }
+          50% { box-shadow: 0 0 20px rgba(234, 179, 8, 0.8); transform: scale(1.02); }
+          100% { box-shadow: 0 0 5px rgba(234, 179, 8, 0.5); transform: scale(1); }
+        }
+        .activate-btn {
+          animation: pulse-glow 2s infinite ease-in-out;
+          transition: all 0.3s ease;
+        }
+        .activate-btn:hover {
+          filter: brightness(1.2);
+          transform: translateY(-1px);
+        }
+      `}</style>
+
       <div className="content-wrapper">
 
         {/* HEADER SECTION */}
@@ -107,7 +181,6 @@ export default function ProfilePage() {
           }}>
             <ShieldCheck size={30} color="#000" />
           </div>
-          {/* Main Profile Name display */}
           <h2 style={{
             fontSize: '24px',
             fontWeight: 900,
@@ -123,7 +196,129 @@ export default function ProfilePage() {
           </p>
         </div>
 
-        {/* ... rest of your existing "IDENTITY STATUS & REDIRECT BOX", "STATS GRID", and "NFT GALLERY" remains the same ... */}
+        {/* RECRUITMENT HUB & CRATE SYSTEM */}
+        <div className="terminal-card" style={{ padding: '20px', marginBottom: '24px', border: '1px solid rgba(234,179,8,0.3)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <UserPlus size={16} color="#eab308" />
+              <h3 style={{ fontSize: '12px', fontWeight: 900, margin: 0, color: '#fff', textTransform: 'uppercase' }}>Recruitment Hub</h3>
+            </div>
+            {userData && userData.claimableRewards > 0 && (
+              <span className="pulse-text" style={{ fontSize: '10px', color: '#ef4444', fontWeight: 900 }}>
+                {userData.claimableRewards} CRATE READY
+              </span>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+            <div style={{ flex: 1, background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)', fontWeight: 900, textTransform: 'uppercase', margin: 0 }}>My Personal Access Code</p>
+                <p style={{ fontSize: '16px', color: userData?.referralCode ? '#eab308' : 'rgba(255,255,255,0.2)', fontWeight: 900, fontFamily: 'monospace', margin: 0 }}>
+                  {userData?.referralCode || 'NOT ACTIVATED'}
+                </p>
+              </div>
+
+              {!userData?.referralCode ? (
+                <button
+                  onClick={handleActivateCode}
+                  disabled={isActivating}
+                  className="activate-btn"
+                  style={{
+                    background: '#eab308',
+                    color: '#000',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '10px 16px',
+                    fontSize: '10px',
+                    fontWeight: 900,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Zap size={12} fill="#000" />
+                  {isActivating ? 'ACTIVATING...' : 'ACTIVATE CODE'}
+                </button>
+              ) : (
+                <button
+                  onClick={copyCode}
+                  style={{
+                    background: 'rgba(234, 179, 8, 0.1)',
+                    color: '#eab308',
+                    border: '1px solid rgba(234, 179, 8, 0.5)',
+                    borderRadius: '6px',
+                    padding: '8px 12px',
+                    fontSize: '10px',
+                    fontWeight: 900,
+                    cursor: 'pointer'
+                  }}
+                >
+                  {copied ? 'COPIED' : 'COPY'}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* CRATE PROGRESS BAR */}
+          <div style={{ marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', fontWeight: 900, color: 'rgba(255,255,255,0.4)', marginBottom: '6px' }}>
+              <span>CRATE PROGRESS</span>
+              <span>{userData?.referralProgress || 0}%</span>
+            </div>
+            <div style={{ height: '10px', background: 'rgba(0,0,0,0.5)', borderRadius: '5px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
+              <div style={{
+                width: `${userData?.referralProgress || 0}%`,
+                height: '100%',
+                background: 'linear-gradient(90deg, #eab308, #fbbf24)',
+                boxShadow: '0 0 10px rgba(234, 179, 8, 0.4)',
+                transition: 'width 0.8s cubic-bezier(0.4, 0, 0.2, 1)'
+              }} />
+            </div>
+          </div>
+
+          {/* CLAIM BUTTON */}
+          <button
+            onClick={handleClaim}
+            disabled={!userData || userData.claimableRewards <= 0 || claiming}
+            className="primary-btn"
+            style={{
+              width: '100%',
+              marginBottom: '16px',
+              cursor: (userData && userData.claimableRewards > 0) ? 'pointer' : 'not-allowed',
+              opacity: (userData && userData.claimableRewards > 0) ? 1 : 0.3,
+              filter: (userData && userData.claimableRewards > 0) ? 'none' : 'grayscale(1)',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            <Gift size={16} />
+            {claiming ? 'UNBOXING...' : `OPEN CRATE (${userData?.claimableRewards || 0})`}
+          </button>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+              <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)', fontWeight: 900, textTransform: 'uppercase', marginBottom: '4px' }}>Invited By</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Fingerprint size={10} color="#eab308" />
+                <p style={{ fontSize: '10px', color: '#fff', fontWeight: 700, margin: 0 }}>
+                  {userData?.referredBy ? `${userData.referredBy.slice(0, 8)}...` : 'LAAMTAG_ROOT'}
+                </p>
+              </div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+              <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)', fontWeight: 900, textTransform: 'uppercase', marginBottom: '4px' }}>Total Recruits</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Users size={12} color="#eab308" />
+                <p style={{ fontSize: '14px', color: '#fff', fontWeight: 900, margin: 0 }}>{userData?._count?.referrals || 0}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* IDENTITY STATUS & REDIRECT BOX */}
         <div className="terminal-card" style={{ padding: '20px', marginBottom: '24px', border: '1px solid rgba(234,179,8,0.2)' }}>
           <p style={{ fontSize: '9px', fontWeight: 900, color: '#eab308', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '1px' }}>
@@ -218,6 +413,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        {/* NFT GALLERY */}
         <div style={{ paddingBottom: '100px' }}>
           <h2 style={{
             fontSize: '10px',

@@ -72,14 +72,20 @@ export default function QuestsPage() {
     return () => clearInterval(timer);
   }, [fetchQuests]);
 
+  // UPDATED: Added referralCodeUsed to daily check-ins
   const claimDaily = async (assetType: 'LAAM' | 'TAG') => {
     if (!publicKey) return toast.error("Connect wallet!");
+    const referralCodeUsed = sessionStorage.getItem('pending_referral_code');
     setIsClaiming(assetType);
     try {
       const res = await fetch('/api/checkin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ walletAddress: publicKey.toString(), asset: assetType }),
+        body: JSON.stringify({
+          walletAddress: publicKey.toString(),
+          asset: assetType,
+          referralCodeUsed
+        }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -91,32 +97,51 @@ export default function QuestsPage() {
     } finally { setIsClaiming(null); }
   };
 
-  // ... (Keep existing claimQuest, submitSocialQuest, handleSocialClick)
+  // UPDATED: Added referralCodeUsed to standard quest claims
   const claimQuest = async (questId: string, reward: number) => {
     if (!publicKey) return toast.error("Connect wallet!");
+    const referralCodeUsed = sessionStorage.getItem('pending_referral_code');
     setIsClaiming(questId);
     try {
       const res = await fetch('/api/complete-quest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ walletAddress: publicKey.toString(), questId, pointsReward: reward }),
+        body: JSON.stringify({
+          walletAddress: publicKey.toString(),
+          questId,
+          pointsReward: reward,
+          referralCodeUsed
+        }),
       });
-      if (res.ok) { toast.success("Reward Claimed!"); fetchQuests(); }
-      else { const errorData = await res.json(); toast.error(errorData.message || "Failed to claim"); }
+      if (res.ok) {
+        toast.success("Reward Claimed!");
+        fetchQuests();
+      }
+      else {
+        const errorData = await res.json();
+        toast.error(errorData.message || "Failed to claim");
+      }
     } catch (err) { toast.error("Network error"); }
     finally { setIsClaiming(null); }
   };
 
+  // UPDATED: Added referralCodeUsed to social submissions
   const submitSocialQuest = async (questId: string) => {
     const link = proofLinks[questId];
     if (!link) return toast.error("Please provide proof!");
     if (!publicKey) return toast.error("Connect wallet!");
+    const referralCodeUsed = sessionStorage.getItem('pending_referral_code');
     setIsClaiming(questId);
     try {
       const res = await fetch('/api/submit-social', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ walletAddress: publicKey.toString(), questId, proofLink: link }),
+        body: JSON.stringify({
+          walletAddress: publicKey.toString(),
+          questId,
+          proofLink: link,
+          referralCodeUsed
+        }),
       });
       const data = await res.json();
       if (res.ok) { toast.success(data.message); fetchQuests(); }
@@ -145,13 +170,13 @@ export default function QuestsPage() {
       <div className="main-content">
         <Toaster />
         <div className="content-wrapper">
-          
+
           {/* SECTION: DAILY */}
           <h2 style={headerStyle}>
-            <span>Daily Transmissions</span> 
+            <span>Daily Transmissions</span>
             <span style={{ color: '#ef4444' }}>Reset: {timeLeft}</span>
           </h2>
-          
+
           <div style={{ display: 'flex', gap: '12px', marginBottom: '32px' }}>
             <div className="terminal-card" style={{ flex: 1, opacity: isLaamClaimed ? 0.6 : 1 }}>
               <h3 style={{ fontSize: '14px', fontWeight: 900 }}>Daily LAAM</h3>

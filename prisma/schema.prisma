@@ -35,6 +35,14 @@ model User {
   boosts             MultiplierBoost[]
   lastLaamCheckIn DateTime?
   lastTagCheckIn  DateTime?
+  hasAccess          Boolean          @default(false)
+  referralCode     String?  @unique // Their unique code (e.g., "TAG-X9Z2")
+  referredBy       String?          // The wallet address of the person who invited them
+  // Relations
+  referrer         User?    @relation("UserReferrals", fields: [referredBy], references: [walletAddress])
+  referrals        User[]   @relation("UserReferrals")
+  referralProgress Float @default(0) // 0 to 100
+  claimableRewards Int   @default(0) // Number of crates ready to claim
 }
 
 model Activity {

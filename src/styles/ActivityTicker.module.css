@@ -1,0 +1,56 @@
+.tickerContainer {
+    width: 100%;
+    overflow: hidden;
+    background: #000000;
+    border-bottom: 1px solid rgba(234, 179, 8, 0.4);
+    height: 32px;
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    left: 0;
+    z-index: 9999;
+}
+
+.tickerContent {
+    display: inline-flex;
+    animation: marquee 50s linear infinite;
+}
+
+.tickerItem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 40px;
+    font-size: 10px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.wallet {
+    color: #eab308;
+}
+
+.action {
+    color: #ffffff;
+}
+
+.amountPositive {
+    color: #22c55e;
+}
+
+.amountNegative {
+    color: #ef4444;
+}
+
+@keyframes marquee {
+    0% {
+        transform: translateX(0);
+    }
+
+    100% {
+        transform: translateX(-50%);
+    }
+}

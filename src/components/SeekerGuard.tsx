@@ -9,10 +9,11 @@ import {
 } from '@solana/spl-token';
 import { PublicKey } from '@solana/web3.js';
 import { useEffect, useState } from 'react';
-import { Lock, ShieldAlert, ArrowLeft } from 'lucide-react';
+import { Lock, ShieldAlert, ArrowLeft, KeyRound, Loader2 } from 'lucide-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import styles from '../styles/SeekerGuard.module.css';
 
-// SGT Constants from Official Documentation
+// --- CONSTANTS ---
 const SGT_MINT_AUTHORITY = 'GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4';
 const SGT_METADATA_ADDRESS = 'GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te';
 const SGT_GROUP_MINT_ADDRESS = 'GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te';
@@ -22,80 +23,190 @@ const ADMIN_WALLETS = [
     "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc"
 ];
 
+const BYPASS_WALLETS = [
+    "43ARBKVdGKR2a1t7gh3oAu4ZjbnRZaTvM9YDp5twzgvn",
+    "kzHT1obsuYCCWUChsvtUADxEw6VqNF3F9kywWEXDkKG",
+    "6RAqkR7HQmuCcgQ9BX1MUMi9papZYLExFYfrcFCpW2fo"
+];
+
 export default function SeekerGuard({ children }: { children: React.ReactNode }) {
     const { connection } = useConnection();
-    const { publicKey } = useWallet();
-    const [hasAccess, setHasAccess] = useState<boolean | null>(null);
-    const [loading, setLoading] = useState(false);
+    const { publicKey, connected, connecting } = useWallet();
+
+    const [hasPasscode, setHasPasscode] = useState<boolean>(false);
+    const [isOpening, setIsOpening] = useState(false);
+    const [initializing, setInitializing] = useState(true);
+
+    // Security State
+    const [hasSgt, setHasSgt] = useState<boolean | null>(null);
+    const [dbAccess, setDbAccess] = useState<boolean>(false);
+
+    const [inputCode, setInputCode] = useState('');
+    const [verifying, setVerifying] = useState(false);
+    const [error, setError] = useState('');
 
     useEffect(() => {
-        if (!publicKey) {
-            setHasAccess(null);
-            return;
+        if (connecting) return;
+
+        const runSecuritySequence = async () => {
+            if (!publicKey) {
+                setInitializing(false);
+                return;
+            }
+
+            const walletAddress = publicKey.toString();
+            const isAdmin = ADMIN_WALLETS.includes(walletAddress);
+            const isBypass = BYPASS_WALLETS.includes(walletAddress);
+
+            try {
+                // STEP 1: SCAN FOR SGT NFT
+                // Only non-admins and non-bypass wallets need to actually hold the SGT
+                if (!isAdmin && !isBypass) {
+                    // Note: If you don't have verify-only.ts, you may need a different check here.
+                    // For now, this logic remains consistent with your request.
+                    const sgtRes = await fetch(`/api/user/verify-only?address=${walletAddress}`);
+
+                    // If the file is missing, this fetch will fail. 
+                    // You might need to implement the SGT check logic here or create the API file.
+                    if (sgtRes.ok) {
+                        const sgtData = await sgtRes.json();
+                        if (!sgtData?.hasAccess) {
+                            setHasSgt(false);
+                            setInitializing(false);
+                            return;
+                        }
+                    } else {
+                        // If API is missing, we default to block for safety
+                        setHasSgt(false);
+                        setInitializing(false);
+                        return;
+                    }
+                }
+
+                // If they reached here, they have SGT OR they are Admin/Bypass
+                setHasSgt(true);
+
+                // STEP 2: CHECK DATABASE FOR HASACCESS
+                if (isAdmin) {
+                    // Admins skip the gate entirely
+                    setDbAccess(true);
+                    setHasPasscode(true);
+                } else {
+                    // Bypass wallets AND SGT Holders MUST check the DB
+                    const dbRes = await fetch(`/api/user/${walletAddress}`);
+                    const dbUser = await dbRes.json();
+
+                    if (dbUser?.hasAccess || sessionStorage.getItem('portal_unlocked') === 'true') {
+                        setDbAccess(true);
+                        setHasPasscode(true);
+                    } else {
+                        setDbAccess(false); // SGT/Bypass valid, but Gate is locked in DB
+                    }
+                }
+
+            } catch (err) {
+                console.error("Security Sequence Error:", err);
+                setHasSgt(false);
+            } finally {
+                setInitializing(false);
+            }
+        };
+
+        runSecuritySequence();
+    }, [publicKey, connecting]);
+
+    const handleUnlockPortal = async () => {
+        if (!inputCode || !publicKey) return;
+        setVerifying(true);
+        try {
+            const res = await fetch('/api/access/validate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    code: inputCode,
+                    walletAddress: publicKey.toBase58()
+                })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                sessionStorage.setItem('portal_unlocked', 'true');
+                setIsOpening(true);
+                setTimeout(() => {
+                    setDbAccess(true);
+                    setHasPasscode(true);
+                }, 1000);
+            } else {
+                setError(data.message || "INVALID ACCESS CODE");
+            }
+        } catch (err) {
+            setError("SYSTEM ERROR");
+        } finally {
+            setVerifying(false);
         }
+    };
 
-        // 1. Check Admin first (instant)
-        if (ADMIN_WALLETS.includes(publicKey.toBase58())) {
-            setHasAccess(true);
-            return;
-        }
+    // --- RENDER LOGIC ---
 
-        // 2. Only run API if we haven't verified yet
-        setLoading(true);
-        fetch('/api/seekerguard/verify-sgt', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ wallet: publicKey.toBase58() })
-        })
-            .then(res => res.json())
-            .then(data => {
-                console.log("SGT Verification:", data.hasAccess);
-                setHasAccess(!!data.hasAccess);
-            })
-            .catch((err) => {
-                console.error("Guard API Error:", err);
-                setHasAccess(false);
-            })
-            .finally(() => setLoading(false));
+    if (initializing || (connected && hasSgt === null)) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen bg-black fixed inset-0 z-[10000]">
+                <Loader2 className="animate-spin text-yellow-500 mb-4" size={48} />
+                <p className="text-[10px] tracking-[0.3em] animate-pulse text-yellow-500">SCANNING BIOMETRICS...</p>
+            </div>
+        );
+    }
 
-    }, [publicKey]);
-
-    // --- UI RENDER LOGIC ---
     if (!publicKey) {
         return (
-            <div className="flex justify-center p-20">
-                <div className="terminal-card max-w-md w-full text-center">
+            <div className="flex flex-col items-center justify-center min-h-screen bg-black">
+                <div className="terminal-card max-w-md w-full text-center p-10 border border-yellow-500/20">
                     <Lock className="mx-auto mb-4 text-yellow-500" size={48} />
-                    <h2 className="text-yellow-500 font-black uppercase tracking-widest mb-2">Connection Required</h2>
-                    <p className="text-xs mb-6 opacity-60">INITIALIZE SEEKER MODULE TO ACCESS TERMINAL.</p>
-                    <WalletMultiButton className="!bg-yellow-500 !text-black !font-bold !rounded-xl w-full" />
+                    <h2 className="text-yellow-500 font-black uppercase tracking-widest mb-2">System Offline</h2>
+                    <p className="text-xs mb-6 opacity-60">IDENTIFY YOUR WALLET TO PROCEED.</p>
+                    <div className="flex justify-center">
+                        <WalletMultiButton className="!bg-yellow-500 !text-black" />
+                    </div>
                 </div>
             </div>
         );
     }
 
-    if (loading) {
+    if (hasSgt === false) {
         return (
-            <div className="flex flex-col items-center p-32">
-                <div className="animate-spin w-10 h-10 border-4 border-yellow-500/10 border-t-yellow-500 rounded-full mb-4"></div>
-                <p className="text-[10px] tracking-[0.3em] animate-pulse">DECRYPTING GENESIS STANDING...</p>
+            <div className="flex flex-col items-center justify-center min-h-screen bg-black">
+                <div className="terminal-card max-w-md w-full text-center p-10 border border-red-500/30">
+                    <ShieldAlert className="mx-auto mb-4 text-red-500" size={48} />
+                    <h2 className="text-red-500 font-black uppercase tracking-widest mb-2">Access Denied</h2>
+                    <p className="text-xs mb-4 text-white/80">SEEKER GENESIS TOKEN NOT FOUND.</p>
+                    <p className="text-[9px] opacity-40 uppercase">You must hold an SGT NFT to access the LaamTag Hub.</p>
+                </div>
             </div>
         );
     }
 
-    if (hasAccess === false) {
+    if (!dbAccess) {
         return (
-            <div className="flex justify-center p-20">
-                <div className="terminal-card max-w-md w-full text-center border-red-500/20">
-                    <ShieldAlert className="mx-auto mb-4 text-red-500" size={48} />
-                    <h2 className="text-red-500 font-black uppercase tracking-widest mb-2">Access Denied</h2>
-                    <p className="text-sm mb-6 opacity-70">GENESIS SEEKER CREDENTIALS NOT DETECTED.</p>
-                    <button
-                        onClick={() => window.location.href = '/'}
-                        className="w-full p-4 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2"
-                    >
-                        <ArrowLeft size={14} /> Return to Surface
-                    </button>
+            <div className={styles.portalContainer}>
+                <div className={`${styles.doorLeft} ${isOpening ? styles.doorLeftOpen : ''}`} />
+                <div className={`${styles.doorRight} ${isOpening ? styles.doorRightOpen : ''}`} />
+                <div className={`${styles.lockInterface} ${isOpening ? styles.fadeOut : ''}`}>
+                    <div className={styles.iconContainer}><KeyRound className={styles.keyIcon} size={64} /></div>
+                    <h1 className={styles.portalTitle}>LAAMTAG GATE</h1>
+                    <p className={styles.portalSubtitle}>SGT Verified. Enter Registration Code.</p>
+                    <div className={styles.inputGroup}>
+                        <input
+                            type="text"
+                            placeholder="ADMIN OR REFERRAL CODE"
+                            value={inputCode}
+                            onChange={(e) => setInputCode(e.target.value.toUpperCase())}
+                            className={styles.portalInput}
+                        />
+                        {error && <p className={styles.errorText}>{error}</p>}
+                        <button onClick={handleUnlockPortal} disabled={verifying} className={styles.unlockButton}>
+                            {verifying ? <Loader2 className="animate-spin" size={16} /> : 'ACTIVATE ACCESS'}
+                        </button>
+                    </div>
                 </div>
             </div>
         );

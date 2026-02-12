@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { Trophy, Medal, Crown } from 'lucide-react';
+import { Trophy, Medal, Crown, UserPlus, Users, Fingerprint } from 'lucide-react';
 import SeekerGuard from '../components/SeekerGuard';
 import { getRank } from '../utils/ranks';
 
@@ -10,7 +10,8 @@ interface LeaderboardUser {
   laamPoints: number;
   tier: string;
   completedQuestsCount: number;
-  username?: string; // Added username to interface
+  username?: string;
+  referralCount?: number;
 }
 
 interface UserStanding extends LeaderboardUser {
@@ -20,6 +21,7 @@ interface UserStanding extends LeaderboardUser {
 export default function LeaderboardPage() {
   const { publicKey } = useWallet();
   const [leaders, setLeaders] = useState<LeaderboardUser[]>([]);
+  const [eliteRecruiters, setEliteRecruiters] = useState<LeaderboardUser[]>([]);
   const [myStats, setMyStats] = useState<UserStanding | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -31,8 +33,20 @@ export default function LeaderboardPage() {
           : '/api/leaderboard';
         const res = await fetch(url);
         const data = await res.json();
-        setLeaders(data.topUsers);
-        setMyStats(data.userRank);
+
+        setLeaders(data.topUsers || []);
+        setMyStats(data.userRank || null);
+
+        // 1. Filter: Only users with at least 1 recruit
+        // 2. Sort: Highest referral count first
+        // 3. Slice: Top 5 recruiters
+        const recruiterData = [...(data.topUsers || [])]
+          .filter(user => (user.referralCount || 0) > 0)
+          .sort((a, b) => (b.referralCount || 0) - (a.referralCount || 0))
+          .slice(0, 5);
+
+        setEliteRecruiters(recruiterData);
+
       } catch (err) {
         console.error("Leaderboard fetch error", err);
       } finally {
@@ -58,9 +72,8 @@ export default function LeaderboardPage() {
             </p>
           </div>
 
-          {/* LEADERBOARD TABLE CARD */}
-          <div className="terminal-card" style={{ padding: '0', overflow: 'hidden' }}>
-            {/* Table Header */}
+          {/* MAIN LEADERBOARD TABLE */}
+          <div className="terminal-card" style={{ padding: '0', overflow: 'hidden', marginBottom: '48px' }}>
             <div style={{
               display: 'grid',
               gridTemplateColumns: '60px 1fr 80px 100px',
@@ -79,71 +92,94 @@ export default function LeaderboardPage() {
                 <p className="terminal-desc" style={{ animation: 'pulse 1.5s infinite' }}>SYNCING LEDGER...</p>
               </div>
             ) : (
-              <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+              <div style={{ maxHeight: '40vh', overflowY: 'auto' }}>
                 {leaders.map((leader, index) => {
                   const isUser = leader.walletAddress === publicKey?.toString();
                   const rank = index + 1;
-
-                  // Display Domain if exists, otherwise show truncated wallet
-                  const displayName = leader.username ||
-                    `${leader.walletAddress.slice(0, 4)}...${leader.walletAddress.slice(-4)}`;
+                  const displayName = leader.username || `${leader.walletAddress.slice(0, 4)}...${leader.walletAddress.slice(-4)}`;
 
                   return (
-                    <div
-                      key={leader.walletAddress}
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: '60px 1fr 80px 100px',
-                        padding: '16px 20px',
-                        alignItems: 'center',
-                        background: isUser ? 'rgba(234, 179, 8, 0.1)' : 'transparent',
-                        borderBottom: '1px solid rgba(255,255,255,0.03)'
-                      }}
-                    >
+                    <div key={leader.walletAddress} style={{
+                      display: 'grid',
+                      gridTemplateColumns: '60px 1fr 80px 100px',
+                      padding: '16px 20px',
+                      alignItems: 'center',
+                      background: isUser ? 'rgba(234, 179, 8, 0.1)' : 'transparent',
+                      borderBottom: '1px solid rgba(255,255,255,0.03)'
+                    }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         {rank === 1 ? <Crown size={14} color="#eab308" /> :
                           rank <= 3 ? <Medal size={14} color={rank === 2 ? '#94a3b8' : '#cd7f32'} /> : null}
-                        <span style={{
-                          fontWeight: 900,
-                          color: rank <= 3 ? '#eab308' : 'rgba(255,255,255,0.4)',
-                          fontSize: rank <= 3 ? '16px' : '12px'
-                        }}>#{rank}</span>
+                        <span style={{ fontWeight: 900, color: rank <= 3 ? '#eab308' : 'rgba(255,255,255,0.4)', fontSize: rank <= 3 ? '16px' : '12px' }}>#{rank}</span>
                       </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{
-                          fontWeight: 700,
-                          fontFamily: leader.username ? 'inherit' : 'monospace',
-                          fontSize: '13px',
-                          color: leader.username ? '#eab308' : (isUser ? '#eab308' : '#fff'),
-                          textTransform: 'uppercase'
-                        }}>
-                          {displayName}
-                        </span>
-                      </div>
-
+                      <span style={{ fontWeight: 700, color: leader.username ? '#eab308' : (isUser ? '#eab308' : '#fff'), fontSize: '13px', textTransform: 'uppercase' }}>{displayName}</span>
                       <div style={{ textAlign: 'center' }}>
-                        <span style={{
-                          fontSize: '8px',
-                          fontWeight: 900,
-                          padding: '2px 8px',
-                          borderRadius: '4px',
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          color: 'rgba(255,255,255,0.5)'
-                        }}>
-                          {leader.tier}
-                        </span>
+                        <span style={{ fontSize: '8px', fontWeight: 900, padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }}>{leader.tier}</span>
                       </div>
-
-                      <div style={{ textAlign: 'right', fontWeight: 900, color: '#eab308', fontSize: '14px' }}>
-                        {leader.laamPoints.toLocaleString()}
-                      </div>
+                      <div style={{ textAlign: 'right', fontWeight: 900, color: '#eab308', fontSize: '14px' }}>{leader.laamPoints.toLocaleString()}</div>
                     </div>
                   );
                 })}
               </div>
             )}
           </div>
+
+          {/* ELITE RECRUITERS SECTION - Only visible if there are active recruiters */}
+          {eliteRecruiters.length > 0 && (
+            <>
+              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '4px 16px',
+                  borderRadius: '20px',
+                  background: 'rgba(234,179,8,0.1)',
+                  border: '1px solid rgba(234,179,8,0.2)',
+                  marginBottom: '12px'
+                }}>
+                  <UserPlus size={14} color="#eab308" />
+                  <span style={{ fontSize: '10px', fontWeight: 900, color: '#eab308', letterSpacing: '2px' }}>ELITE RECRUITERS</span>
+                </div>
+              </div>
+
+              <div className="terminal-card" style={{ padding: '0', overflow: 'hidden', border: '1px solid rgba(234,179,8,0.2)' }}>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '60px 1fr 120px',
+                  padding: '12px 20px',
+                  background: 'rgba(234,179,8,0.05)',
+                  borderBottom: '1px solid rgba(234,179,8,0.1)'
+                }}>
+                  <span style={{ fontSize: '8px', fontWeight: 900, color: 'rgba(234,179,8,0.6)' }}>POS</span>
+                  <span style={{ fontSize: '8px', fontWeight: 900, color: 'rgba(234,179,8,0.6)' }}>RECRUITER</span>
+                  <span style={{ fontSize: '8px', fontWeight: 900, color: 'rgba(234,179,8,0.6)', textAlign: 'right' }}>TOTAL RECRUITS</span>
+                </div>
+
+                {eliteRecruiters.map((recruiter, index) => (
+                  <div key={`rec-${recruiter.walletAddress}`} style={{
+                    display: 'grid',
+                    gridTemplateColumns: '60px 1fr 120px',
+                    padding: '14px 20px',
+                    alignItems: 'center',
+                    borderBottom: '1px solid rgba(255,255,255,0.03)'
+                  }}>
+                    <span style={{ fontWeight: 900, color: '#fff', opacity: 0.5 }}>{index + 1}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Fingerprint size={12} color="#eab308" />
+                      <span style={{ fontSize: '12px', fontWeight: 700, color: '#fff' }}>
+                        {recruiter.username || `${recruiter.walletAddress.slice(0, 4)}...${recruiter.walletAddress.slice(-4)}`}
+                      </span>
+                    </div>
+                    <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                      <span style={{ color: '#eab308', fontWeight: 900 }}>{recruiter.referralCount}</span>
+                      <Users size={12} color="rgba(255,255,255,0.3)" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
           <div style={{ height: '140px' }}></div>
         </div>
