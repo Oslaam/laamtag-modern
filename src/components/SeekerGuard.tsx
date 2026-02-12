@@ -147,7 +147,8 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
     };
 
     // --- RENDER LOGIC ---
-
+    // 1. LOADING STATE
+    // Remain in loading until we have a definitive answer from both checks
     if (initializing || (connected && hasSgt === null)) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-black fixed inset-0 z-[10000]">
@@ -156,6 +157,78 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
             </div>
         );
     }
+
+    // 2. WALLET NOT CONNECTED
+    if (!publicKey) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen bg-black">
+                <div className="terminal-card max-w-md w-full text-center p-10 border border-yellow-500/20">
+                    <Lock className="mx-auto mb-4 text-yellow-500" size={48} />
+                    <h2 className="text-yellow-500 font-black uppercase tracking-widest mb-2">System Offline</h2>
+                    <p className="text-xs mb-6 opacity-60">IDENTIFY YOUR WALLET TO PROCEED.</p>
+                    <div className="flex justify-center">
+                        <WalletMultiButton className="!bg-yellow-500 !text-black" />
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // 3. SUCCESS STATE (PRIORITY)
+    // If the database says they have access, let them in IMMEDIATELY.
+    // This bypasses any buggy or slow SGT checks on mobile.
+    if (dbAccess) {
+        return <>{children}</>;
+    }
+
+    // 4. THE GATE (SECONDARY ACCESS)
+    // If they have the SGT but haven't "unlocked" the gate in the DB yet, show the gate.
+    // OR if the SGT check is failing/slow, we still show the gate so they can use a code.
+    if (!dbAccess) {
+        return (
+            <div className={styles.portalContainer}>
+                <div className={`${styles.doorLeft} ${isOpening ? styles.doorLeftOpen : ''}`} />
+                <div className={`${styles.doorRight} ${isOpening ? styles.doorRightOpen : ''}`} />
+                <div className={`${styles.lockInterface} ${isOpening ? styles.fadeOut : ''}`}>
+                    <div className={styles.iconContainer}><KeyRound className={styles.keyIcon} size={64} /></div>
+                    <h1 className={styles.portalTitle}>LAAMTAG GATE</h1>
+                    <p className={styles.portalSubtitle}>
+                        {hasSgt ? "SGT Verified. Enter Registration Code." : "Enter Access Code to Proceed."}
+                    </p>
+                    <div className={styles.inputGroup}>
+                        <input
+                            type="text"
+                            placeholder="ADMIN OR REFERRAL CODE"
+                            value={inputCode}
+                            onChange={(e) => setInputCode(e.target.value.toUpperCase())}
+                            className={styles.portalInput}
+                        />
+                        {error && <p className={styles.errorText}>{error}</p>}
+                        <button onClick={handleUnlockPortal} disabled={verifying} className={styles.unlockButton}>
+                            {verifying ? <Loader2 className="animate-spin" size={16} /> : 'ACTIVATE ACCESS'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // 5. FINAL DENIAL (LAST RESORT)
+    // Only show this if the user is NOT in the DB and we are SURE they don't have an SGT.
+    if (hasSgt === false && !dbAccess) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen bg-black">
+                <div className="terminal-card max-w-md w-full text-center p-10 border border-red-500/30">
+                    <ShieldAlert className="mx-auto mb-4 text-red-500" size={48} />
+                    <h2 className="text-red-500 font-black uppercase tracking-widest mb-2">Access Denied</h2>
+                    <p className="text-xs mb-4 text-white/80">SEEKER GENESIS TOKEN NOT FOUND.</p>
+                    <p className="text-[9px] opacity-40 uppercase">You must hold an SGT NFT or use a valid code to access the Hub.</p>
+                </div>
+            </div>
+        );
+    }
+
+    return <>{children}</>;
 
     if (!publicKey) {
         return (
