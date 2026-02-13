@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { EventBus } from '../game/EventBus';
-import { Play, Pause, RotateCcw, ShoppingCart, Zap, Home, Shield, Wind, Heart, ChevronRight, Ticket, ShoppingBag } from 'lucide-react';
+import { Play, Pause, RotateCcw, ShoppingCart, Zap, Home, Shield, Wind, Heart, ChevronRight, Ticket, ShoppingBag, Coins } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import styles from '../styles/ShooterContainer.module.css';
@@ -54,7 +54,7 @@ export default function ShooterContainer() {
                 };
 
                 setStats(fetchedStats);
-                setStatsReady(true); // Now the "Engage" button will unlock
+                setStatsReady(true);
 
                 if (sceneReadyRef.current && phaserGame.current) {
                     setTimeout(() => {
@@ -75,7 +75,6 @@ export default function ShooterContainer() {
         const checkOri = () => setIsLandscape(window.innerWidth > window.innerHeight);
         window.addEventListener('resize', checkOri);
 
-        // 1. Define all handlers first
         const handleSceneReady = () => {
             sceneReadyRef.current = true;
             setIsSceneReady(true);
@@ -132,7 +131,6 @@ export default function ShooterContainer() {
             } catch (err) { console.error("Reward error:", err); }
         };
 
-        // 2. Register all listeners together
         EventBus.on('health-changed', handleHealthUpdate);
         EventBus.on('current-scene-ready', handleSceneReady);
         EventBus.on('game-over', handleGameOver);
@@ -142,7 +140,6 @@ export default function ShooterContainer() {
 
         if (publicKey) fetchUserData();
 
-        // 3. Single cleanup function at the very end
         return () => {
             window.removeEventListener('resize', checkOri);
             EventBus.off('health-changed', handleHealthUpdate);
@@ -203,7 +200,6 @@ export default function ShooterContainer() {
             let activeGame = phaserGame.current;
 
             if (!activeGame) {
-                // PASSING DATABASE LEVEL/STAGE HERE
                 activeGame = StartGame("game-container", {
                     level: stats.shooterLevel,
                     stage: stats.shooterStage,
@@ -253,13 +249,13 @@ export default function ShooterContainer() {
             setIsLoading(false);
         }
     };
+
     const restartGame = useCallback(async () => {
         if (!publicKey || isRestarting) return;
 
         setIsRestarting(true);
 
         try {
-            // Payment for Redeploy
             const payRes = await fetch('/api/games/shooter/pay-to-play', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -277,7 +273,6 @@ export default function ShooterContainer() {
                 return;
             }
 
-            // Deduct locally and notify
             setStats(prev => ({ ...prev, tag: prev.tag - 5 }));
             toast.success("REDEPLOYED: 5 TAG DEDUCTED", { icon: '🔄' });
 
@@ -360,13 +355,13 @@ export default function ShooterContainer() {
         <div className={styles.container}>
             <div className={styles.innerFrame}>
 
-                {/* --- HUD --- */}
+                {/* --- UPDATED HUD --- */}
                 {(gameStarted || isGameOver) && (
                     <div className={styles.hudContainer}>
-                        {/* NEW: Integrated Health Bar */}
+                        {/* 1. Health Bar at the top of the HUD stack */}
                         <div className={styles.healthBarContainer}>
                             <div className={styles.healthLabel}>
-                                <Shield size={10} /> SYSTEM_INTEGRITY
+                                <Heart size={10} fill="#eab308" /> VITAL SIGNS
                             </div>
                             <div className={styles.healthTrack}>
                                 <div
@@ -376,13 +371,17 @@ export default function ShooterContainer() {
                             </div>
                         </div>
 
-                        <div className={styles.currencyItem}>
-                            <Ticket size={12} className={styles.currencyIcon} />
-                            <span>TAG: {(stats?.tag ?? 0).toLocaleString()}</span>
-                        </div>
-                        <div className={styles.currencyItem}>
-                            <Zap size={12} className={styles.currencyIcon} />
-                            <span>LAAM: {(stats?.laam ?? 0).toLocaleString()}</span>
+                        {/* 2. The Wrapper: This keeps TAG and LAAM side-by-side */}
+                        <div className={styles.currencyWrapper}>
+                            <div className={styles.currencyItem}>
+                                <Ticket className={styles.currencyIcon} size={14} />
+                                <span>{(stats?.tag ?? 0).toLocaleString()}</span>
+                            </div>
+
+                            <div className={styles.currencyItem}>
+                                <Coins className={styles.currencyIcon} size={14} />
+                                <span>{(stats?.laam ?? 0).toLocaleString()}</span>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -525,7 +524,6 @@ export default function ShooterContainer() {
                                 </button>
                             )}
 
-                            {/* ✨ ADD THIS BUTTON HERE ✨ */}
                             <button
                                 onClick={() => (window.location.href = '/games')}
                                 className={styles.abortButton}
@@ -539,5 +537,4 @@ export default function ShooterContainer() {
             </div>
         </div>
     );
-
 }
