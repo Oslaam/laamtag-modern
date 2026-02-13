@@ -1,20 +1,77 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import { io, Socket } from 'socket.io-client';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { Send, Clock, CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
+import { Send, Clock, MessageSquare, CheckCircle, XCircle, ArrowLeft, Bot, Copy, Check } from 'lucide-react';
 import axios from 'axios';
+import styles from '../styles/Contact.module.css';
+
+// Variable to hold the socket instance outside the component render cycle
+let socket: Socket | undefined;
 
 export default function ContactPage() {
     const { publicKey } = useWallet();
-    const [view, setView] = useState<'form' | 'history'>('form');
+    const [view, setView] = useState<'form' | 'history' | 'live'>('form');
     const [loading, setLoading] = useState(false);
-    const [showModal, setShowModal] = useState<'success' | 'error' | null>(null);
+    const [copied, setCopied] = useState(false);
+
+    // --- LIVE CHAT STATES ---
+    const [isChatReady, setIsChatReady] = useState(false);
+    const [message, setMessage] = useState('');
+    const [chatLog, setChatLog] = useState<{ sender: string, text: string }[]>([]);
+    const chatEndRef = useRef<HTMLDivElement>(null);
+    const [isAiTyping, setIsAiTyping] = useState(false);
+
+    // --- EXISTING TICKET STATES ---
+    // Updated to store success/error and the generated ID
+    const [showModal, setShowModal] = useState<{ type: 'success' | 'error', id?: string } | null>(null);
     const [history, setHistory] = useState<any[]>([]);
     const [formData, setFormData] = useState({
         type: 'Complaint', name: '', email: '', title: '', description: ''
     });
 
+    // 1. SOCKET & HANDSHAKE INITIALIZATION
+    useEffect(() => {
+        const socketInitializer = async () => {
+            // 1. Ping the API to ensure the server-side SocketHandler has executed
+            await fetch('/api/socket');
+
+            // 2. Initialize with the correct path and transport
+            socket = io({
+                path: '/api/socket',
+                addTrailingSlash: false,
+                transports: ['websocket', 'polling'] // Ensures compatibility
+            });
+
+            socket.on('connect', () => {
+                console.log('CONNECTED TO VAULT');
+            });
+
+            socket.on('receive-message', (data: any) => {
+                setChatLog((prev) => [...prev, data]);
+            });
+
+            socket.on('connect_error', (err) => {
+                console.error("Connection Error:", err.message);
+            });
+        };
+        if (view === 'live') {
+            socketInitializer();
+            const timer = setTimeout(() => setIsChatReady(true), 3500);
+            return () => {
+                clearTimeout(timer);
+                if (socket) socket.disconnect();
+            };
+        }
+    }, [view]);
+
+    // Auto-scroll chat to bottom
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [chatLog, isAiTyping]);
+
+    // History fetcher
     useEffect(() => {
         if (publicKey && view === 'history') {
             axios.get(`/api/user/messages?address=${publicKey.toBase58()}`)
@@ -23,211 +80,266 @@ export default function ContactPage() {
         }
     }, [publicKey, view]);
 
+    // --- HELPERS ---
+    const generateTicketId = () => {
+        const prefix = "TX";
+        const randomHex = Math.random().toString(16).toUpperCase().substring(2, 6);
+        const year = new Date().getFullYear();
+        return `${prefix}-${randomHex}-${year}`;
+    };
+
+    const copyToClipboard = (text: string) => {
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    // --- HANDLERS ---
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
+        const ticketId = generateTicketId();
+
         try {
             await axios.post('/api/user/contact', {
                 ...formData,
+                ticketId,
                 walletAddress: publicKey?.toBase58() || 'Anonymous'
             });
-            setShowModal('success');
+            setShowModal({ type: 'success', id: ticketId });
             setFormData({ type: 'Complaint', name: '', email: '', title: '', description: '' });
         } catch (err) {
-            setShowModal('error');
+            setShowModal({ type: 'error' });
         } finally {
             setLoading(false);
         }
     };
 
+    const sendChatMessage = (e?: React.FormEvent, customMsg?: string) => {
+        if (e) e.preventDefault();
+
+        const finalMessage = customMsg || message;
+        if (!finalMessage.trim() || !socket) return;
+
+        const userMsgData = {
+            sender: publicKey ? publicKey.toBase58().substring(0, 6) : 'OPERATOR',
+            text: finalMessage
+        };
+
+        // --- CRITICAL ADDITION ---
+        // Add the message to your own UI immediately
+        setChatLog((prev) => [...prev, userMsgData]);
+
+        socket.emit('send-message', userMsgData);
+        setMessage('');
+
+        // ... (rest of your AI logic)
+    };
+
+    const AI_RESPONSES: Record<string, string[]> = {
+        staking: [
+            "Vault access granted. Current LAAM APY is locked at 12.5%. Proceed to the VAULT tab for staking.",
+            "Staking protocols are active. Remember: staking LAAM increases your influence in the ecosystem.",
+            "Searching 'Staking'... Data found: 12.5% APY available. Use the VAULT interface to begin."
+        ],
+        tag: [
+            "TAG balance check required. Warning: Long-pressing the spin button deducts 5 TAG per cycle.",
+            "TAG protocols: If your TAG reserve hits zero during auto-spin, the sequence will terminate immediately.",
+            "Daily Spin active. Be advised: auto-spin requires a positive TAG balance. Running dry halts the mission."
+        ],
+        ticket: [
+            "Analyzing ticket logs... Check the HISTORY tab to track your previous transmissions.",
+            "Support tickets are stored in the secure ledger. View your status in the HISTORY section.",
+            "Mission history synchronized. All open transmissions are visible in the HISTORY module."
+        ],
+        default: [
+            "Signal received. Data is being processed through the LAAMTAG gateway...",
+            "Transmission acknowledged. Searching the databanks for relevant Intel...",
+            "Connection stable. Please specify your query (STAKING, TAG, or TICKETS) for faster processing.",
+            "Your transmission has been logged. Our agents are monitoring this channel."
+        ]
+    };
+
     return (
-        <div className="main-content">
+        <div className={styles.mainContent}>
             <Head><title>LAAMTAG | The Bridge</title></Head>
 
             {/* TRANSMISSION MODAL */}
             {showModal && (
-                <div className="overlay">
-                    <div className="terminal-modal" style={{ border: '1px solid rgba(234, 179, 8, 0.3)' }}>
-                        {showModal === 'success' ? (
-                            <CheckCircle size={50} color="#eab308" style={{ margin: '0 auto' }} />
+                <div className={styles.overlay}>
+                    <div className={styles.terminalModal}>
+                        {showModal.type === 'success' ? (
+                            <CheckCircle size={50} color="#eab308" />
                         ) : (
-                            <XCircle size={50} color="#ef4444" style={{ margin: '0 auto' }} />
+                            <XCircle size={50} color="#ef4444" />
                         )}
-                        <h2 className="page-title" style={{ fontSize: '1.5rem', marginTop: '1rem' }}>
-                            {showModal === 'success' ? 'TRANSMITTED' : 'FAILED'}
+                        <h2 className={styles.modalTitle}>
+                            {showModal.type === 'success' ? 'TRANSMITTED' : 'FAILED'}
                         </h2>
-                        <p className="terminal-desc">
-                            {showModal === 'success' ? 'Your message has reached the Vault.' : 'Transmission interrupted.'}
+
+                        {showModal.type === 'success' && showModal.id && (
+                            <div className={styles.idContainer}>
+                                <p className={styles.idLabel}>REFERENCE ID</p>
+                                <div className={styles.idRow}>
+                                    <code className={styles.idCode}>{showModal.id}</code>
+                                    <button
+                                        onClick={() => copyToClipboard(showModal.id!)}
+                                        className={styles.copyBtn}
+                                        title="Copy ID"
+                                    >
+                                        {copied ? <Check size={16} color="#22c55e" /> : <Copy size={16} />}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        <p className={styles.terminalDesc}>
+                            {showModal.type === 'success'
+                                ? 'Your message has reached the Vault databanks.'
+                                : 'Transmission interrupted. Signal lost.'}
                         </p>
-                        <button onClick={() => setShowModal(null)} className="primary-btn" style={{ marginTop: '1rem' }}>
-                            CLOSE
+                        <button onClick={() => setShowModal(null)} className={styles.primaryBtn}>
+                            RETURN TO TERMINAL
                         </button>
                     </div>
                 </div>
             )}
 
-            <div className="content-wrapper">
-
-                {/* HEADER SECTION - Pattern from Profile/Games */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
-                    <Link href="/" style={{
-                        background: 'rgba(255,255,255,0.05)',
-                        padding: '12px',
-                        borderRadius: '12px',
-                        color: '#fff',
-                        border: '1px solid rgba(255,255,255,0.1)'
-                    }}>
+            <div className={styles.contentWrapper}>
+                <div className={styles.header}>
+                    <Link href="/" className={styles.backButton}>
                         <ArrowLeft size={20} />
                     </Link>
                     <div style={{ textAlign: 'right' }}>
-                        <h1 className="page-title" style={{ color: '#eab308', margin: 0, fontSize: '1.5rem' }}>THE BRIDGE</h1>
-                        <p className="terminal-desc" style={{ fontSize: '9px', margin: 0, letterSpacing: '1px' }}>
-                            SECURE COMMS CHANNEL
-                        </p>
+                        <h1 className={styles.pageTitle}>THE BRIDGE</h1>
+                        <p className={styles.terminalDescSmall}>SECURE COMMS CHANNEL</p>
                     </div>
                 </div>
 
-                {/* TAB SELECTOR - Pattern from GamesPage */}
-                <div style={{
-                    display: 'flex',
-                    gap: '8px',
-                    background: 'rgba(255,255,255,0.05)',
-                    padding: '4px',
-                    borderRadius: '16px',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    marginBottom: '32px'
-                }}>
-                    <button
-                        onClick={() => setView('form')}
-                        style={{
-                            flex: 1,
-                            background: view === 'form' ? '#eab308' : 'transparent',
-                            color: view === 'form' ? '#000' : '#666',
-                            border: 'none',
-                            padding: '12px',
-                            borderRadius: '12px',
-                            fontSize: '10px',
-                            fontWeight: 900,
-                            textTransform: 'uppercase',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '8px'
-                        }}
-                    >
-                        <Send size={14} /> NEW MESSAGE
-                    </button>
-                    <button
-                        onClick={() => setView('history')}
-                        style={{
-                            flex: 1,
-                            background: view === 'history' ? '#eab308' : 'transparent',
-                            color: view === 'history' ? '#000' : '#666',
-                            border: 'none',
-                            padding: '12px',
-                            borderRadius: '12px',
-                            fontSize: '10px',
-                            fontWeight: 900,
-                            textTransform: 'uppercase',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '8px'
-                        }}
-                    >
-                        <Clock size={14} /> HISTORY
-                    </button>
+                <div className={styles.tabSelector}>
+                    <button onClick={() => setView('form')} className={`${styles.tabButton} ${view === 'form' ? styles.activeTab : ''}`}><Send size={14} /> TICKET</button>
+                    <button onClick={() => setView('live')} className={`${styles.tabButton} ${view === 'live' ? styles.activeTab : ''}`}><MessageSquare size={14} /> LIVE CHAT</button>
+                    <button onClick={() => setView('history')} className={`${styles.tabButton} ${view === 'history' ? styles.activeTab : ''}`}><Clock size={14} /> HISTORY</button>
                 </div>
 
-                {/* CONTENT AREA */}
-                {view === 'form' ? (
-                    <div className="terminal-card" style={{ padding: '24px' }}>
-                        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                <div className="input-field" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                    <label style={{ fontSize: '10px', fontWeight: 900, color: 'rgba(255,255,255,0.4)' }}>TYPE</label>
-                                    <select
-                                        value={formData.type}
-                                        onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                                        style={{ background: '#000', border: '1px solid rgba(255,255,255,0.1)', padding: '12px', borderRadius: '8px', color: '#fff' }}
-                                    >
+                {view === 'live' && (
+                    <div className={styles.liveChatContainer}>
+                        {!isChatReady ? (
+                            <div className={styles.initializingBox}>
+                                <Bot size={48} className={styles.botIcon} />
+                                <div className={styles.typingWrapper}>
+                                    <h3 className={styles.typingText}>INITIALIZING AI HANDSHAKE...</h3>
+                                </div>
+                                <p className={styles.terminalDesc}>LaamTag (AI) is coming online shortly.</p>
+                                <div className={styles.pulseBar}></div>
+                            </div>
+                        ) : (
+                            <div className={styles.chatBox}>
+                                <div className={styles.chatMessages}>
+                                    <div className={styles.aiMessage}>
+                                        <span style={{ color: '#eab308', fontWeight: 'bold' }}>LAAMTAG (AI):</span>
+                                        Greetings, Seeker. I am the terminal interface. How can I assist with your mission today?
+                                    </div>
+
+                                    {chatLog.map((msg, i) => (
+                                        <div
+                                            key={i}
+                                            className={msg.sender === (publicKey ? publicKey.toBase58().substring(0, 6) : 'OPERATOR')
+                                                ? styles.userMessage
+                                                : styles.aiMessage
+                                            }
+                                        >
+                                            {msg.text}
+                                        </div>
+                                    ))}
+
+                                    {isAiTyping && (
+                                        <div className={styles.aiTypingIndicator}>
+                                            <span className={styles.typingDot}></span>
+                                            <span className={styles.typingDot}></span>
+                                            <span className={styles.typingDot}></span>
+                                        </div>
+                                    )}
+
+                                    <div ref={chatEndRef} />
+                                </div>
+
+                                <div className={styles.quickActions}>
+                                    {['STAKING HELP', 'TICKET STATUS', 'REWARDS'].map((label) => (
+                                        <button
+                                            key={label}
+                                            onClick={() => sendChatMessage(undefined, label)}
+                                            className={styles.actionBadge}
+                                        >
+                                            {label}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <form onSubmit={sendChatMessage} className={styles.chatInputArea}>
+                                    <input
+                                        type="text"
+                                        placeholder="Enter transmission..."
+                                        value={message}
+                                        onChange={(e) => setMessage(e.target.value)}
+                                        className={styles.chatInput}
+                                    />
+                                    <button type="submit" className={styles.chatSendBtn}><Send size={18} /></button>
+                                </form>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {view === 'form' && (
+                    <div className={styles.terminalCardLarge}>
+                        <form onSubmit={handleSubmit} className={styles.formStack}>
+                            <div className={styles.inputGrid}>
+                                <div className={styles.inputField}>
+                                    <label>TYPE</label>
+                                    <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })}>
                                         <option value="Complaint">COMPLAINT</option>
                                         <option value="Suggestion">SUGGESTION</option>
                                     </select>
                                 </div>
-                                <div className="input-field" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                    <label style={{ fontSize: '10px', fontWeight: 900, color: 'rgba(255,255,255,0.4)' }}>OPERATOR NAME</label>
-                                    <input
-                                        required type="text"
-                                        value={formData.name}
-                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                        style={{ background: '#000', border: '1px solid rgba(255,255,255,0.1)', padding: '12px', borderRadius: '8px', color: '#fff' }}
-                                    />
+                                <div className={styles.inputField}>
+                                    <label>OPERATOR NAME</label>
+                                    <input required type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
                                 </div>
                             </div>
-
-                            <div className="input-field" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                <label style={{ fontSize: '10px', fontWeight: 900, color: 'rgba(255,255,255,0.4)' }}>REPLY EMAIL</label>
-                                <input
-                                    required type="email"
-                                    value={formData.email}
-                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                    style={{ background: '#000', border: '1px solid rgba(255,255,255,0.1)', padding: '12px', borderRadius: '8px', color: '#fff' }}
-                                />
+                            <div className={styles.inputField}>
+                                <label>REPLY EMAIL</label>
+                                <input required type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
                             </div>
-
-                            <div className="input-field" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                <label style={{ fontSize: '10px', fontWeight: 900, color: 'rgba(255,255,255,0.4)' }}>SUBJECT</label>
-                                <input
-                                    required type="text"
-                                    value={formData.title}
-                                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                    style={{ background: '#000', border: '1px solid rgba(255,255,255,0.1)', padding: '12px', borderRadius: '8px', color: '#fff' }}
-                                />
+                            <div className={styles.inputField}>
+                                <label>SUBJECT</label>
+                                <input required type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} />
                             </div>
-
-                            <div className="input-field" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                <label style={{ fontSize: '10px', fontWeight: 900, color: 'rgba(255,255,255,0.4)' }}>DESCRIPTION</label>
-                                <textarea
-                                    required rows={5}
-                                    value={formData.description}
-                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                    style={{ background: '#000', border: '1px solid rgba(255,255,255,0.1)', padding: '12px', borderRadius: '8px', color: '#fff', resize: 'none' }}
-                                />
+                            <div className={styles.inputField}>
+                                <label>DESCRIPTION</label>
+                                <textarea required rows={5} value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
                             </div>
-
-                            <button disabled={loading} className="primary-btn">
+                            <button disabled={loading} className={styles.primaryBtn}>
                                 {loading ? "UPLOADING..." : "EXECUTE TRANSMISSION"}
                             </button>
                         </form>
                     </div>
-                ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                )}
+
+                {view === 'history' && (
+                    <div className={styles.historyStack}>
                         {history.length === 0 ? (
-                            <div className="terminal-card" style={{ textAlign: 'center', padding: '40px', color: 'rgba(255,255,255,0.2)' }}>
-                                NO ARCHIVED MESSAGES
-                            </div>
+                            <div className={styles.emptyHistory}>NO ARCHIVED MESSAGES</div>
                         ) : (
                             history.map((ticket) => (
-                                <div key={ticket.id} className="terminal-card" style={{ padding: '20px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                                        <span style={{ fontSize: '8px', fontWeight: 900, background: 'rgba(234, 179, 8, 0.1)', color: '#eab308', padding: '4px 8px', borderRadius: '4px' }}>
-                                            {ticket.type.toUpperCase()}
-                                        </span>
-                                        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>
-                                            {new Date(ticket.createdAt).toLocaleDateString()}
-                                        </span>
+                                <div key={ticket.id} className={styles.terminalCard}>
+                                    <div className={styles.cardHeader}>
+                                        <span className={styles.typeBadge}>{ticket.type.toUpperCase()}</span>
+                                        <span className={styles.dateText}>{new Date(ticket.createdAt).toLocaleDateString()}</span>
                                     </div>
-                                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: '0 0 8px 0' }}>{ticket.title}</h3>
-                                    <p className="terminal-desc" style={{ marginBottom: '16px' }}>{ticket.description}</p>
-                                    <div style={{
-                                        fontSize: '9px',
-                                        fontWeight: 900,
-                                        color: ticket.status === 'Pending' ? '#3b82f6' : '#22c55e',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '6px'
-                                    }}>
+                                    <h3 className={styles.cardTitle}>{ticket.title}</h3>
+                                    <p className={styles.terminalDesc}>{ticket.description}</p>
+                                    <div className={`${styles.statusText} ${ticket.status === 'Pending' ? styles.statusPending : styles.statusSuccess}`}>
                                         STATUS: {ticket.status.toUpperCase()}
                                     </div>
                                 </div>
@@ -236,7 +348,7 @@ export default function ContactPage() {
                     </div>
                 )}
 
-                <p style={{ marginTop: '48px', textAlign: 'center', fontSize: '8px', color: 'rgba(255,255,255,0.2)', fontWeight: 900, letterSpacing: '0.2em' }}>
+                <p className={styles.footerText}>
                     AUTHORIZED COMMS MODULE // LAAM TERMINAL V.01
                 </p>
             </div>

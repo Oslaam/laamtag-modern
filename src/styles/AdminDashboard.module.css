@@ -1,0 +1,91 @@
+.adminContainer {
+    min-height: 100vh;
+    background-color: #000;
+    color: #fff;
+    /* Scanline effect for that operator feel */
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+    background-size: 100% 2px, 3px 100%;
+}
+
+/* Custom Scrollbar for the Chat Log */
+.chatLogScroll::-webkit-scrollbar {
+    width: 4px;
+}
+
+.chatLogScroll::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.chatLogScroll::-webkit-scrollbar-thumb {
+    background: #eab308;
+    border-radius: 10px;
+}
+
+/* Live Connection Pulse */
+.statusPulse {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background-color: #22c55e;
+    border-radius: 50%;
+    margin-right: 8px;
+    box-shadow: 0 0 10px #22c55e;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.5;
+        transform: scale(1.2);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Responsive Message Bubbles */
+.messageBubble {
+    max-width: 85%;
+    word-wrap: break-word;
+    transition: transform 0.2s ease;
+}
+
+@media (max-width: 768px) {
+    .messageBubble {
+        max-width: 95%;
+    }
+
+    .adminHeader {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+/* Terminal Typing Glitch (Optional for UI) */
+.terminalText {
+    font-family: 'Courier New', Courier, monospace;
+    border-right: 2px solid #eab308;
+    white-space: nowrap;
+    overflow: hidden;
+    animation: typing 3.5s steps(40, end), blink-caret .75s step-end infinite;
+}
+
+@keyframes blink-caret {
+
+    from,
+    to {
+        border-color: transparent
+    }
+
+    50% {
+        border-color: #eab308;
+    }
+}
