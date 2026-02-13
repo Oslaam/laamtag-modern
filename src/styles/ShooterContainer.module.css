@@ -52,7 +52,7 @@
     /* Critical for preventing "half-screen" issues */
     width: 100% !important;
     height: 100% !important;
-    object-fit: contain;
+    object-fit: fill;
 }
 
 /* --- HUD & Currency --- */

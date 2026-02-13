@@ -202,9 +202,37 @@ export class ShooterScene extends Phaser.Scene {
             EventBus.off('redeploy-player');
             EventBus.off('resume-stage');
         });
+
+        this.scale.on('resize', (gameSize: Phaser.Structs.Size) => {
+            const { width, height } = gameSize;
+
+            this.cameras.main.setViewport(0, 0, width, height);
+
+            // Reposition UI
+            this.levelText.setPosition(20, 20);
+            this.stageText.setPosition(20, 50);
+            this.enemyCountText.setPosition(20, 80);
+
+            // Position Info Text (the one at the very top)
+            if (this.infoText) this.infoText.setPosition(width * 0.02, height * 0.02);
+
+            this.physics.world.setBounds(0, 0, width, height);
+
+            this.stars1.setSize(width, height);
+            this.stars2.setSize(width, height);
+            this.stars3.setSize(width, height);
+
+            // IMPORTANT: Reset joystick if active to prevent the player from getting stuck
+            if (this.joystickActive) {
+                this.hideJoystick();
+            }
+        });
     }
 
     setupGame() {
+        // 1. Get dynamic dimensions from the Scale Manager
+        const { width, height } = this.scale;
+
         this.updatePlayerStats();
         this.health = this.maxHealth;
         this.enemies = this.physics.add.group();
@@ -212,10 +240,12 @@ export class ShooterScene extends Phaser.Scene {
         this.enemyBullets = this.physics.add.group();
         this.rewards = this.physics.add.group();
 
-        this.player = this.physics.add.sprite(100, this.scale.height / 2, 'player');
+        // 2. Position player relative to the NEW dynamic width/height
+        // width * 0.1 puts the player 10% from the left edge regardless of screen size
+        this.player = this.physics.add.sprite(width * 0.1, height / 2, 'player');
         this.player.setCollideWorldBounds(true).setRotation(Phaser.Math.DegToRad(90));
         this.player.setDisplaySize(50, 50);
-        this.player.setDrag(5000); // Very high drag for snappy 1:1 feel
+        this.player.setDrag(5000);
 
         if (!this.textures.exists('flare')) {
             const flare = this.make.graphics({ x: 0, y: 0 }, false)
@@ -227,11 +257,19 @@ export class ShooterScene extends Phaser.Scene {
 
         this.bossHealthBar = this.add.graphics().setDepth(100);
         this.playerHealthBar = this.add.graphics().setDepth(100);
-        this.infoText = this.add.text(this.scale.width * 0.02, this.scale.height * 0.02, '', { fontSize: '18px', color: '#fff', fontStyle: 'bold' });
 
+        // 3. Update info text and HUD positioning to be relative to screen edges
+        this.infoText = this.add.text(width * 0.02, height * 0.02, '', { fontSize: '18px', color: '#fff', fontStyle: 'bold' });
+
+        // Use absolute margins (20px) but they will now always stay at the top-left of the viewport
         this.levelText = this.add.text(20, 20, `LEVEL: ${this.level}`, { fontSize: '22px', color: '#ffffff', fontFamily: 'monospace' }).setDepth(50000);
         this.stageText = this.add.text(20, 50, `STAGE: ${this.stage}`, { fontSize: '18px', color: '#eab308', fontFamily: 'monospace' }).setDepth(50000);
         this.enemyCountText = this.add.text(20, 80, `TARGET: ${this.enemiesKilled}/${this.enemiesToKill}`, { fontSize: '18px', color: '#ff4444', fontFamily: 'monospace' }).setDepth(50000);
+
+        // 4. Ensure background TileSprites fill the entire dynamic screen
+        if (this.stars1) this.stars1.setSize(width, height);
+        if (this.stars2) this.stars2.setSize(width, height);
+        if (this.stars3) this.stars3.setSize(width, height);
 
         this.physics.add.overlap(this.bullets, this.enemies, (b, e) => this.handleHit(b, e), undefined, this);
         this.physics.add.overlap(this.player, this.enemies, () => this.takeDamage(20), undefined, this);
@@ -281,14 +319,19 @@ export class ShooterScene extends Phaser.Scene {
     }
 
     spawnEnemy() {
+        // 1. Calculate safe vertical bounds based on current height
         const y = Phaser.Math.Between(50, this.scale.height - 50);
         const texture = Math.random() > 0.5 ? 'enemy1' : 'enemy2';
+
+        // 2. Spawn exactly 50px past the dynamic right edge
         const enemy = this.enemies.create(this.scale.width + 50, y, texture);
         enemy.setDisplaySize(50, 50);
 
         const difficultyStep = ((this.level - 1) * 5) + (this.stage - 1);
         const multiplier = Math.pow(1.5, difficultyStep);
         enemy.setData('hp', 2 * multiplier);
+
+        // 3. Adjust speed based on level
         enemy.setVelocityX(-200 - (this.level * 25));
 
         if (Math.random() > 0.7) {
@@ -299,7 +342,12 @@ export class ShooterScene extends Phaser.Scene {
                         eb.setDisplaySize(15, 15);
                         eb.setVelocityX(-300 * (1 + (difficultyStep * 0.15)));
                         for (let i = 0; i < 3; i++) {
-                            this.createMuzzleFlash(enemy.x + Phaser.Math.Between(-20, 20), enemy.y + Phaser.Math.Between(-20, 20), 0xff3333, 1.2);
+                            this.createMuzzleFlash(
+                                enemy.x + Phaser.Math.Between(-20, 20),
+                                enemy.y + Phaser.Math.Between(-20, 20),
+                                0xff3333,
+                                1.2
+                            );
                         }
                     }
                 }
@@ -310,21 +358,32 @@ export class ShooterScene extends Phaser.Scene {
     spawnBoss() {
         this.isBossPhase = true;
         this.cameras.main.shake(1000, 0.01);
+
+        const { width, height } = this.scale;
         const difficultyStep = ((this.level - 1) * 5) + (this.stage - 1);
         const multiplier = Math.pow(1.5, difficultyStep);
         const maxHp = 500 * multiplier;
 
-        this.boss = this.physics.add.sprite(this.scale.width + 150, this.scale.height / 2, 'boss1');
+        // 1. Spawn off-screen relative to dynamic width
+        this.boss = this.physics.add.sprite(width + 150, height / 2, 'boss1');
         this.boss.setDisplaySize(200, 200).setRotation(Phaser.Math.DegToRad(-90));
         this.boss.setData('hp', maxHp).setData('maxHp', maxHp);
 
+        // 2. Tween to a position 200px from the current right edge
         this.tweens.add({
             targets: this.boss,
-            x: this.scale.width - 200,
+            x: width - 200,
             duration: 2000,
             onComplete: () => {
                 if (this.boss) {
-                    this.tweens.add({ targets: this.boss, y: { from: 150, to: this.scale.height - 150 }, duration: 2000, yoyo: true, repeat: -1 });
+                    // Vertical movement stays within the current height
+                    this.tweens.add({
+                        targets: this.boss,
+                        y: { from: 150, to: height - 150 },
+                        duration: 2000,
+                        yoyo: true,
+                        repeat: -1
+                    });
                 }
             }
         });
@@ -338,7 +397,12 @@ export class ShooterScene extends Phaser.Scene {
                         eb.setDisplaySize(20, 20);
                         this.physics.moveToObject(eb, this.player, 400);
                         for (let i = 0; i < 8; i++) {
-                            this.createMuzzleFlash(this.boss.x + Phaser.Math.Between(-80, 80), this.boss.y + Phaser.Math.Between(-80, 80), 0xff0000, 2.0);
+                            this.createMuzzleFlash(
+                                this.boss.x + Phaser.Math.Between(-80, 80),
+                                this.boss.y + Phaser.Math.Between(-80, 80),
+                                0xff0000,
+                                2.0
+                            );
                         }
                     }
                 }
@@ -455,6 +519,18 @@ export class ShooterScene extends Phaser.Scene {
         // 2. Refresh UI
         this.drawBossUI();
         this.drawPlayerHealthBar();
+
+        this.enemies.getChildren().forEach((enemy: any) => {
+            if (enemy.x < -100) {
+                enemy.destroy();
+            }
+        });
+
+        this.bullets.getChildren().forEach((bullet: any) => {
+            if (bullet.x > this.scale.width + 100) {
+                bullet.destroy();
+            }
+        });
     }
 
     drawPlayerHealthBar() {

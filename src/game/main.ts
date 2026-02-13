@@ -4,16 +4,15 @@ import Phaser from 'phaser';
 
 const config: Phaser.Types.Core.GameConfig = {
     type: typeof window !== 'undefined' ? Phaser.AUTO : Phaser.HEADLESS,
-    width: 1024,
-    height: 768,
+    // Remove hardcoded width/height here
     parent: 'game-container',
     backgroundColor: '#050510',
 
     scale: {
-        mode: Phaser.Scale.FIT,           // Fits the game to the parent container
-        autoCenter: Phaser.Scale.CENTER_BOTH, // Centers it
-        width: 1024,                     // Logic width
-        height: 768,                     // Logic height
+        mode: Phaser.Scale.RESIZE, // Change from FIT to RESIZE
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        width: '100%',
+        height: '100%',
     },
 
     physics: {
