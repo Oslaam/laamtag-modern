@@ -226,11 +226,10 @@ export default function LeaderboardPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{ background: '#000', color: '#fff', padding: '8px 12px', borderRadius: '12px', textAlign: 'center' }}>
                 <p style={{ fontSize: '8px', margin: 0, opacity: 0.6 }}>RANK</p>
-                <p style={{ fontSize: '18px', fontWeight: 900, margin: 0 }}>#{myStats.rank}</p>
               </div>
               <div>
                 <p style={{ fontSize: '8px', fontWeight: 900, color: 'rgba(0,0,0,0.5)', margin: 0 }}>
-                  {myStats.username || "ANONYMOUS SEEKER"}
+                  {myStats.username || "TAG STATUS"}
                 </p>
                 <p style={{ fontSize: '14px', fontWeight: 900, color: '#000', margin: 0 }}>
                   {getRank(myStats.laamPoints).name}
