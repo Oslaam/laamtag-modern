@@ -20,7 +20,7 @@ export const ContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
     const endpoint = useMemo(() => {
         // We are hardcoding this to ensure the Helius private node is ALWAYS used
-        return "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
+        return "https://devnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
     }, []);
 
     const wallets = useMemo(() => {
@@ -35,7 +35,7 @@ export const ContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
                     icon: '/laaamtag512-icon.png',
                 },
                 authorizationResultCache: createDefaultAuthorizationResultCache(),
-                cluster: WalletAdapterNetwork.Mainnet,
+                cluster: WalletAdapterNetwork.Devnet,
                 onWalletNotFound: async () => {
                     console.warn('Mobile wallet not found');
                 },

@@ -140,43 +140,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const broadcastAlert = async (type: string) => {
-    if (!publicKey) return;
-    let questTitle = "";
-    let targetWallet = "";
-
-    if (type === 'NEW_QUEST') {
-      questTitle = prompt("Enter the Mission Title:") || "";
-      if (!questTitle) return;
-    }
-
-    if (type === 'RAFFLE_REFUND') {
-      targetWallet = prompt("Enter User Wallet Address for Refund Alert:") || "";
-      if (!targetWallet) return;
-    }
-
-    const confirmSend = confirm(`Broadcast ${type.toUpperCase()} alert?`);
-    if (!confirmSend) return;
-
-    const loadingToast = toast.loading("Broadcasting...");
-
-    try {
-      const apiType = type.toUpperCase() === 'QUEST' ? 'NEW_QUEST' :
-        type.toUpperCase() === 'DAILY' ? 'DAILY_REMINDER' :
-          type.toUpperCase() === 'STAKING' ? 'STAKING_ALERT' : type.toUpperCase();
-
-      const res = await fetch(`/api/notifications/automation?auth_key=${process.env.NEXT_PUBLIC_CRON_SECRET}&type=${apiType}&questTitle=${encodeURIComponent(questTitle)}&targetWallet=${targetWallet}`);
-      if (res.ok) {
-        toast.success(`SYSTEM: Broadcast complete!`, { id: loadingToast });
-        fetchData();
-      } else {
-        throw new Error("Broadcast failed");
-      }
-    } catch (err) {
-      toast.error("FAIL: Error occurred", { id: loadingToast });
-    }
-  };
-
   const handleQuestAction = async (id: string, action: 'APPROVE' | 'REJECT') => {
     if (!publicKey || !signMessage) return toast.error("Connect Wallet!");
     try {
@@ -312,7 +275,7 @@ export default function AdminDashboard() {
         ) : (
           <div className="grid gap-4">
 
-            {/* QUESTS TAB - FULLY RESTORED WITH ORIGINAL PROOFLINK LOGIC */}
+            {/* QUESTS TAB */}
             {activeTab === 'QUESTS' && submissions.map((s: any) => (
               <MotionDiv layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={s.id} className="p-6 border border-zinc-800 rounded-[32px] bg-zinc-900/40 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 hover:border-yellow-500/30 transition-all group">
                 <div className="flex-1">
@@ -321,8 +284,8 @@ export default function AdminDashboard() {
                     <span className="bg-yellow-500 text-black text-[9px] font-black px-2 py-0.5 rounded-md">+{s.quest.reward} LAAM</span>
                   </div>
                   <div className="flex gap-4 mb-4">
-                    <p className="text-[10px] text-zinc-500 font-mono">USER: <span className="text-white">{s.userId.slice(0, 8)}...</span></p>
-                    <span className="text-[10px] font-black text-yellow-500 uppercase tracking-tighter">TYPE: {s.quest.type.replace('social_', '')}</span>
+                    <p className="text-[10px] text-zinc-500 font-mono">USER: <span className="text-white">{s.userId?.slice(0, 8)}...</span></p>
+                    <span className="text-[10px] font-black text-yellow-500 uppercase tracking-tighter">TYPE: {s.quest.type?.replace('social_', '')}</span>
                   </div>
                   {s.proofLink && (
                     <div className="mt-2">
@@ -330,9 +293,6 @@ export default function AdminDashboard() {
                         <div className="flex items-center gap-3 bg-black border border-white/5 p-3 rounded-2xl max-w-fit">
                           <span className="text-zinc-500 font-black text-[9px] uppercase tracking-widest italic">Identity:</span>
                           <code className="text-white font-bold text-sm tracking-tight">{s.proofLink.startsWith('@') ? s.proofLink : `@${s.proofLink}`}</code>
-                          <button onClick={() => { navigator.clipboard.writeText(s.proofLink); toast.success("COPIED"); }} className="p-1.5 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white transition-all">
-                            <ExternalLink size={14} />
-                          </button>
                         </div>
                       ) : (
                         <a href={s.proofLink.startsWith('http') ? s.proofLink : `https://${s.proofLink}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 bg-white/5 border border-white/10 px-6 py-2.5 rounded-xl text-white text-[10px] font-black italic hover:bg-white hover:text-black transition-all uppercase tracking-widest group">
@@ -349,6 +309,46 @@ export default function AdminDashboard() {
               </MotionDiv>
             ))}
 
+            {/* SUPPORT TAB - FIXED CRASH AND ADDED RENDERING */}
+            {activeTab === 'SUPPORT' && tickets.map((t: any) => (
+              <MotionDiv layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={t.id} className="p-6 border border-zinc-800 rounded-[32px] bg-zinc-900/40 flex flex-col gap-4 hover:border-yellow-500/30 transition-all">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="flex items-center gap-3 mb-1">
+                      <span className={`text-[8px] font-black px-2 py-0.5 rounded-md ${t.status === 'Pending' ? 'bg-yellow-500 text-black' : 'bg-green-500 text-white'}`}>
+                        {t.status?.toUpperCase() || 'UNKNOWN'}
+                      </span>
+                      <p className="text-white font-black text-lg italic uppercase tracking-tight">{t.subject || 'Support Request'}</p>
+                    </div>
+                    <p className="text-[10px] text-zinc-500 font-mono mb-3">
+                      TICKET_ID: {t.id?.slice(-8)} • USER: {(t.walletAddress || t.userWallet || "Unknown")?.slice(0, 8)}...
+                    </p>
+                  </div>
+                  {t.status === 'Pending' && (
+                    <button
+                      onClick={() => updateTicketStatus(t.id, 'Resolved')}
+                      className="bg-white text-black px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-green-500 transition-all"
+                    >
+                      Mark Resolved
+                    </button>
+                  )}
+                </div>
+                <div className="bg-black/40 p-4 rounded-2xl border border-white/5">
+                  <p className="text-zinc-300 text-sm leading-relaxed">{t.message}</p>
+                </div>
+                <div className="flex justify-between items-center">
+                  <p className="text-[9px] text-zinc-600 font-black uppercase italic tracking-widest">
+                    Logged: {new Date(t.createdAt).toLocaleString()}
+                  </p>
+                  {t.email && (
+                    <a href={`mailto:${t.email}`} className="text-yellow-500 text-[10px] font-black uppercase hover:underline flex items-center gap-1">
+                      <Send size={10} /> Reply to {t.email}
+                    </a>
+                  )}
+                </div>
+              </MotionDiv>
+            ))}
+
             {/* CHAT TAB */}
             {activeTab === 'CHAT' && (
               <div className="grid grid-cols-1 gap-6">
@@ -358,10 +358,7 @@ export default function AdminDashboard() {
                       <Activity className="text-yellow-500" size={20} /> Live Intercept
                     </h2>
                     <div className="flex items-center gap-4">
-                      <button
-                        onClick={clearChatLog}
-                        className="flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 px-3 py-1 rounded-full text-red-500 hover:bg-red-500 hover:text-white transition-all group"
-                      >
+                      <button onClick={clearChatLog} className="flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 px-3 py-1 rounded-full text-red-500 hover:bg-red-500 hover:text-white transition-all group">
                         <Trash2 size={12} className="group-hover:scale-110 transition-transform" />
                         <span className="text-[10px] font-black uppercase tracking-tighter">Wipe_Log</span>
                       </button>
@@ -369,9 +366,6 @@ export default function AdminDashboard() {
                         <Users size={12} className="text-yellow-500" />
                         <span className="text-[10px] text-yellow-500 font-black uppercase tracking-tighter">{activeUserCount} Nodes Active</span>
                       </div>
-                      <span className="text-[10px] text-green-500 animate-pulse font-black uppercase flex items-center gap-1">
-                        Connection_Active
-                      </span>
                     </div>
                   </div>
 
@@ -421,15 +415,15 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {/* Other tabs like SUPPORT, HISTORY, etc. logic from your original dashboard */}
+            {/* HISTORY TAB */}
             {activeTab === 'HISTORY' && history.map((h: any) => (
               <div key={h.id} className="p-5 border border-white/5 rounded-2xl bg-zinc-900/20 flex justify-between items-center opacity-70 hover:opacity-100 transition-opacity">
                 <div>
                   <div className="flex items-center gap-3 mb-1">
-                    <p className="text-zinc-300 font-black italic uppercase tracking-tight">{h.quest.title}</p>
+                    <p className="text-zinc-300 font-black italic uppercase tracking-tight">{h.quest?.title}</p>
                     <span className={`text-[8px] font-black px-2 py-0.5 rounded-md ${h.status === 'APPROVED' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>{h.status}</span>
                   </div>
-                  <p className="text-[10px] text-zinc-600 font-mono">NODE: {h.user.walletAddress.slice(0, 6)}... • {new Date(h.updatedAt).toLocaleString()}</p>
+                  <p className="text-[10px] text-zinc-600 font-mono">NODE: {h.user?.walletAddress?.slice(0, 6)}... • {new Date(h.updatedAt).toLocaleString()}</p>
                 </div>
                 {h.status === 'APPROVED' ? <CheckCircle2 className="text-green-500/20" size={20} /> : <XCircle className="text-red-500/20" size={20} />}
               </div>

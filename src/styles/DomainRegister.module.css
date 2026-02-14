@@ -1,0 +1,218 @@
+.container {
+    position: relative;
+    overflow: hidden;
+    margin: 2.5rem 0;
+    border: 1px solid rgba(234, 179, 8, 0.2);
+    border-radius: 1.5rem;
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(12px);
+    padding: 2rem;
+}
+
+.title {
+    font-size: 24px;
+    font-weight: 900;
+    color: #fff;
+    margin-bottom: 1.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.highlight {
+    color: #eab308;
+}
+
+.terminalCard {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.inputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+@media (min-width: 768px) {
+    .inputGroup {
+        flex-direction: row;
+    }
+}
+
+.inputWrapper {
+    flex: 1;
+    position: relative;
+}
+
+.input {
+    width: 100%;
+    background-color: #111;
+    border: 1px solid #333;
+    padding: 1rem;
+    border-radius: 0.75rem;
+    color: white;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.input:focus {
+    border-color: #eab308;
+    box-shadow: 0 0 10px rgba(234, 179, 8, 0.1);
+}
+
+.suffix {
+    position: absolute;
+    right: 1rem;
+    top: 1rem;
+    color: #555;
+    font-weight: 700;
+    pointer-events: none;
+}
+
+.select {
+    background-color: #111;
+    border: 1px solid #333;
+    padding: 1rem;
+    border-radius: 0.75rem;
+    color: white;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.select:focus {
+    border-color: #eab308;
+}
+
+.priceRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 0.5rem;
+}
+
+.feeLabel {
+    color: #9ca3af;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+}
+
+.feeValue {
+    color: #eab308;
+    font-weight: 700;
+}
+
+.registerBtn {
+    width: 100%;
+    padding: 1rem;
+    border-radius: 0.75rem;
+    font-weight: 900;
+    color: black;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    transition: all 0.2s;
+    background-color: #eab308;
+    border: none;
+    cursor: pointer;
+}
+
+.registerBtn:hover:not(:disabled) {
+    background-color: #facc15;
+    transform: scale(1.02);
+}
+
+.registerBtn:disabled {
+    background-color: #4b5563;
+    cursor: not-allowed;
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.successBox {
+    margin-top: 1rem;
+    padding: 1rem;
+    background-color: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+    border-radius: 0.75rem;
+    text-align: center;
+}
+
+.successTitle {
+    color: #22c55e;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.explorerLink {
+    color: white;
+    font-size: 10px;
+    text-decoration: underline;
+    word-break: break-all;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.explorerLink:hover {
+    opacity: 1;
+}
+
+.lookupContainer {
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    background-color: rgba(234, 179, 8, 0.03);
+    border: 1px solid rgba(234, 179, 8, 0.1);
+    border-radius: 1.25rem;
+}
+
+.lookupLabel {
+    display: block;
+    font-size: 10px;
+    font-weight: 900;
+    color: #eab308;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    margin-bottom: 1rem;
+}
+
+.resultBox {
+    margin-top: 1rem;
+    padding: 1rem;
+    background-color: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(234, 179, 8, 0.1);
+    border-radius: 0.75rem;
+}
+
+.resultHeader {
+    color: rgba(234, 179, 8, 0.5);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 9px;
+    font-weight: 900;
+    margin-bottom: 0.25rem;
+}
+
+.resultValue {
+    color: #fff;
+    font-family: monospace;
+    font-size: 11px;
+    word-break: break-all;
+}
+
+.available {
+    color: #22c55e;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: .5;
+    }
+}
