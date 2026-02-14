@@ -3,8 +3,7 @@ import { Program, AnchorProvider } from '@coral-xyz/anchor';
 import { PublicKey, SystemProgram, Keypair, SYSVAR_RENT_PUBKEY, Transaction } from '@solana/web3.js';
 import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { Buffer } from 'buffer';
-// @ts-ignore
-import idl from './anchor.json';
+import { IDL } from './idl';
 
 const METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
 
@@ -18,7 +17,8 @@ export const useLaamProgram = () => {
     const getProgram = () => {
         if (!wallet.publicKey || !wallet.signTransaction) return null;
         const provider = new AnchorProvider(connection, wallet as any, { commitment: 'confirmed' });
-        return new Program(idl as any, provider);
+        // Use IDL (the constant) instead of idl (the json file)
+        return new Program(IDL as any, provider);
     };
 
     const getPrice = (nameLength: number, selectedYears: number) => {
