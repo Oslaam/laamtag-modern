@@ -3,6 +3,7 @@ import { Program, AnchorProvider } from '@coral-xyz/anchor';
 import { PublicKey, SystemProgram, Keypair, SYSVAR_RENT_PUBKEY, Transaction } from '@solana/web3.js';
 import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { Buffer } from 'buffer';
+// @ts-ignore
 import idl from '../idl/anchor.json';
 
 const METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
