@@ -14,30 +14,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const finalWallet = walletAddress || (req.query.walletAddress as string);
 
     // --- UTC Reset Logic ---
-    // This creates a timestamp for 00:00:00 UTC of the current day.
     const now = new Date();
     const utcMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
 
     try {
-        // 1. FETCH LEADERBOARD
+        // 1. FETCH LEADERBOARD WITH USERNAMES
         if (req.method === 'GET' || action === 'GET_LEADERBOARD') {
             const isDaily = req.query.type === 'daily' || type === 'daily';
-            // Use utcMidnight for daily reset, or Epoch 0 for All-Time
             const dateFilter = isDaily ? utcMidnight : new Date(0);
 
-            // Fetch Global Top 10
-            const topScores = await prisma.activity.groupBy({
-                by: ['userId'],
+            // Fetch activities including the User model for usernames
+            const topActivities = await prisma.activity.findMany({
                 where: {
                     type: 'RESISTANCE_SCORE',
                     createdAt: { gte: dateFilter }
                 },
-                _max: { amount: true },
-                orderBy: { _max: { amount: 'desc' } },
+                distinct: ['userId'],
+                orderBy: { amount: 'desc' },
                 take: 10,
+                include: {
+                    user: {
+                        select: { username: true }
+                    }
+                }
             });
 
-            // Fetch specific user's best score for the requested period
+            // Fetch specific user's best score
             let userBest = 0;
             if (finalWallet) {
                 const bestRecord = await prisma.activity.findFirst({
@@ -53,9 +55,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             }
 
             return res.status(200).json({
-                leaderboard: topScores.map(s => ({
-                    wallet: s.userId,
-                    score: s._max.amount
+                leaderboard: topActivities.map(act => ({
+                    wallet: act.userId,
+                    username: act.user?.username || null, // Included username for the frontend
+                    score: act.amount
                 })),
                 userBest
             });
@@ -114,7 +117,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 return res.status(400).json({ error: "Missing move history" });
             }
 
-            // Simple Anti-Cheat: Speed check
+            // Anti-Cheat: Speed check
             const avgTimePerMove = duration / history.length;
             if (avgTimePerMove < 400) {
                 return res.status(403).json({ error: "Suspiciously fast play detected." });
@@ -123,12 +126,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             // Score Verification
             let calculatedScore = 0;
             for (const move of history) {
-                const { coords, pointsEarned } = move;
+                const { coords, values, pointsEarned } = move;
+
+                // Math verification: verify numbers in selection sum to 10
+                const moveSum = values.reduce((a: number, b: number) => a + b, 0);
+                if (moveSum !== 10) return res.status(403).json({ error: "Math verification failed." });
+
                 const width = Math.abs(coords.x2 - coords.x1) + 1;
                 const height = Math.abs(coords.y2 - coords.y1) + 1;
                 const maxPossiblePoints = width * height;
 
-                if (pointsEarned > maxPossiblePoints) {
+                if (pointsEarned > maxPossiblePoints || pointsEarned !== values.length) {
                     return res.status(403).json({ error: "Invalid move math detected." });
                 }
                 calculatedScore += pointsEarned;
@@ -143,7 +151,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 where: {
                     userId: finalWallet,
                     type: 'RESISTANCE_SCORE',
-                    createdAt: { gte: utcMidnight } // Always use UTC midnight for the reset check
+                    createdAt: { gte: utcMidnight }
                 }
             });
 

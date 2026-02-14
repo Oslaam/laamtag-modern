@@ -163,9 +163,17 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
         ? [...topRow, toggleButton, ...allContentItems.slice(4)]
         : [...topRow, toggleButton];
 
+    // Identity Styling Logic
+    const nameColor = stats.username?.includes('.laam')
+        ? '#eab308'
+        : stats.username?.includes('.skr')
+            ? '#22d3ee'
+            : '#fff';
+
+    const displayOperator = stats.username || (publicKey ? `${publicKey.toString().slice(0, 4)}...` : 'SEEKER');
+
     return (
         <div className={`app-container ${isGamePage ? 'game-mode' : ''}`}>
-            {/* 1. Ticker at the absolute top for sticky behavior */}
             {!isGamePage && <ActivityTicker />}
 
             <RankUpModal isOpen={showRankModal} newRank={newRank} onClose={() => setShowRankModal(false)} />
@@ -189,9 +197,13 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
                             <div style={{ padding: '0 12px' }}>
                                 <p className="stat-label">OPERATOR</p>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    {stats.username && <Crown size={10} color="#eab308" />}
-                                    <p className="stat-value" style={{ color: stats.username ? '#eab308' : '#fff' }}>
-                                        {stats.username || 'SEEKER'}
+                                    {stats.username && <Crown size={10} color={nameColor} />}
+                                    <p className="stat-value" style={{
+                                        color: nameColor,
+                                        textTransform: stats.username ? 'lowercase' : 'uppercase',
+                                        fontWeight: stats.username ? 900 : 400
+                                    }}>
+                                        {displayOperator}
                                     </p>
                                 </div>
                             </div>

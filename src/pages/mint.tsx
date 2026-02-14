@@ -85,7 +85,9 @@ const Mint: NextPage = () => {
     }
   }, [isClient, publicKey, connection]);
 
-  const handleIncrement = () => { if (amount < (3 - stats.personal)) setAmount(prev => prev + 1); };
+  const handleIncrement = () => {
+    if (amount < (10 - stats.personal)) setAmount(prev => prev + 1);
+  };
   const handleDecrement = () => { if (amount > 1) setAmount(prev => prev - 1); };
 
   const handleMint = async () => {
@@ -97,7 +99,7 @@ const Mint: NextPage = () => {
       const itemsAvailable = Number(candyMachine.data?.itemsAvailable ?? 0);
       if (itemsAvailable <= 0) throw new Error("Candy Machine is SOLD OUT");
 
-      const maxMintable = Math.min(amount, 3 - stats.personal, itemsAvailable);
+      const maxMintable = Math.min(amount, 10 - stats.personal, itemsAvailable);
       const treasuryPubkey = umiPublicKey(MY_TREASURY_ADDR.trim());
       const results = [];
 
@@ -135,7 +137,8 @@ const Mint: NextPage = () => {
         const newActualTotal = stats.personal + successCount;
         await axios.post('/api/user/update-mints', {
           walletAddress: publicKey.toBase58(),
-          actualCount: newActualTotal
+          actualCount: newActualTotal,
+          amountMinted: successCount
         });
 
         try {
@@ -234,7 +237,7 @@ const Mint: NextPage = () => {
           </div>
 
           <div className="terminal-card">
-            {stats.personal >= 3 ? (
+            {stats.personal >= 10 ? (
               <div style={{ textAlign: 'center', padding: '1rem', color: '#eab308', fontWeight: 900 }}>
                 ALL POSITIONS CLAIMED
               </div>

@@ -39,7 +39,7 @@
       "allowList": null,
       "mintLimit": {
         "id": 1,
-        "limit": 3
+        "limit": 10
       },
       "nftPayment": null,
       "redeemedAmount": null,

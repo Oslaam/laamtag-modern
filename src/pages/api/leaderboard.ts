@@ -8,12 +8,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Fetch top users by points AND include the count of people they referred
     const topUsersRaw = await prisma.user.findMany({
       orderBy: { laamPoints: 'desc' },
-      take: 20, // Increased slightly to find more recruiters
-      include: {
+      take: 50, // Let's take 50 so the Recruiter logic has more data to work with
+      select: {
+        walletAddress: true,
+        username: true, // Make sure this is here!
+        laamPoints: true,
         _count: {
           select: {
             quests: true,
-            referrals: true // THIS IS THE FIX: Counts the User[] relation
+            referrals: true
           }
         }
       }

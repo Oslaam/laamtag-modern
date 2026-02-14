@@ -96,7 +96,17 @@ export default function LeaderboardPage() {
                 {leaders.map((leader, index) => {
                   const isUser = leader.walletAddress === publicKey?.toString();
                   const rank = index + 1;
-                  const displayName = leader.username || `${leader.walletAddress.slice(0, 4)}...${leader.walletAddress.slice(-4)}`;
+
+                  // 1. Better Display Logic: Check DB username first, then fallback to wallet
+                  const displayName = leader.username ||
+                    `${leader.walletAddress.slice(0, 4)}...${leader.walletAddress.slice(-4)}`;
+
+                  // 2. Dynamic Coloring based on the name type
+                  const nameColor = leader.username?.includes('.laam')
+                    ? '#eab308'
+                    : leader.username?.includes('.skr')
+                      ? '#22d3ee'
+                      : (isUser ? '#eab308' : '#fff');
 
                   return (
                     <div key={leader.walletAddress} style={{
@@ -112,7 +122,18 @@ export default function LeaderboardPage() {
                           rank <= 3 ? <Medal size={14} color={rank === 2 ? '#94a3b8' : '#cd7f32'} /> : null}
                         <span style={{ fontWeight: 900, color: rank <= 3 ? '#eab308' : 'rgba(255,255,255,0.4)', fontSize: rank <= 3 ? '16px' : '12px' }}>#{rank}</span>
                       </div>
-                      <span style={{ fontWeight: 700, color: leader.username ? '#eab308' : (isUser ? '#eab308' : '#fff'), fontSize: '13px', textTransform: 'uppercase' }}>{displayName}</span>
+
+                      {/* Updated Display Name with the new coloring */}
+                      <span style={{
+                        fontWeight: 700,
+                        color: nameColor,
+                        fontSize: '13px',
+                        textTransform: 'uppercase',
+                        fontFamily: leader.username ? 'inherit' : 'monospace'
+                      }}>
+                        {displayName}
+                      </span>
+
                       <div style={{ textAlign: 'center' }}>
                         <span style={{ fontSize: '8px', fontWeight: 900, padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }}>{leader.tier}</span>
                       </div>

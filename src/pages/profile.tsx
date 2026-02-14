@@ -1,4 +1,4 @@
-import { useWallet } from '@solana/wallet-adapter-react';
+import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import axios from 'axios';
@@ -8,9 +8,12 @@ import {
 } from 'lucide-react';
 import NftGallery from '../components/NftGallery';
 import HistoryModal from '../components/HistoryModal';
+import { resolveUserIdentity } from '../utils/identity';
 
 export default function ProfilePage() {
+  const { connection } = useConnection();
   const { publicKey } = useWallet();
+  const [displayName, setDisplayName] = useState("LOADING...");
   const [userData, setUserData] = useState<{
     walletAddress: string;
     laamPoints: number;
@@ -36,14 +39,33 @@ export default function ProfilePage() {
       const res = await fetch(`/api/user/${publicKey.toString()}`);
       const statsData = await res.json();
       setUserData(statsData || null);
+
+      // 1. Resolve identity (Checks DB first, then Blockchain)
+      const identity = await resolveUserIdentity(
+        connection,
+        publicKey.toString(),
+        statsData?.username
+      );
+
+      setDisplayName(identity);
+
+      // 2. SYNC LOGIC: If DB has no username, but Blockchain found one, save it!
+      if (!statsData?.username && (identity.includes('.laam') || identity.includes('.skr'))) {
+        await axios.post('/api/user/sync-username', {
+          walletAddress: publicKey.toString(),
+          username: identity
+        });
+        console.log("Username synced to database:", identity);
+      }
     } catch (err) {
       console.error("Profile fetch error", err);
+      setDisplayName(publicKey ? `${publicKey.toString().slice(0, 4)}...` : "UNKNOWN");
     }
   };
 
   useEffect(() => {
     fetchProfile();
-  }, [publicKey]);
+  }, [publicKey, connection]);
 
   // Handle Crate Claim
   const handleClaim = async () => {
@@ -85,9 +107,6 @@ export default function ProfilePage() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
-
-  const walletSnippet = publicKey ? publicKey.toString().slice(0, 4) : '';
-  const displayName = userData?.username || `SEEKER_${walletSnippet}`;
 
   return (
     <div className="main-content">
@@ -147,7 +166,7 @@ export default function ProfilePage() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
               {userData?.username && <Crown size={14} color="#eab308" style={{ filter: 'drop-shadow(0 0 5px #eab308)' }} />}
               <p className="terminal-desc" style={{
-                color: userData?.username ? '#eab308' : '#fff',
+                color: displayName.includes('.laam') ? '#eab308' : (displayName.includes('.skr') ? '#22d3ee' : '#fff'),
                 margin: 0,
                 fontWeight: 900,
                 textTransform: 'uppercase'
@@ -187,9 +206,9 @@ export default function ProfilePage() {
             fontStyle: 'italic',
             textTransform: 'uppercase',
             margin: 0,
-            color: userData?.username ? '#eab308' : '#fff'
+            color: displayName.includes('.laam') ? '#eab308' : '#fff'
           }}>
-            {userData?.username || 'SEEKER'}
+            {displayName}
           </h2>
           <p style={{ fontSize: '10px', fontWeight: 900, color: 'rgba(255,255,255,0.4)', letterSpacing: '2px', marginTop: '4px' }}>
             {userData?.rank || 'NEOPHYTE'} — CLEARANCE LEVEL
@@ -329,7 +348,7 @@ export default function ProfilePage() {
             <div style={{ position: 'relative', flex: 1 }}>
               <input
                 type="text"
-                value={userData?.username || "NO DOMAIN FOUND"}
+                value={displayName}
                 readOnly
                 style={{
                   width: '100%',
@@ -337,7 +356,7 @@ export default function ProfilePage() {
                   border: '1px solid rgba(255,255,255,0.1)',
                   borderRadius: '8px',
                   padding: '10px 15px',
-                  color: userData?.username ? '#22c55e' : 'rgba(255,255,255,0.3)',
+                  color: displayName.includes('.laam') ? '#eab308' : (displayName.includes('.skr') ? '#22d3ee' : 'rgba(255,255,255,0.3)'),
                   fontSize: '12px',
                   fontFamily: 'monospace',
                   outline: 'none',

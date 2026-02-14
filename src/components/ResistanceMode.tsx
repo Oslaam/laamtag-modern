@@ -55,19 +55,17 @@ export default function ResistanceMode() {
     const moveInterval = useRef<NodeJS.Timeout | null>(null);
     const moveDelay = useRef<NodeJS.Timeout | null>(null);
 
-    // --- UPDATED: UTC RESET TIMER ---
+    // --- UTC RESET TIMER ---
     useEffect(() => {
         const startDate = new Date("2026-02-10");
 
         const timer = setInterval(() => {
             const now = new Date();
 
-            // Calculate Days Since Launch (UTC)
             const diffTime = Math.abs(now.getTime() - startDate.getTime());
             const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
             setDaysSinceStart(diffDays);
 
-            // Calculate Time Until UTC Midnight
             const nextReset = new Date(Date.UTC(
                 now.getUTCFullYear(),
                 now.getUTCMonth(),
@@ -83,7 +81,6 @@ export default function ResistanceMode() {
 
             setDailyResetTime(`${h}h ${m}m ${s}s`);
 
-            // Auto-refresh leaderboard when clock hits zero
             if (h === 0 && m === 0 && s === 0) {
                 fetchLeaderboard();
             }
@@ -127,7 +124,6 @@ export default function ResistanceMode() {
     const handleLevelComplete = async () => {
         setGameState('IDLE');
         setShowRewardOverlay(true);
-        // Log progress is optional, but keep it for analytics
         try {
             await axios.post('/api/games/resistance-mode', {
                 action: 'LOG_PROGRESS',
@@ -215,12 +211,15 @@ export default function ResistanceMode() {
 
             let sum = 0;
             const targetIndices: number[] = [];
+            const numbersInSelection: number[] = [];
+
             for (let y = y1; y <= y2; y++) {
                 for (let x = x1; x <= x2; x++) {
                     const idx = y * COLS + x;
                     if (grid[idx] > 0) {
                         sum += grid[idx];
                         targetIndices.push(idx);
+                        numbersInSelection.push(grid[idx]);
                     }
                 }
             }
@@ -230,8 +229,10 @@ export default function ResistanceMode() {
                 targetIndices.forEach(idx => newGrid[idx] = 0);
                 setGrid(newGrid);
                 setScore(prev => prev + targetIndices.length);
+
                 setMoveHistory(prev => [...prev, {
                     coords: { x1, y1, x2, y2 },
+                    values: numbersInSelection,
                     timestamp: Date.now() - gameStartTime,
                     pointsEarned: targetIndices.length
                 }]);
@@ -421,14 +422,16 @@ export default function ResistanceMode() {
                             </div>
                         )}
                         <div className={styles.divider} />
-                        {leaderboard.map((user, index) => (
+                        {leaderboard.map((entry, index) => (
                             <div
                                 key={index}
-                                className={`${styles.boardItem} ${user.wallet === publicKey?.toBase58() ? styles.highlight : ''}`}
+                                className={`${styles.boardItem} ${entry.wallet === publicKey?.toBase58() ? styles.highlight : ''}`}
                             >
                                 <span className={styles.rank}>#{index + 1}</span>
-                                <span className={styles.wallet}>{user.wallet.slice(0, 4)}...{user.wallet.slice(-4)}</span>
-                                <span className={styles.points}>{user.score}</span>
+                                <span className={styles.wallet}>
+                                    {entry.username || `${entry.wallet.slice(0, 4)}...${entry.wallet.slice(-4)}`}
+                                </span>
+                                <span className={styles.points}>{entry.score}</span>
                             </div>
                         ))}
                     </div>

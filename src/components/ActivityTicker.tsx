@@ -36,13 +36,11 @@ export default function ActivityTicker() {
         await fetch('/api/socket');
         socket = io({ path: '/api/socket' });
 
-        // When a user count update is received, it implies a connection/disconnection
         socket.on('user-count-update', (count: number) => {
-            // Inject a temporary "LIVE_JOIN" event into the ticker
             const liveEvent = {
                 id: `live-${Date.now()}`,
                 type: 'SYSTEM_NODE_JOINED',
-                userId: '0xSystem', // Placeholder for the system
+                userId: '0xSystem',
                 amount: count,
                 asset: 'ACTIVE_NODES',
                 isLive: true
@@ -65,8 +63,9 @@ export default function ActivityTicker() {
         return <Zap size={12} className="text-yellow-500" />;
     };
 
-    const formatWallet = (address: string) => {
+    const formatDisplayName = (address: string, username?: string) => {
         if (address === '0xSystem') return 'SYSTEM';
+        if (username) return username;
         return `${address.slice(0, 4)}...${address.slice(-4)}`;
     };
 
@@ -75,7 +74,6 @@ export default function ActivityTicker() {
     return (
         <div className={styles.tickerContainer}>
             <div className={styles.tickerContent}>
-                {/* We double the array for a seamless loop in the CSS animation */}
                 {[...activities, ...activities].map((act, i) => {
                     const isExpense = act.amount < 0 ||
                         act.type.includes('COST') ||
@@ -84,16 +82,38 @@ export default function ActivityTicker() {
 
                     const isSystem = act.type.includes('SYSTEM');
 
+                    // Calculate display properties
+                    const displayName = formatDisplayName(act.userId, act.username);
+
+                    // Colors: .laam = Gold, .skr = Cyan, default = white
+                    const nameColor = act.username?.includes('.laam')
+                        ? '#eab308'
+                        : act.username?.includes('.skr')
+                            ? '#22d3ee'
+                            : '#fff';
+
                     return (
                         <div
                             key={`${act.id}-${i}`}
                             className={`${styles.tickerItem} ${act.isLive ? styles.livePulse : ''}`}
                         >
                             {getIcon(act.type)}
-                            <span className={styles.wallet}>{formatWallet(act.userId)}</span>
+
+                            <span
+                                className={styles.wallet}
+                                style={{
+                                    color: nameColor,
+                                    fontWeight: act.username ? 800 : 400,
+                                    textTransform: act.username ? 'lowercase' : 'uppercase'
+                                }}
+                            >
+                                {displayName}
+                            </span>
+
                             <span className={styles.action}>
                                 {act.type.replace(/_/g, ' ')}
                             </span>
+
                             <span className={isSystem ? 'text-green-500 font-black' : (isExpense ? styles.amountNegative : styles.amountPositive)}>
                                 {isSystem ? `v.${act.amount}` : (act.amount > 0 ? `+${act.amount}` : act.amount)} {act.asset}
                             </span>
