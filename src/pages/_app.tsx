@@ -19,6 +19,7 @@ import {
     DoorClosed, Crown, Repeat, Swords
 } from 'lucide-react';
 
+import styles from '../styles/App.module.css';
 import '@solana/wallet-adapter-react-ui/styles.css';
 import '../styles/globals.css';
 
@@ -164,30 +165,29 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
         ? [...topRow, toggleButton, ...allContentItems.slice(4)]
         : [...topRow, toggleButton];
 
-    // Identity Styling Logic
-    const nameColor = stats.username?.includes('.laam')
-        ? '#eab308'
-        : stats.username?.includes('.skr')
-            ? '#22d3ee'
-            : '#fff';
+    const getUsernameClass = () => {
+        if (stats.username?.includes('.laam')) return styles.nameLaam;
+        if (stats.username?.includes('.skr')) return styles.nameSkr;
+        return styles.nameDefault;
+    };
 
     const displayOperator = stats.username || (publicKey ? `${publicKey.toString().slice(0, 4)}...` : 'SEEKER');
 
     return (
-        <div className={`app-container ${isGamePage ? 'game-mode' : ''}`}>
+        <div className={`${styles.appContainer} ${isGamePage ? styles.gameMode : ''}`}>
             {!isGamePage && <ActivityTicker />}
 
             <RankUpModal isOpen={showRankModal} newRank={newRank} onClose={() => setShowRankModal(false)} />
             <HistoryModal isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
 
             {!isGamePage && (
-                <header className="main-header">
-                    <nav className="header-nav">
-                        <div className="header-top">
-                            <Link href="/" className="logo">LAAMTAG HUB</Link>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <header className={styles.mainHeader}>
+                    <nav className={styles.headerNav}>
+                        <div className={styles.headerTop}>
+                            <Link href="/" className={styles.logo}>LAAMTAG HUB</Link>
+                            <div className={styles.headerActions}>
                                 {isAdmin && (
-                                    <Link href="/admin/dashboard" style={{ fontSize: '10px', color: '#eab308', textDecoration: 'none', fontWeight: 900 }}>
+                                    <Link href="/admin/dashboard" className={styles.adminLink}>
                                         T ({pendingCount})
                                     </Link>
                                 )}
@@ -195,13 +195,12 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
                                 <WalletMultiButtonDynamic />
                             </div>
                         </div>
-                        <div className="stats-bar">
-                            <div style={{ padding: '0 12px' }}>
-                                <p className="stat-label">OPERATOR</p>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    {stats.username && <Crown size={10} color={nameColor} />}
-                                    <p className="stat-value" style={{
-                                        color: nameColor,
+                        <div className={styles.statsBar}>
+                            <div className={styles.operatorBox}>
+                                <p className={styles.statLabel}>OPERATOR</p>
+                                <div className={styles.usernameWrapper}>
+                                    {stats.username && <Crown size={10} className={getUsernameClass()} />}
+                                    <p className={`${styles.statValue} ${getUsernameClass()}`} style={{
                                         textTransform: stats.username ? 'lowercase' : 'uppercase',
                                         fontWeight: stats.username ? 900 : 400
                                     }}>
@@ -209,7 +208,7 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
                                     </p>
                                 </div>
                             </div>
-                            <div style={{ display: 'flex', gap: '8px' }}>
+                            <div className={styles.statsGrid}>
                                 <StatBox label="LAAM" value={Math.floor(stats.laam).toLocaleString()} color="#eab308" />
                                 <StatBox label="TAG" value={Math.floor(stats.tag).toLocaleString()} color="#fff" />
                                 <StatBox label="SOL" value={stats.sol.toFixed(2)} color="#22d3ee" />
@@ -220,23 +219,23 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
                 </header>
             )}
 
-            <main className={isGamePage ? "game-content-fullscreen" : "main-content"}>
-                <div className={isGamePage ? "" : "content-wrapper"}>
+            <main className={isGamePage ? styles.gameContent : styles.mainContent}>
+                <div className={isGamePage ? "" : styles.contentWrapper}>
                     {children}
                 </div>
             </main>
 
             {!isGamePage && (
-                <footer className="main-footer">
-                    <div className="footer-grid">
+                <footer className={styles.mainFooter}>
+                    <div className={styles.footerGrid}>
                         {finalGridItems.map((item, idx) => {
                             const isUrlActive = item.path ? router.pathname === item.path : false;
-                            const itemClass = `footer-item ${item.highlight ? 'highlight' : ''} ${isUrlActive ? 'active' : ''}`;
+                            const itemClass = `${styles.footerItem} ${item.highlight ? styles.highlight : ''} ${isUrlActive ? styles.active : ''}`;
 
                             if (item.type === 'link' && item.path) {
                                 return (
                                     <Link key={`${item.name}-${idx}`} href={item.path} className={itemClass}>
-                                        <div className="icon-container">{item.icon}</div>
+                                        <div className={styles.iconContainer}>{item.icon}</div>
                                         <span>{item.name}</span>
                                     </Link>
                                 );
@@ -247,7 +246,7 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
                                     onClick={item.action === 'history' ? () => setIsHistoryOpen(true) : () => setExpanded(!expanded)}
                                     className={itemClass}
                                 >
-                                    <div className="icon-container">{item.icon}</div>
+                                    <div className={styles.iconContainer}>{item.icon}</div>
                                     <span>{item.name}</span>
                                 </button>
                             );
@@ -260,9 +259,9 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 const StatBox = ({ label, value, color }: any) => (
-    <div className="stat-box">
-        <p className="stat-label" style={{ color }}>{label}</p>
-        <p className="stat-value">{value}</p>
+    <div className={styles.statBox}>
+        <p className={styles.statLabel} style={{ color }}>{label}</p>
+        <p className={styles.statValue}>{value}</p>
     </div>
 );
 
