@@ -1,0 +1,131 @@
+.neuralModule {
+    grid-column: span 2;
+    background: rgba(234, 179, 8, 0.03);
+    border: 1px solid rgba(234, 179, 8, 0.15);
+    border-radius: 20px;
+    padding: 24px;
+    transition: all 0.3s ease;
+}
+
+.neuralModule:hover {
+    border-color: rgba(234, 179, 8, 0.3);
+    background: rgba(234, 179, 8, 0.05);
+}
+
+.neuralHeader {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.neuralIcon {
+    padding: 8px;
+    background: rgba(234, 179, 8, 0.1);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.neuralTitle {
+    font-size: 12px;
+    color: #fff;
+    margin: 0;
+    font-weight: 900;
+    letter-spacing: 0.05em;
+}
+
+.neuralSubtitle {
+    font-size: 8px;
+    color: rgba(255, 255, 255, 0.4);
+    font-weight: 900;
+    margin: 2px 0 0 0;
+}
+
+.userList {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 220px;
+    overflow-y: auto;
+    padding-right: 8px;
+}
+
+/* Custom terminal scrollbar */
+.userList::-webkit-scrollbar {
+    width: 3px;
+}
+
+.userList::-webkit-scrollbar-thumb {
+    background: rgba(234, 179, 8, 0.2);
+    border-radius: 10px;
+}
+
+.userRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    transition: background 0.2s;
+}
+
+.userRow:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.userInfo {
+    display: flex;
+    flex-direction: column;
+}
+
+.userName {
+    font-size: 11px;
+    color: #fff;
+    font-weight: 900;
+    text-transform: uppercase;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+.userRank {
+    font-size: 8px;
+    color: #eab308;
+    font-weight: 900;
+    margin-top: 2px;
+}
+
+.linkButton {
+    background: rgba(234, 179, 8, 0.1);
+    border: 1px solid rgba(234, 179, 8, 0.2);
+    color: #eab308;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.linkButton:hover:not(:disabled) {
+    background: #eab308;
+    color: #000;
+    transform: translateY(-1px);
+}
+
+.linkButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.emptyText {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.2);
+    text-align: center;
+    font-style: italic;
+    padding: 20px;
+}

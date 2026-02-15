@@ -12,6 +12,7 @@ import ActivityTicker from '../components/ActivityTicker';
 import { useRankWatcher } from '../hooks/useRankWatcher';
 import dynamic from 'next/dynamic';
 import { getRank } from '../utils/ranks';
+import NotificationBell from '../components/NotificationBell';
 import {
     Hammer, Trophy, Layers, Gamepad2, ShoppingCart,
     FileText, User, BarChart3, Mail, History, Coins, ScrollText, Plus, X,
@@ -190,6 +191,7 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
                                         T ({pendingCount})
                                     </Link>
                                 )}
+                                <NotificationBell />
                                 <WalletMultiButtonDynamic />
                             </div>
                         </div>

@@ -13,7 +13,7 @@ import io from 'socket.io-client';
 import styles from '../../styles/AdminDashboard.module.css';
 import {
   CheckCircle2, MessageSquare, ExternalLink, ShieldAlert,
-  Clock, XCircle, ChevronLeft, Terminal, Bell, Zap, Send, Gift, Coins, Activity, Users, Trash2
+  Clock, XCircle, ChevronLeft, Terminal, Bell, Zap, Send, Gift, Coins, Activity, Users, Trash2, Megaphone, Database
 } from 'lucide-react';
 
 const MotionDiv = motion.div as any;
@@ -23,14 +23,20 @@ const ADMIN_WALLETS = [
   "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc"
 ];
 
+const BROADCAST_TEMPLATES = [
+  { label: "TAG_ADJUST", text: "REWARDS_CALIBRATED: Your TAG balance has been adjusted by the operator. Verify your terminal balance." },
+  { label: "LAAM_ADJUST", text: "SIGNAL_BOOST: Your LAAM holdings have been updated via manual neural override. Check History." },
+  { label: "MAINTENANCE", text: "SYSTEM_NOTICE: Central Node undergoing brief maintenance. Expect minor latency for the next 15 minutes." },
+  { label: "NEW_QUEST", text: "NEW_SIGNAL: A high-reward quest has just been uploaded. Initialize transmission to earn rewards." }
+];
+
 let socket: any;
 
 export default function AdminDashboard() {
   const { publicKey, signMessage } = useWallet();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'QUESTS' | 'SUPPORT' | 'HISTORY' | 'RAFFLES' | 'ALERTS' | 'CHAT'>('QUESTS');
+  const [activeTab, setActiveTab] = useState<'QUESTS' | 'SUPPORT' | 'HISTORY' | 'RAFFLES' | 'ALERTS' | 'CHAT' | 'BROADCAST'>('QUESTS');
 
-  // Chat & Active User States
   const [chatLog, setChatLog] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [activeUserCount, setActiveUserCount] = useState(0);
@@ -43,7 +49,11 @@ export default function AdminDashboard() {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [showSuccessUI, setShowSuccessUI] = useState(false);
 
-  // Auth and Data Fetching
+  // Broadcast States
+  const [broadcastTarget, setBroadcastTarget] = useState('');
+  const [broadcastMsg, setBroadcastMsg] = useState('');
+  const [broadcastType, setBroadcastType] = useState<'SYSTEM_NEWS' | 'ADMIN_ADJUST'>('SYSTEM_NEWS');
+
   useEffect(() => {
     if (!publicKey) {
       setCheckingAuth(false);
@@ -104,6 +114,50 @@ export default function AdminDashboard() {
     if (confirm("Wipe all intercepted transmissions from current session?")) {
       setChatLog([]);
       toast.success("LOG_PURGED");
+    }
+  };
+
+  // UPDATED BULK BROADCAST LOGIC
+  const sendNeuralBroadcast = async () => {
+    if (!broadcastTarget || !broadcastMsg) return toast.error("MISSING_DATA");
+
+    const targets = broadcastTarget
+      .split(/[\n,]+/)
+      .map(addr => addr.trim())
+      .filter(addr => addr.length > 0);
+
+    if (targets.length === 0) return toast.error("INVALID_TARGETS");
+
+    toast.loading(`Transmitting to ${targets.length} nodes...`, { id: 'bulk-send' });
+
+    let successCount = 0;
+
+    for (const target of targets) {
+      try {
+        const res = await fetch('/api/admin/broadcast', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            adminAddress: publicKey?.toString(),
+            targetAddress: target,
+            type: broadcastType,
+            message: broadcastMsg
+          })
+        });
+
+        if (res.ok) successCount++;
+      } catch (err) {
+        console.error(`Failed to send to ${target}`, err);
+      }
+    }
+
+    toast.dismiss('bulk-send');
+    if (successCount === targets.length) {
+      toast.success(`ALL_TRANSMISSIONS_SUCCESSFUL (${successCount})`);
+      setBroadcastMsg('');
+      setBroadcastTarget('');
+    } else {
+      toast.error(`PARTIAL_SUCCESS: ${successCount}/${targets.length} sent.`);
     }
   };
 
@@ -248,7 +302,7 @@ export default function AdminDashboard() {
         </div>
 
         <div className="flex flex-wrap gap-2 mb-8 bg-zinc-900/50 p-1.5 rounded-2xl border border-white/5">
-          {['QUESTS', 'SUPPORT', 'HISTORY', 'RAFFLES', 'ALERTS', 'CHAT'].map((tab) => {
+          {['QUESTS', 'SUPPORT', 'HISTORY', 'RAFFLES', 'ALERTS', 'CHAT', 'BROADCAST'].map((tab) => {
             const count = getCount(tab);
             return (
               <button
@@ -274,6 +328,68 @@ export default function AdminDashboard() {
           </div>
         ) : (
           <div className="grid gap-4">
+
+            {/* BROADCAST TAB - UPDATED WITH BULK LOGIC */}
+            {activeTab === 'BROADCAST' && (
+              <MotionDiv className={`${styles.glassCard} p-8`}>
+                <div className="flex flex-col lg:flex-row gap-10">
+                  <div className="lg:w-1/3 space-y-6">
+                    <h2 className="text-xl font-black text-yellow-500 italic uppercase">Signal Settings</h2>
+                    <div>
+                      <p className="text-[10px] font-bold text-zinc-500 mb-3 uppercase">Transmission Type</p>
+                      <div className="space-y-2">
+                        <button onClick={() => setBroadcastType('SYSTEM_NEWS')} className={`w-full p-4 rounded-xl text-left border ${broadcastType === 'SYSTEM_NEWS' ? 'bg-yellow-500/10 border-yellow-500 text-yellow-500' : 'border-white/5 text-zinc-500'}`}>
+                          <Megaphone className="inline mr-2" size={16} /> News
+                        </button>
+                        <button onClick={() => setBroadcastType('ADMIN_ADJUST')} className={`w-full p-4 rounded-xl text-left border ${broadcastType === 'ADMIN_ADJUST' ? 'bg-green-500/10 border-green-500 text-green-500' : 'border-white/5 text-zinc-500'}`}>
+                          <Coins className="inline mr-2" size={16} /> Adjustment
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-zinc-500 mb-3 uppercase">Quick Templates</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {BROADCAST_TEMPLATES.map(tpl => (
+                          <button key={tpl.label} onClick={() => setBroadcastMsg(tpl.text)} className={styles.templateBtn}>
+                            {tpl.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="lg:w-2/3 space-y-6 border-l border-white/5 pl-0 lg:pl-10">
+                    <div>
+                      <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Target Wallet(s)</label>
+                      <textarea
+                        value={broadcastTarget}
+                        onChange={(e) => setBroadcastTarget(e.target.value)}
+                        placeholder="Paste one or more addresses here... (Separate by comma or new line)"
+                        className={`${styles.terminalInput} h-32 mt-2 resize-none`}
+                      />
+                      <div className="flex justify-between items-center mt-2 px-1">
+                        <p className="text-[9px] text-zinc-600 italic uppercase">
+                          Status: <span className="text-yellow-500 font-black">{broadcastTarget.split(/[\n,]+/).filter(a => a.trim()).length} Targets Loaded</span>
+                        </p>
+                        <button onClick={() => setBroadcastTarget('')} className="text-[9px] text-red-500 font-black uppercase hover:underline">Clear List</button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Neural Message</label>
+                      <textarea
+                        value={broadcastMsg}
+                        onChange={(e) => setBroadcastMsg(e.target.value)}
+                        placeholder="Enter the message for the transmission..."
+                        className={`${styles.terminalInput} h-24 mt-2 resize-none`}
+                      />
+                    </div>
+                    <button onClick={sendNeuralBroadcast} className="w-full bg-white text-black py-4 rounded-2xl font-black hover:bg-yellow-500 transition-all shadow-[0_0_20px_rgba(255,255,255,0.05)] uppercase italic tracking-widest">
+                      Execute Bulk Transmission
+                    </button>
+                  </div>
+                </div>
+              </MotionDiv>
+            )}
 
             {/* QUESTS TAB */}
             {activeTab === 'QUESTS' && submissions.map((s: any) => (
@@ -309,7 +425,7 @@ export default function AdminDashboard() {
               </MotionDiv>
             ))}
 
-            {/* SUPPORT TAB - FIXED CRASH AND ADDED RENDERING */}
+            {/* SUPPORT TAB */}
             {activeTab === 'SUPPORT' && tickets.map((t: any) => (
               <MotionDiv layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={t.id} className="p-6 border border-zinc-800 rounded-[32px] bg-zinc-900/40 flex flex-col gap-4 hover:border-yellow-500/30 transition-all">
                 <div className="flex justify-between items-start">
@@ -430,7 +546,7 @@ export default function AdminDashboard() {
             ))}
 
             {/* Empty States */}
-            {(activeTab === 'QUESTS' ? submissions.length : activeTab === 'SUPPORT' ? tickets.length : 0) === 0 && !['RAFFLES', 'ALERTS', 'CHAT', 'HISTORY'].includes(activeTab) && (
+            {(activeTab === 'QUESTS' ? submissions.length : activeTab === 'SUPPORT' ? tickets.length : 0) === 0 && !['RAFFLES', 'ALERTS', 'CHAT', 'HISTORY', 'BROADCAST'].includes(activeTab) && (
               <div className="text-center py-32 border-2 border-dashed border-zinc-900 rounded-[40px] bg-zinc-900/5">
                 <ShieldAlert className="mx-auto text-zinc-800 mb-4" size={40} />
                 <p className="text-zinc-600 font-black italic uppercase tracking-[0.5em] text-[10px]">Terminal clear // No transmissions found</p>

@@ -24,6 +24,13 @@ const SKR_MINT = new PublicKey("SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3");
 const TREASURY = new PublicKey("CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc");
 const RPC_URL = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
 
+// --- Types & Props ---
+interface RaffleLobbyProps {
+    user?: any;
+    mutate?: any;
+    onInviteRequested?: (poolId: string) => void;
+}
+
 function useCountdown(targetDate: string | Date) {
     const [timeLeft, setTimeLeft] = useState(0);
     useEffect(() => {
@@ -44,12 +51,14 @@ function useCountdown(targetDate: string | Date) {
 const RaffleCard = ({
     pool,
     onJoin,
+    onInviteClick,
     loading,
     userWallet,
     isArchived = false
 }: {
     pool: any,
     onJoin: (id: string, fee: number) => void,
+    onInviteClick: (id: string) => void,
     loading: boolean,
     userWallet: string | null,
     isArchived?: boolean
@@ -146,41 +155,57 @@ const RaffleCard = ({
                     {participantCount}/5 SECURED
                 </div>
 
-                <button
-                    onClick={() => onJoin(pool.id, pool.entryFee)}
-                    disabled={expired || participantCount >= 5 || loading || hasJoined || isRefunded}
-                    className="terminal-button"
-                    style={{
-                        padding: '8px 16px',
-                        fontSize: '10px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        borderColor: hasJoined ? '#22c55e' : (isRefunded ? '#ef4444' : accentColor),
-                        color: hasJoined ? '#22c55e' : (isRefunded ? '#ef4444' : accentColor),
-                        opacity: (isLocked || isRefunded) ? 0.7 : 1,
-                        background: 'transparent'
-                    }}
-                >
-                    {loading ? (
-                        <Loader2 className="animate-spin" size={12} />
-                    ) : hasJoined ? (
-                        'JOINED'
-                    ) : isRefunded ? (
-                        'REFUNDED'
-                    ) : (participantCount >= 5 || isLocked) ? (
-                        'LOCKED'
-                    ) : (
-                        'ENTER'
-                    )}
-                    <ArrowRight size={12} />
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                        onClick={() => onInviteClick(pool.id)}
+                        style={{
+                            padding: '8px',
+                            borderRadius: '4px',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            background: 'rgba(255,255,255,0.05)',
+                            cursor: 'pointer'
+                        }}
+                        title="Invite Friends"
+                    >
+                        <Plus size={14} color="#eab308" />
+                    </button>
+
+                    <button
+                        onClick={() => onJoin(pool.id, pool.entryFee)}
+                        disabled={expired || participantCount >= 5 || loading || hasJoined || isRefunded}
+                        className="terminal-button"
+                        style={{
+                            padding: '8px 16px',
+                            fontSize: '10px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            borderColor: hasJoined ? '#22c55e' : (isRefunded ? '#ef4444' : accentColor),
+                            color: hasJoined ? '#22c55e' : (isRefunded ? '#ef4444' : accentColor),
+                            opacity: (isLocked || isRefunded) ? 0.7 : 1,
+                            background: 'transparent'
+                        }}
+                    >
+                        {loading ? (
+                            <Loader2 className="animate-spin" size={12} />
+                        ) : hasJoined ? (
+                            'JOINED'
+                        ) : isRefunded ? (
+                            'REFUNDED'
+                        ) : (participantCount >= 5 || isLocked) ? (
+                            'LOCKED'
+                        ) : (
+                            'ENTER'
+                        )}
+                        <ArrowRight size={12} />
+                    </button>
+                </div>
             </div>
         </div>
     );
 };
 
-export default function RaffleLobby() {
+export default function RaffleLobby({ user, mutate, onInviteRequested }: RaffleLobbyProps) {
     const { connection } = useConnection();
     const { publicKey, wallet } = useWallet();
     const [pools, setPools] = useState<any[]>([]);
@@ -201,6 +226,29 @@ export default function RaffleLobby() {
         const int = setInterval(fetchPools, 10000);
         return () => clearInterval(int);
     }, []);
+
+    // --- AUTO-SCROLL LOGIC ---
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const targetPoolId = params.get('poolId');
+
+        if (targetPoolId && pools.length > 0) {
+            // Delay slightly to allow the DOM to render the list
+            const timer = setTimeout(() => {
+                const element = document.getElementById(`pool-${targetPoolId}`);
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    // Optional: Add a brief highlight effect
+                    element.style.outline = "2px solid #eab308";
+                    element.style.borderRadius = "8px";
+                    setTimeout(() => {
+                        if (element) element.style.outline = "none";
+                    }, 3000);
+                }
+            }, 800);
+            return () => clearTimeout(timer);
+        }
+    }, [pools]);
 
     const activePools = pools.filter(p =>
         p.status === 'OPEN' && new Date(p.expiresAt).getTime() > Date.now()
@@ -231,6 +279,27 @@ export default function RaffleLobby() {
         finally { setIsActionLoading(false); }
     };
 
+    const handleInvite = async (poolId: string) => {
+        if (!publicKey) return toast.error("CONNECT WALLET TO INVITE FRIENDS");
+
+        const toastId = toast.loading("BROADCASTING TO ALL FRIENDS...");
+
+        try {
+            const res = await axios.post('/api/games/raffle/invite', {
+                poolId,
+                senderAddress: publicKey.toBase58()
+            });
+
+            toast.success(`SIGNAL SENT: ${res.data.count} FRIENDS NOTIFIED`, {
+                id: toastId,
+                duration: 5000
+            });
+        } catch (e: any) {
+            const msg = e.response?.data?.error || "FAILED TO SEND INVITES";
+            toast.error(msg, { id: toastId });
+        }
+    };
+
     const handleJoin = async (poolId: string, fee: number) => {
         if (!publicKey || !wallet || !wallet.adapter.connected) {
             return toast.error("Please connect your wallet first!");
@@ -239,7 +308,6 @@ export default function RaffleLobby() {
         setIsActionLoading(true);
 
         try {
-            // ADD .use(mplToolbox()) HERE
             const umi = createUmi(RPC_URL)
                 .use(walletAdapterIdentity(wallet.adapter as any))
                 .use(mplToolbox());
@@ -248,7 +316,6 @@ export default function RaffleLobby() {
             const TREASURY_WALLET_UMI = umiPublicKey("CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc");
             const userWalletUmi = umiPublicKey(publicKey.toBase58());
 
-            // Now Umi will recognize the program and derive these correctly
             const sourceAccount = findAssociatedTokenPda(umi, {
                 mint: SKR_MINT_UMI,
                 owner: userWalletUmi,
@@ -349,24 +416,26 @@ export default function RaffleLobby() {
             </div>
 
             {activePools.map((pool: any) => (
-                <RaffleCard
-                    key={pool.id}
-                    pool={pool}
-                    onJoin={handleJoin}
-                    loading={isActionLoading}
-                    userWallet={publicKey?.toBase58() || null}
-                />
+                <div key={pool.id} id={`pool-${pool.id}`}>
+                    <RaffleCard
+                        pool={pool}
+                        onJoin={handleJoin}
+                        onInviteClick={handleInvite}
+                        loading={isActionLoading}
+                        userWallet={publicKey?.toBase58() || null}
+                    />
+                </div>
             ))}
 
             {latestFinished && (
-                <div style={{ marginTop: '10px' }}>
+                <div style={{ marginTop: '10px' }} id={`pool-${latestFinished.id}`}>
                     <p style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontWeight: 900, marginBottom: '8px', letterSpacing: '1px' }}>
                         LATEST RESULT
                     </p>
                     <RaffleCard
-                        key={latestFinished.id}
                         pool={latestFinished}
                         onJoin={handleJoin}
+                        onInviteClick={handleInvite}
                         loading={isActionLoading}
                         userWallet={publicKey?.toBase58() || null}
                     />
@@ -396,10 +465,11 @@ export default function RaffleLobby() {
                     </button>
 
                     {showArchive && archivedPools.map((pool: any) => (
-                        <div key={pool.id} style={{ width: '100%' }}>
+                        <div key={pool.id} id={`pool-${pool.id}`} style={{ width: '100%' }}>
                             <RaffleCard
                                 pool={pool}
                                 onJoin={handleJoin}
+                                onInviteClick={handleInvite}
                                 loading={isActionLoading}
                                 userWallet={publicKey?.toBase58() || null}
                                 isArchived={true}

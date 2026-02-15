@@ -4,7 +4,7 @@ import Link from 'next/link';
 import axios from 'axios';
 import {
   ArrowLeft, Coins, Trophy, ShieldCheck, History, ExternalLink,
-  Crown, Users, UserPlus, Fingerprint, Gift, Zap
+  Crown, Users, UserPlus, Fingerprint, Gift, Zap, Flame
 } from 'lucide-react';
 import NftGallery from '../components/NftGallery';
 import HistoryModal from '../components/HistoryModal';
@@ -32,6 +32,10 @@ export default function ProfilePage() {
   const [claiming, setClaiming] = useState(false);
   const [isActivating, setIsActivating] = useState(false);
 
+  // NEW: Friends State
+  const [isFriendsOpen, setIsFriendsOpen] = useState(false);
+  const [friends, setFriends] = useState<any[]>([]);
+
   // 1. RE-USABLE FETCH FUNCTION
   const fetchProfile = async () => {
     if (!publicKey) return;
@@ -40,7 +44,6 @@ export default function ProfilePage() {
       const statsData = await res.json();
       setUserData(statsData || null);
 
-      // 1. Resolve identity (Checks DB first, then Blockchain)
       const identity = await resolveUserIdentity(
         connection,
         publicKey.toString(),
@@ -49,7 +52,6 @@ export default function ProfilePage() {
 
       setDisplayName(identity);
 
-      // 2. SYNC LOGIC: If DB has no username, but Blockchain found one, save it!
       if (!statsData?.username && (identity.includes('.laam') || identity.includes('.skr'))) {
         await axios.post('/api/user/sync-username', {
           walletAddress: publicKey.toString(),
@@ -63,8 +65,20 @@ export default function ProfilePage() {
     }
   };
 
+  // NEW: Fetch Friends Function
+  const fetchFriends = async () => {
+    if (!publicKey) return;
+    try {
+      const res = await axios.get(`/api/friends/list?walletAddress=${publicKey.toString()}`);
+      if (res.data.success) setFriends(res.data.friends);
+    } catch (err) {
+      console.error("Friend fetch error", err);
+    }
+  };
+
   useEffect(() => {
     fetchProfile();
+    fetchFriends(); // Fetch on load
   }, [publicKey, connection]);
 
   // Handle Crate Claim
@@ -116,6 +130,10 @@ export default function ProfilePage() {
           50% { box-shadow: 0 0 20px rgba(234, 179, 8, 0.8); transform: scale(1.02); }
           100% { box-shadow: 0 0 5px rgba(234, 179, 8, 0.5); transform: scale(1); }
         }
+        @keyframes slideDown {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
         .activate-btn {
           animation: pulse-glow 2s infinite ease-in-out;
           transition: all 0.3s ease;
@@ -123,6 +141,10 @@ export default function ProfilePage() {
         .activate-btn:hover {
           filter: brightness(1.2);
           transform: translateY(-1px);
+        }
+        .friends-drawer {
+          animation: slideDown 0.3s ease-out forwards;
+          overflow: hidden;
         }
       `}</style>
 
@@ -318,7 +340,7 @@ export default function ProfilePage() {
             {claiming ? 'UNBOXING...' : `OPEN CRATE (${userData?.claimableRewards || 0})`}
           </button>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
             <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
               <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)', fontWeight: 900, textTransform: 'uppercase', marginBottom: '4px' }}>Invited By</p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -336,6 +358,121 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
+
+          {/* NEW: FRIENDS TOGGLE BUTTON */}
+          <button
+            onClick={() => setIsFriendsOpen(!isFriendsOpen)}
+            style={{
+              width: '100%',
+              background: isFriendsOpen ? '#eab308' : 'rgba(255,255,255,0.05)',
+              color: isFriendsOpen ? '#000' : '#fff',
+              padding: '12px',
+              borderRadius: '10px',
+              border: '1px solid rgba(255,255,255,0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              cursor: 'pointer',
+              fontSize: '10px',
+              fontWeight: 900,
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <Users size={16} />
+            {isFriendsOpen ? 'HIDE ALLIED OPERATORS' : `VIEW ALLIED OPERATORS (${friends.length})`}
+          </button>
+
+          {/* NEW: COLLAPSIBLE FRIENDS LIST */}
+          {isFriendsOpen && (
+            <div className="friends-drawer" style={{
+              marginTop: '12px',
+              padding: '12px',
+              background: 'rgba(0,0,0,0.3)',
+              borderRadius: '10px',
+              border: '1px solid rgba(234,179,8,0.3)',
+              maxHeight: '250px',
+              overflowY: 'auto'
+            }}>
+              {friends.length === 0 ? (
+                <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '10px' }}>NO NEURAL LINKS ESTABLISHED</p>
+              ) : (
+                friends.map(friend => {
+                  // Logic to check if the user is allowed to nudge back
+                  // isMyTurn is true if the last person who poked was NOT you
+                  const isMyTurn = friend.lastPokedBy !== publicKey?.toString();
+                  const hasActiveStreak = (friend.streak || 0) > 0;
+
+                  return (
+                    <div key={friend.walletAddress} style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '10px 0',
+                      borderBottom: '1px solid rgba(255,255,255,0.05)'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+
+                        {/* STREAK INDICATOR */}
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '2px',
+                          background: hasActiveStreak ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255,255,255,0.05)',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          border: hasActiveStreak ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid transparent'
+                        }}>
+                          <Flame
+                            size={12}
+                            color={hasActiveStreak ? '#ef4444' : '#555'}
+                            fill={hasActiveStreak ? '#ef4444' : 'none'}
+                          />
+                          <span style={{ fontSize: '10px', fontWeight: 900, color: hasActiveStreak ? '#fff' : '#555' }}>
+                            {friend.streak || 0}D
+                          </span>
+                        </div>
+
+                        <div>
+                          <p style={{ fontSize: '11px', fontWeight: 900, margin: 0, color: '#fff' }}>{friend.username || 'ANON'}</p>
+                          <p style={{ fontSize: '8px', color: isMyTurn ? '#22c55e' : 'rgba(255,255,255,0.3)', margin: 0 }}>
+                            {isMyTurn ? "READY TO NUDGE" : "WAITING FOR RESPONSE"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        disabled={!isMyTurn}
+                        onClick={async () => {
+                          try {
+                            await axios.post('/api/friends/poke', {
+                              senderAddress: publicKey?.toString(),
+                              receiverAddress: friend.walletAddress,
+                              senderUsername: displayName
+                            });
+                            // Refreshing updates the lastPokedBy state so the button dims immediately
+                            fetchFriends();
+                          } catch (e: any) {
+                            alert("Neural link nudge failed.");
+                          }
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: isMyTurn ? 'pointer' : 'not-allowed',
+                          color: isMyTurn ? '#eab308' : '#444',
+                          transition: 'all 0.2s ease',
+                          opacity: isMyTurn ? 1 : 0.4
+                        }}
+                      >
+                        <Zap size={14} fill={isMyTurn ? "#eab308" : "none"} />
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
         </div>
 
         {/* IDENTITY STATUS & REDIRECT BOX */}

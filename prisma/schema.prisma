@@ -43,6 +43,39 @@ model User {
   referrals        User[]   @relation("UserReferrals")
   referralProgress Float @default(0) // 0 to 100
   claimableRewards Int   @default(0) // Number of crates ready to claim
+  friendsSent           Friendship[]      @relation("SentFriends")
+  friendsReceived       Friendship[]      @relation("ReceivedFriends")
+  notifications         Notification[]
+}
+
+model Friendship {
+  id          String   @id @default(cuid())
+  senderId    String
+  receiverId  String
+  status      String   @default("PENDING") // PENDING, ACCEPTED
+  createdAt   DateTime @default(now())
+  streak      Int      @default(0)
+  lastPokeAt  DateTime @default(now())
+  lastPokedBy String? 
+
+  sender      User     @relation("SentFriends", fields: [senderId], references: [walletAddress])
+  receiver    User     @relation("ReceivedFriends", fields: [receiverId], references: [walletAddress])
+
+  @@unique([senderId, receiverId])
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String   // "FRIEND_REQUEST", "GAME_INVITE"
+  message     String
+  fromAddress String?  // The wallet that triggered the alert
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [walletAddress])
+
+  @@index([userId])
 }
 
 model Activity {
@@ -206,4 +239,14 @@ model ResistanceScore {
   
   @@index([walletAddress])
   @@index([createdAt]) // For Daily Leaderboard filtering
+}
+
+model GameInvite {
+  id          String   @id @default(cuid())
+  senderId    String   // Wallet Address
+  receiverId  String   // Wallet Address
+  gameType    String   // e.g., "RAFFLE"
+  poolId      String?  // The specific raffle pool
+  status      String   @default("PENDING") // PENDING, ACCEPTED, DECLINED
+  createdAt   DateTime @default(now())
 }
