@@ -175,7 +175,13 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
 
     return (
         <div className={`${styles.appContainer} ${isGamePage ? styles.gameMode : ''}`}>
-            {!isGamePage && <ActivityTicker />}
+
+            {/* 1. STICKY TICKER: Locked to top */}
+            {!isGamePage && (
+                <div className={styles.stickyTickerWrapper}>
+                    <ActivityTicker />
+                </div>
+            )}
 
             <RankUpModal isOpen={showRankModal} newRank={newRank} onClose={() => setShowRankModal(false)} />
             <HistoryModal isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
@@ -195,6 +201,8 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
                                 <WalletMultiButtonDynamic />
                             </div>
                         </div>
+
+                        {/* Stats Bar will now scroll away with the header */}
                         <div className={styles.statsBar}>
                             <div className={styles.operatorBox}>
                                 <p className={styles.statLabel}>OPERATOR</p>
