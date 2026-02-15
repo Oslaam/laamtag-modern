@@ -1,35 +1,49 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { prisma } from '../../../lib/prisma';
+import { Connection, PublicKey } from '@solana/web3.js';
+import { TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
+
+const SGT_MINT_ADDRESS = 'GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te';
+const MASTER_CODE = "LAAM-2026-TAG";
+const ROOT_REFERRER_ID = "LAAMTAG_ROOT";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method !== 'POST') return res.status(405).end();
 
     const { code, walletAddress } = req.body;
-
-    // The secret code they type
-    const MASTER_CODE = "LAAM-2026-TAG";
-    // The walletAddress/ID of your dummy system user
-    const ROOT_REFERRER_ID = "LAAMTAG_ROOT";
+    if (!walletAddress) return res.status(400).json({ success: false, message: "MISSING_WALLET" });
 
     try {
         const normalizedCode = code?.trim().toUpperCase();
 
-        // 1. Fetch user status
-        const existingUser = await prisma.user.findUnique({
-            where: { walletAddress: walletAddress || 'GATE_CHECK' }
+        // --- STEP 1: VERIFY SGT OWNERSHIP (SERVER-SIDE) ---
+        // Even if they have the code, we check the blockchain here to be sure.
+        const connection = new Connection(process.env.NEXT_PUBLIC_RPC_URL || "https://api.mainnet-beta.solana.com");
+        const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
+            new PublicKey(walletAddress),
+            { programId: TOKEN_2022_PROGRAM_ID }
+        );
+
+        const hasSgt = tokenAccounts.value.some((account) => {
+            const parsedInfo = account.account.data.parsed.info;
+            return parsedInfo.mint === SGT_MINT_ADDRESS && parsedInfo.tokenAmount.uiAmount > 0;
         });
 
-        const isExistingUser = !!existingUser;
+        if (!hasSgt) {
+            return res.status(403).json({
+                success: false,
+                message: "ACCESS DENIED: NO SGT DETECTED IN WALLET"
+            });
+        }
+
+        // --- STEP 2: VALIDATE THE CODE ---
         let isValid = false;
         let referrerAddress = null;
 
-        // 2. Logic: Check for Admin/Root Code first (Allows Existing & New Users)
         if (normalizedCode === MASTER_CODE) {
             isValid = true;
             referrerAddress = ROOT_REFERRER_ID;
-        }
-        // 3. Logic: Check for Standard User Referral Codes
-        else {
+        } else {
             const recruiter = await prisma.user.findUnique({
                 where: { referralCode: normalizedCode }
             });
@@ -39,38 +53,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             }
         }
 
-        if (isValid) {
-            if (walletAddress && walletAddress !== 'GATE_CHECK') {
-                // Perform the update or create
-                await prisma.user.upsert({
-                    where: { walletAddress: walletAddress },
-                    update: {
-                        hasAccess: true,
-                        // Update referrer if they used the Master Code, 
-                        // or if they don't have a referrer yet.
-                        referredBy: (normalizedCode === MASTER_CODE || !existingUser?.referredBy)
-                            ? referrerAddress
-                            : existingUser.referredBy
-                    },
-                    create: {
-                        walletAddress: walletAddress,
-                        hasAccess: true,
-                        referredBy: referrerAddress,
-                        isAdmin: normalizedCode === MASTER_CODE, // Grant admin if they used master code
-                    }
-                });
-            }
-            return res.status(200).json({ success: true });
+        if (!isValid) {
+            return res.status(400).json({ success: false, message: "INVALID ACCESS CODE" });
         }
 
-        // 4. Handle Errors
-        return res.status(400).json({
-            success: false,
-            message: "INVALID ACCESS CODE"
+        // --- STEP 3: GRANT PERMANENT ACCESS ---
+        const existingUser = await prisma.user.findUnique({ where: { walletAddress } });
+
+        await prisma.user.upsert({
+            where: { walletAddress: walletAddress },
+            update: {
+                hasAccess: true,
+                referredBy: (!existingUser?.referredBy) ? referrerAddress : existingUser.referredBy
+            },
+            create: {
+                walletAddress: walletAddress,
+                hasAccess: true,
+                referredBy: referrerAddress,
+                isAdmin: normalizedCode === MASTER_CODE,
+            }
         });
+
+        return res.status(200).json({ success: true });
 
     } catch (error) {
         console.error("Access Validation Error:", error);
-        return res.status(500).json({ success: false, message: "DATABASE_ERROR" });
+        return res.status(500).json({ success: false, message: "SYSTEM_ERROR" });
     }
 }

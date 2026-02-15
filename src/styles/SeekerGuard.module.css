@@ -50,7 +50,7 @@
     justify-content: flex-start;
 }
 
-/* Added a subtle glow to the edge of the doors */
+/* Subtle glow to the edge of the doors */
 .doorLeft::after,
 .doorRight::after {
     content: '';
@@ -73,8 +73,10 @@
     position: relative;
     z-index: 10;
     max-width: 400px;
-    width: 100%;
-    padding: 2rem;
+    width: 90%;
+    /* Mobile breathing room */
+    padding: 1.5rem;
+    /* Optimized for small screens */
     text-align: center;
     transition: opacity 0.5s ease, transform 0.5s ease;
 }
@@ -125,7 +127,10 @@
     width: 100%;
     background: rgba(0, 0, 0, 0.8);
     border: 1px solid rgba(234, 179, 8, 0.3);
-    padding: 1rem;
+    padding: 1.2rem;
+    /* Larger tap target */
+    font-size: 16px;
+    /* Prevents auto-zoom on iOS */
     border-radius: 0.75rem;
     color: #eab308;
     text-align: center;
@@ -150,12 +155,14 @@
 
 .unlockButton {
     width: 100%;
-    padding: 1rem;
+    padding: 1.2rem;
+    /* Larger tap target */
     background: #eab308;
     color: #000;
     font-weight: 900;
     border-radius: 0.75rem;
-    font-size: 11px;
+    font-size: 14px;
+    /* More readable */
     text-transform: uppercase;
     border: none;
     cursor: pointer;
@@ -177,21 +184,21 @@
     cursor: not-allowed;
 }
 
-.resetButton {
-    margin-top: 1.5rem;
-    font-size: 10px;
-    color: rgba(255, 255, 255, 0.4);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    background: none;
-    border: none;
-    cursor: pointer;
-    text-decoration: underline;
-    transition: color 0.2s ease;
-}
+/* Mobile Specific Refinements */
+@media (max-width: 480px) {
+    .portalTitle {
+        font-size: 1.1rem;
+        letter-spacing: 0.3em;
+    }
 
-.resetButton:hover {
-    color: #eab308;
+    .keyIcon {
+        width: 48px;
+        /* Save vertical space */
+    }
+
+    .lockInterface {
+        padding: 1rem;
+    }
 }
 
 /* Animations */

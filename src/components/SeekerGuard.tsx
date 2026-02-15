@@ -1,23 +1,13 @@
 'use client';
 
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import {
-    TOKEN_2022_PROGRAM_ID,
-    unpackMint,
-    getMetadataPointerState,
-    getTokenGroupMemberState
-} from '@solana/spl-token';
 import { PublicKey } from '@solana/web3.js';
-import { useEffect, useState } from 'react';
-import { Lock, ShieldAlert, ArrowLeft, KeyRound, Loader2 } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+import { Lock, ShieldAlert, KeyRound, Loader2, RefreshCcw } from 'lucide-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import styles from '../styles/SeekerGuard.module.css';
 
-// --- CONSTANTS ---
-const SGT_MINT_AUTHORITY = 'GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4';
-const SGT_METADATA_ADDRESS = 'GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te';
-const SGT_GROUP_MINT_ADDRESS = 'GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te';
-
+// --- AUTHORIZED WALLETS ---
 const ADMIN_WALLETS = [
     "E4cHwRYWTznNjTvchSkZVXH8LWqdWbLekVXWjzmite6M",
     "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc"
@@ -30,11 +20,11 @@ const BYPASS_WALLETS = [
 ];
 
 export default function SeekerGuard({ children }: { children: React.ReactNode }) {
-    const { connection } = useConnection();
     const { publicKey, connected, connecting } = useWallet();
 
     const [isOpening, setIsOpening] = useState(false);
     const [initializing, setInitializing] = useState(true);
+    const [rpcError, setRpcError] = useState(false);
 
     // Security State
     const [hasSgt, setHasSgt] = useState<boolean | null>(null);
@@ -44,51 +34,50 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
     const [verifying, setVerifying] = useState(false);
     const [error, setError] = useState('');
 
-    useEffect(() => {
-        if (connecting) return;
+    const runSecuritySequence = useCallback(async () => {
+        if (!publicKey) {
+            setInitializing(false);
+            return;
+        }
 
-        const runSecuritySequence = async () => {
-            if (!publicKey) {
+        setInitializing(true);
+        setRpcError(false);
+        const walletAddress = publicKey.toString();
+
+        try {
+            // STEP 1: Check Database First
+            const dbRes = await fetch(`/api/user/${walletAddress}`);
+            const dbUser = await dbRes.json();
+
+            // Immediate entry for special wallets or previously verified users
+            if (ADMIN_WALLETS.includes(walletAddress) || BYPASS_WALLETS.includes(walletAddress) || dbUser?.hasAccess) {
+                setDbAccess(true);
+                setHasSgt(true);
                 setInitializing(false);
                 return;
             }
 
-            const walletAddress = publicKey.toString();
-            const isAdmin = ADMIN_WALLETS.includes(walletAddress);
-            const isBypass = BYPASS_WALLETS.includes(walletAddress);
+            // STEP 2: Check SGT Mint Ownership via API (Helius/RPC check)
+            const sgtRes = await fetch(`/api/user/verify-only?address=${walletAddress}`);
 
-            try {
-                // STEP 1: Check Database First (This stops the "Gate Loop" on refresh)
-                const dbRes = await fetch(`/api/user/${walletAddress}`);
-                const dbUser = await dbRes.json();
+            if (!sgtRes.ok) throw new Error("NETWORK_FAILURE");
 
-                // If DB confirms access, or they are Admin/Bypass, let them in immediately
-                if (isAdmin || isBypass || dbUser?.hasAccess || sessionStorage.getItem('portal_unlocked') === 'true') {
-                    setDbAccess(true);
-                    setHasSgt(true);
-                    setInitializing(false);
-                    return;
-                }
+            const sgtData = await sgtRes.json();
 
-                // STEP 2: Only check SGT if they aren't already validated in the DB
-                const sgtRes = await fetch(`/api/user/verify-only?address=${walletAddress}`);
-                if (sgtRes.ok) {
-                    const sgtData = await sgtRes.json();
-                    setHasSgt(sgtData?.hasAccess || false);
-                } else {
-                    setHasSgt(false);
-                }
+            // If hasAccess is false here, they are hard-blocked from the keypad
+            setHasSgt(sgtData?.hasAccess === true);
 
-            } catch (err) {
-                console.error("Security Sequence Error:", err);
-                setHasSgt(false);
-            } finally {
-                setInitializing(false);
-            }
-        };
+        } catch (err) {
+            console.error("Security Sequence Error:", err);
+            setRpcError(true); // Shows Retry UI instead of Access Denied for network errors
+        } finally {
+            setInitializing(false);
+        }
+    }, [publicKey]);
 
-        runSecuritySequence();
-    }, [publicKey, connecting]);
+    useEffect(() => {
+        if (!connecting) runSecuritySequence();
+    }, [publicKey, connecting, runSecuritySequence]);
 
     const handleUnlockPortal = async () => {
         if (!inputCode || !publicKey || verifying) return;
@@ -108,12 +97,10 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
             const data = await res.json();
 
             if (data.success) {
-                sessionStorage.setItem('portal_unlocked', 'true');
                 setIsOpening(true);
-                // Delay setting dbAccess to allow the "Door Opening" animation to play
                 setTimeout(() => {
                     setDbAccess(true);
-                }, 1000);
+                }, 1200);
             } else {
                 setError(data.message || "INVALID ACCESS CODE");
             }
@@ -126,8 +113,8 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
 
     // --- RENDER LOGIC ---
 
-    // 1. INITIALIZING STATE
-    if (initializing || (connected && hasSgt === null)) {
+    // 1. SCANNING STATE
+    if (initializing || (connected && hasSgt === null && !rpcError)) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-black fixed inset-0 z-[10000]">
                 <Loader2 className="animate-spin text-yellow-500 mb-4" size={48} />
@@ -136,7 +123,26 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
         );
     }
 
-    // 2. WALLET NOT CONNECTED
+    // 2. RPC / NETWORK FAILURE (Prevents legitimate users from being "Denied" by mistake)
+    if (rpcError) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen bg-black">
+                <div className="terminal-card max-w-md w-full text-center p-10 border border-yellow-500/20">
+                    <RefreshCcw className="mx-auto mb-4 text-yellow-500" size={48} />
+                    <h2 className="text-yellow-500 font-black uppercase tracking-widest mb-2">Sync Error</h2>
+                    <p className="text-xs mb-6 opacity-60">FAILED TO CONNECT TO SOLANA NETWORK.</p>
+                    <button
+                        onClick={runSecuritySequence}
+                        className="bg-yellow-500 text-black px-6 py-2 rounded font-bold text-[10px]"
+                    >
+                        RETRY SCAN
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // 3. WALLET NOT CONNECTED
     if (!publicKey) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-black">
@@ -152,12 +158,12 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
         );
     }
 
-    // 3. ACCESS GRANTED (Admin, Bypass, or DB Verified SGT Holder)
+    // 4. ACCESS GRANTED
     if (dbAccess) {
         return <>{children}</>;
     }
 
-    // 4. ACCESS DENIED (No SGT and not in DB)
+    // 5. ACCESS DENIED (SGT Check definitely failed)
     if (hasSgt === false) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-black">
@@ -165,13 +171,13 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
                     <ShieldAlert className="mx-auto mb-4 text-red-500" size={48} />
                     <h2 className="text-red-500 font-black uppercase tracking-widest mb-2">Access Denied</h2>
                     <p className="text-xs mb-4 text-white/80">SEEKER GENESIS TOKEN NOT FOUND.</p>
-                    <p className="text-[9px] opacity-40 uppercase">You must hold an SGT NFT or use a valid code to access the Hub.</p>
+                    <p className="text-[9px] opacity-40 uppercase tracking-tighter">A GENESIS TOKEN IS REQUIRED FOR THIS TERMINAL.</p>
                 </div>
             </div>
         );
     }
 
-    // 5. THE GATE (Connected with SGT, but not yet validated/stored in DB)
+    // 6. THE GATE (Only SGT holders who aren't in DB yet reach this)
     return (
         <div className={styles.portalContainer}>
             <div className={`${styles.doorLeft} ${isOpening ? styles.doorLeftOpen : ''}`} />
@@ -179,13 +185,11 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
             <div className={`${styles.lockInterface} ${isOpening ? styles.fadeOut : ''}`}>
                 <div className={styles.iconContainer}><KeyRound className={styles.keyIcon} size={64} /></div>
                 <h1 className={styles.portalTitle}>LAAMTAG GATE</h1>
-                <p className={styles.portalSubtitle}>
-                    {hasSgt ? "SGT Verified. Enter Registration Code." : "Enter Access Code to Proceed."}
-                </p>
+                <p className={styles.portalSubtitle}>SGT Verified. Enter Activation Code.</p>
                 <div className={styles.inputGroup}>
                     <input
                         type="text"
-                        placeholder="ADMIN OR REFERRAL CODE"
+                        placeholder="ENTER CODE"
                         value={inputCode}
                         onChange={(e) => setInputCode(e.target.value.toUpperCase())}
                         className={styles.portalInput}
@@ -196,14 +200,7 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
                         disabled={verifying || !inputCode}
                         className={`${styles.unlockButton} ${verifying ? styles.buttonDisabled : ''}`}
                     >
-                        {verifying ? (
-                            <div className="flex items-center gap-2">
-                                <Loader2 className="animate-spin" size={18} />
-                                <span>VERIFYING...</span>
-                            </div>
-                        ) : (
-                            'ACTIVATE ACCESS'
-                        )}
+                        {verifying ? 'VERIFYING...' : 'ACTIVATE ACCESS'}
                     </button>
                 </div>
             </div>
