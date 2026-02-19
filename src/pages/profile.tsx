@@ -9,6 +9,7 @@ import {
 import NftGallery from '../components/NftGallery';
 import HistoryModal from '../components/HistoryModal';
 import { resolveUserIdentity } from '../utils/identity';
+import WarriorGallery from '../components/WarriorGallery';
 
 export default function ProfilePage() {
   const { connection } = useConnection();
@@ -545,6 +546,10 @@ export default function ProfilePage() {
             )}
           </div>
         </div>
+        {/* NEURAL WARRIORS SECTION */}
+        <div style={{ marginBottom: '24px' }}>
+          <WarriorGallery />
+        </div>
 
         {/* STATS GRID */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '40px' }}>
@@ -569,7 +574,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* NFT GALLERY */}
+        {/* NFT GALLERY (Genesis) - ONLY ONE INSTANCE NEEDED */}
         <div style={{ paddingBottom: '100px' }}>
           <h2 style={{
             fontSize: '10px',

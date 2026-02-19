@@ -4,6 +4,7 @@ import GuessGameComponent from '../components/GuessGame';
 import SpinGame from '../components/SpinGame';
 import DiceTerminal from '../components/DiceTerminal';
 import RaffleLobby from '../components/RaffleLobby';
+import Collectable from '../components/Collectable';
 import { useWallet } from '@solana/wallet-adapter-react';
 import dynamic from 'next/dynamic';
 import { toast, Toaster } from 'react-hot-toast';
@@ -33,7 +34,7 @@ const getRankStyle = (points: number) => {
 };
 
 export default function GamesPage() {
-    const [activeGame, setActiveGame] = useState<'GUESS' | 'SPIN' | 'SHOOTER' | 'DICE' | 'RAFFLE' | 'RESISTANCE' | null>(null);
+    const [activeGame, setActiveGame] = useState<'GUESS' | 'SPIN' | 'SHOOTER' | 'DICE' | 'RAFFLE' | 'RESISTANCE' | 'COLLECTABLE' | null>(null);
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [user, setUser] = useState<any>(null);
     const [discoveredUsers, setDiscoveredUsers] = useState<any[]>([]);
@@ -175,7 +176,12 @@ export default function GamesPage() {
                                 <ModuleCard title="Probability Matrix" desc="HIGH STAKES RECOVERY" imageSrc="/assets/images/dice.jpg" onClick={() => setActiveGame('DICE')} />
                                 <ModuleCard title="Data Scraper Raffle" desc="POOL ENTRY & REFUNDS" imageSrc="/assets/images/raffle.png" onClick={() => setActiveGame('RAFFLE')} />
                                 <ModuleCard title="Resistance Mode" desc="UNLOCK WITH $SKR" imageSrc="/assets/images/resistance.png" onClick={() => setActiveGame('RESISTANCE')} />
-
+                                <ModuleCard
+                                    title="Warrior Trophy"
+                                    desc="CLAIM ELIGIBLE REWARDS"
+                                    imageSrc="/assets/images/collectable.jpg"
+                                    onClick={() => setActiveGame('COLLECTABLE')}
+                                />
                                 {/* NEURAL DISCOVERY MODULE */}
                                 <div className={`${styles.neuralModule} ${pendingInvitePool ? styles.inviteModeActive : ''}`}>
                                     <div className={styles.neuralHeader}>
@@ -227,7 +233,7 @@ export default function GamesPage() {
                                         {activeGame === 'GUESS' ? 'COST: 1 TAG PER ATTEMPT' :
                                             activeGame === 'SPIN' ? 'COST: 5 TAG PER ATTEMPT' :
                                                 activeGame === 'DICE' ? 'AUTHORIZED ACCESS ONLY' :
-                                                    activeGame === 'RAFFLE' ? 'DATA SCRAPING IN PROGRESS' : 'MISSION: MERGE RIGHT TO EARN'}
+                                                    activeGame === 'RAFFLE' ? 'DATA SCRAPING IN PROGRESS' : 'MISSION: CLAIM WARRIOR TROPHY'}
                                     </p>
                                 </div>
                                 {activeGame === 'GUESS' && <GuessGameComponent />}
@@ -244,6 +250,7 @@ export default function GamesPage() {
                                     />
                                 )}
                                 {activeGame === 'RESISTANCE' && <ResistanceMode />}
+                                {activeGame === 'COLLECTABLE' && <Collectable />}
                             </div>
                         )}
                     </div>
