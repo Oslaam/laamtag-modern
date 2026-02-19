@@ -4,11 +4,15 @@ import GuessGameComponent from '../components/GuessGame';
 import SpinGame from '../components/SpinGame';
 import DiceTerminal from '../components/DiceTerminal';
 import RaffleLobby from '../components/RaffleLobby';
-import Collectable from '../components/Collectable';
+const Collectable = dynamic(() => import('../components/Collectable'), { 
+    ssr: false // This tells the Robot: "Skip this during build!"
+});
+
 import { useWallet } from '@solana/wallet-adapter-react';
 import dynamic from 'next/dynamic';
 import { toast, Toaster } from 'react-hot-toast';
 import styles from '../styles/Games.module.css';
+
 
 const ShooterContainer = dynamic(
     () => import('../components/ShooterContainer'),
@@ -198,7 +202,7 @@ export default function GamesPage() {
                                     </div>
 
                                     <div className={styles.userList}>
-                                        {(discoveredUsers?.length || 0) > 0 ? discoveredUsers.map((target) => {
+                                       {(discoveredUsers?.length || 0) > 0 ? discoveredUsers.map((target) => {
                                             const rankInfo = getRankStyle(target.laamPoints || 0);
                                             const displayName = target.username || `${target.walletAddress.slice(0, 4)}...${target.walletAddress.slice(-4)}`;
 
