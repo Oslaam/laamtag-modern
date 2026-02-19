@@ -7,16 +7,22 @@ export default function WarriorGallery() {
     const { publicKey } = useWallet();
     const [warriors, setWarriors] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    // Step 1: Prevent Server-Side Rendering crashes during build
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const loadWarriors = async () => {
         if (!publicKey) return;
         setLoading(true);
         try {
             const res = await axios.get(`/api/collectable/warrior-list?address=${publicKey.toBase58()}`);
-            const nftArray = res.data.nfts || [];
+            const nftArray = res.data?.nfts || [];
             setWarriors(nftArray);
 
-            // --- SELF-HEALING LOGIC (Matches NftGallery) ---
+            // SELF-HEALING LOGIC
             await axios.post('/api/user/update-mints', {
                 walletAddress: publicKey.toBase58(),
                 actualCount: nftArray.length
@@ -29,10 +35,13 @@ export default function WarriorGallery() {
     };
 
     useEffect(() => {
-        loadWarriors();
-    }, [publicKey]);
+        if (mounted && publicKey) {
+            loadWarriors();
+        }
+    }, [publicKey, mounted]);
 
-    if (!publicKey) return null;
+    // Don't render anything until mounted or if no wallet is connected
+    if (!mounted || !publicKey) return null;
 
     return (
         <div style={{ marginTop: '48px', maxWidth: '1200px', marginLeft: 'auto', marginRight: 'auto', padding: '0 20px' }}>
@@ -42,11 +51,13 @@ export default function WarriorGallery() {
                         Neural <span style={{ color: '#22d3ee' }}>Warriors</span>
                     </h3>
                     <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', fontWeight: 900, textTransform: 'uppercase', marginTop: '4px' }}>
-                        Verified Combatants: {warriors.length}
+                        {/* Step 2: Use optional chaining + fallback to 0 */}
+                        Verified Combatants: {warriors?.length || 0}
                     </p>
                 </div>
                 <button
                     onClick={loadWarriors}
+                    disabled={loading}
                     style={{ background: 'none', border: 'none', color: 'rgba(34, 211, 238, 0.4)', cursor: 'pointer', padding: '5px' }}
                 >
                     <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
@@ -59,7 +70,7 @@ export default function WarriorGallery() {
                         SCANNING BIOMETRIC SIGNATURES...
                     </p>
                 </div>
-            ) : warriors.length === 0 ? (
+            ) : (!warriors || warriors.length === 0) ? (
                 <div style={{
                     padding: '40px',
                     background: 'rgba(34, 211, 238, 0.02)',
@@ -78,7 +89,8 @@ export default function WarriorGallery() {
                     gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
                     gap: '16px'
                 }}>
-                    {warriors.map((nft) => (
+                    {/* Step 3: Ensure map always has an array fallback */}
+                    {(warriors || []).map((nft) => (
                         <div key={nft.mint} className="terminal-card" style={{
                             padding: '10px',
                             background: 'rgba(0,0,0,0.4)',
