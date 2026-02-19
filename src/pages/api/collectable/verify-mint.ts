@@ -15,7 +15,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { signature, walletAddress, mode } = req.body;
 
     // 1. Validate Config & Input
-    const RPC = process.env.NEXT_PUBLIC_RPC_ENDPOINT;
+    const RPC = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
     const CM_ID_RAW = process.env.NEXT_PUBLIC_WARRIOR_CANDY_MACHINE_ID;
 
     if (!RPC || !CM_ID_RAW || !signature || !walletAddress) {
