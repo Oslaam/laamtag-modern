@@ -45,31 +45,33 @@ export default function SeekerGuard({ children }: { children: React.ReactNode })
         const walletAddress = publicKey.toString();
 
         try {
-            // STEP 1: Check Database First
-            const dbRes = await fetch(`/api/user/${walletAddress}`);
-            const dbUser = await dbRes.json();
-
-            // Immediate entry for special wallets or previously verified users
-            if (ADMIN_WALLETS.includes(walletAddress) || BYPASS_WALLETS.includes(walletAddress) || dbUser?.hasAccess) {
+            // 1. ADMIN & BYPASS CHECK
+            if (ADMIN_WALLETS.includes(walletAddress) || BYPASS_WALLETS.includes(walletAddress)) {
                 setDbAccess(true);
                 setHasSgt(true);
-                setInitializing(false);
                 return;
             }
 
-            // STEP 2: Check SGT Mint Ownership via API (Helius/RPC check)
-            const sgtRes = await fetch(`/api/user/verify-only?address=${walletAddress}`);
+            // 2. DATABASE CHECK
+            const dbRes = await fetch(`/api/user/${walletAddress}`);
+            const dbUser = await dbRes.json();
 
-            if (!sgtRes.ok) throw new Error("NETWORK_FAILURE");
-
-            const sgtData = await sgtRes.json();
-
-            // If hasAccess is false here, they are hard-blocked from the keypad
-            setHasSgt(sgtData?.hasAccess === true);
+            if (dbUser?.hasAccess) {
+                // User already validated! Let them in.
+                setDbAccess(true);
+                setHasSgt(true);
+                return;
+            } else {
+                // User is in DB but hasAccess is false. 
+                // We want them to see the keypad, NOT "Access Denied".
+                // So we set hasSgt to 'null' or 'true' to stay on the Gate screen.
+                setDbAccess(false);
+                setHasSgt(null); // This keeps them at the "Gate" (Render logic #6)
+            }
 
         } catch (err) {
             console.error("Security Sequence Error:", err);
-            setRpcError(true); // Shows Retry UI instead of Access Denied for network errors
+            setRpcError(true);
         } finally {
             setInitializing(false);
         }
