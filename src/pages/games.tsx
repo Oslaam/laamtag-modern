@@ -19,12 +19,11 @@ import HistoryModal from '../components/HistoryModal';
 import { History, ChevronLeft, Zap, UserPlus } from 'lucide-react';
 import ResistanceMode from '../components/ResistanceMode';
 
-// Helper for Rank Colors based on your provided tiers
 const getRankStyle = (points: number) => {
     if (points >= 500000) return { name: "Mythic", color: "#e879f9" };
     if (points >= 400000) return { name: "Legend", color: "#f87171" };
     if (points >= 300000) return { name: "Diamond", color: "#22d3ee" };
-    if (points >= 200000) return { name: "Platinum", color: "#818cf8" };
+    if (points >= 20000) return { name: "Platinum", color: "#818cf8" };
     if (points >= 100000) return { name: "Gold Elite", color: "#fde047" };
     if (points >= 50000) return { name: "Gold", color: "#facc15" };
     if (points >= 20000) return { name: "Silver Elite", color: "#e5e7eb" };
@@ -39,11 +38,15 @@ export default function GamesPage() {
     const [user, setUser] = useState<any>(null);
     const [discoveredUsers, setDiscoveredUsers] = useState<any[]>([]);
     const [isLinking, setIsLinking] = useState<string | null>(null);
-
-    // New state for handling Raffle Invites via Neural Discovery
     const [pendingInvitePool, setPendingInvitePool] = useState<string | null>(null);
 
+    // --- SHIELD 1: MOUNTED STATE ---
+    const [mounted, setMounted] = useState(false);
     const { publicKey } = useWallet();
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const fetchUser = useCallback(async () => {
         if (!publicKey) return;
@@ -68,6 +71,7 @@ export default function GamesPage() {
     }, [publicKey]);
 
     useEffect(() => {
+        if (!mounted) return; // Wait for browser
         const params = new URLSearchParams(window.location.search);
         const moduleParam = params.get('module');
         const poolParam = params.get('poolId');
@@ -78,21 +82,21 @@ export default function GamesPage() {
                 toast.success(`TARGETING POOL: ${poolParam.slice(0, 5)}...`);
             }
         }
-    }, []);
+    }, [mounted]);
 
     useEffect(() => {
-        fetchUser();
-        fetchDiscovery();
-    }, [fetchUser, fetchDiscovery, publicKey]);
+        if (mounted && publicKey) {
+            fetchUser();
+            fetchDiscovery();
+        }
+    }, [fetchUser, fetchDiscovery, publicKey, mounted]);
 
     const mutate = () => fetchUser();
 
     const handleSendRequest = async (targetAddress: string, targetName: string) => {
         if (!publicKey) return toast.error("CONNECT_WALLET");
         setIsLinking(targetAddress);
-
         try {
-            // Check if we are in "Invite Mode" for a Raffle
             if (pendingInvitePool) {
                 const res = await fetch('/api/friends/invite-game', {
                     method: 'POST',
@@ -104,17 +108,13 @@ export default function GamesPage() {
                         poolId: pendingInvitePool
                     })
                 });
-
                 if (res.ok) {
                     toast.success(`RAFFLE_INVITE_SENT_TO_${targetName.toUpperCase()}`);
-                    setPendingInvitePool(null); // Clear invite mode
-                } else {
-                    throw new Error("INVITE_FAILED");
+                    setPendingInvitePool(null);
                 }
                 return;
             }
 
-            // Normal Friend Request Logic
             const res = await fetch('/api/friends/request', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -128,9 +128,6 @@ export default function GamesPage() {
             if (res.ok) {
                 toast.success(`REQUEST_SENT_TO_${targetName.toUpperCase()}`);
                 setDiscoveredUsers(prev => prev.filter(u => u.walletAddress !== targetAddress));
-            } else {
-                const data = await res.json();
-                toast.error(data.error || "LINK_FAILED");
             }
         } catch (err) {
             toast.error("SYSTEM_OFFLINE");
@@ -138,6 +135,9 @@ export default function GamesPage() {
             setIsLinking(null);
         }
     };
+
+    // --- SHIELD 2: PREVENT SERVER RENDERING ---
+    if (!mounted) return null;
 
     return (
         <SeekerGuard>
@@ -176,18 +176,11 @@ export default function GamesPage() {
                                 <ModuleCard title="Probability Matrix" desc="HIGH STAKES RECOVERY" imageSrc="/assets/images/dice.jpg" onClick={() => setActiveGame('DICE')} />
                                 <ModuleCard title="Data Scraper Raffle" desc="POOL ENTRY & REFUNDS" imageSrc="/assets/images/raffle.png" onClick={() => setActiveGame('RAFFLE')} />
                                 <ModuleCard title="Resistance Mode" desc="UNLOCK WITH $SKR" imageSrc="/assets/images/resistance.png" onClick={() => setActiveGame('RESISTANCE')} />
-                                <ModuleCard
-                                    title="Warrior Trophy"
-                                    desc="CLAIM ELIGIBLE REWARDS"
-                                    imageSrc="/assets/images/collectable.jpg"
-                                    onClick={() => setActiveGame('COLLECTABLE')}
-                                />
-                                {/* NEURAL DISCOVERY MODULE */}
+                                <ModuleCard title="Warrior Trophy" desc="CLAIM ELIGIBLE REWARDS" imageSrc="/assets/images/collectable.jpg" onClick={() => setActiveGame('COLLECTABLE')} />
+
                                 <div className={`${styles.neuralModule} ${pendingInvitePool ? styles.inviteModeActive : ''}`}>
                                     <div className={styles.neuralHeader}>
-                                        <div className={styles.neuralIcon}>
-                                            {pendingInvitePool ? <Zap size={14} color="#eab308" /> : <Zap size={14} color="#eab308" />}
-                                        </div>
+                                        <div className={styles.neuralIcon}><Zap size={14} color="#eab308" /></div>
                                         <div>
                                             <h3 className={styles.neuralTitle}>{pendingInvitePool ? "SELECT TARGET" : "NEURAL DISCOVERY"}</h3>
                                             <p className={styles.neuralSubtitle}>{pendingInvitePool ? `INVITING TO POOL ${pendingInvitePool.slice(0, 5)}` : "PROBE FOR ACTIVE TAGGERS"}</p>
@@ -198,7 +191,8 @@ export default function GamesPage() {
                                     </div>
 
                                     <div className={styles.userList}>
-                                        {discoveredUsers.length > 0 ? discoveredUsers.map((target) => {
+                                        {/* --- SHIELD 3: OPTIONAL CHAINING --- */}
+                                        {(discoveredUsers?.length || 0) > 0 ? discoveredUsers.map((target) => {
                                             const rankInfo = getRankStyle(target.laamPoints || 0);
                                             const displayName = target.username || `${target.walletAddress.slice(0, 4)}...${target.walletAddress.slice(-4)}`;
 
