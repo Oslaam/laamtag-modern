@@ -139,7 +139,7 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
         { name: 'Mint', icon: <Coins size={20} color="#eab308" />, path: '/mint', type: 'link' },
         { name: 'Quests', icon: <ScrollText size={20} color="#60a5fa" />, path: '/quests', type: 'link' },
         { name: 'Vault', icon: <Layers size={20} color="#a855f7" />, path: '/vault', type: 'link' },
-        { name: 'Games', icon: <Gamepad2 size={20} color="#f43f5e" />, path: '/games', type: 'link' },
+        { name: 'Arcade+', icon: <Gamepad2 size={20} color="#f43f5e" />, path: '/games', type: 'link' },
         { name: 'Arena', icon: <Swords size={20} color="#9f3e99" />, path: '/arena', type: 'link' },
         { name: 'Shop', icon: <ShoppingCart size={20} color="#fb923c" />, path: '/shop', type: 'link' },
         { name: 'Staking', icon: <DoorClosed size={20} color="#2dd4bf" />, path: '/staking', type: 'link' },

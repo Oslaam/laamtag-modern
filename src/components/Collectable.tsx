@@ -24,6 +24,9 @@ const SKR_MINT = publicKey(process.env.NEXT_PUBLIC_SKR_TOKEN_MINT!);
 const TREASURY_WALLET = publicKey(process.env.NEXT_PUBLIC_WARRIOR_TREASURY_WALLET!);
 const TREASURY_ATA = publicKey(process.env.NEXT_PUBLIC_WARRIOR_TREASURY_ATA!);
 
+// --- CONSTANTS (REMOVED FROM TOP OF FILE) ---
+// Move these into the component to prevent "undefined" crashes
+
 export default function Collectable() {
     const { connection } = useConnection();
     const wallet = useWallet();
@@ -31,21 +34,28 @@ export default function Collectable() {
     const [status, setStatus] = useState<'idle' | 'allow' | 'public'>('idle');
     const [isWarrior, setIsWarrior] = useState(false);
     const [totalMinted, setTotalMinted] = useState(0);
-    const [isLocked, setIsLocked] = useState(false); // Global Batch Lock
+    const [isLocked, setIsLocked] = useState(false);
     const [countdown, setCountdown] = useState("");
     const [hasMintedWarriorThisBatch, setHasMintedWarriorThisBatch] = useState(false);
     const [optimisticCount, setOptimisticCount] = useState<number | null>(null);
+
+    // Create a safety check for your IDs
+    const CM_ID_STR = process.env.NEXT_PUBLIC_WARRIOR_CANDY_MACHINE_ID;
 
     const currentBatchLimit = Math.floor((optimisticCount ?? totalMinted) / 20) * 20 + 20;
 
     // 1. DATA FETCHING & BATCH LOGIC
     useEffect(() => {
         const fetchData = async () => {
-            if (!wallet.publicKey) return;
+            // SHIELD 1: Don't run if wallet or config is missing
+            if (!wallet.publicKey || !CM_ID_STR) return;
+
             try {
-                // Fetch Candy Machine state first to get current total
+                const CM_PUBKEY = publicKey(CM_ID_STR);
+
+                // Fetch Candy Machine state
                 const umi = createUmi(connection.rpcEndpoint).use(mplCandyMachine());
-                const candyMachine = await fetchCandyMachine(umi, CANDY_MACHINE_ID);
+                const candyMachine = await fetchCandyMachine(umi, CM_PUBKEY);
                 const redeemed = Number(candyMachine.itemsRedeemed);
 
                 setTotalMinted(redeemed);
@@ -55,10 +65,15 @@ export default function Collectable() {
 
                 // Fetch user status from Prisma
                 const res = await fetch(`/api/collectable/check-status?walletAddress=${wallet.publicKey.toBase58()}`);
-                const data = await res.json();
 
+                // --- STEP 2: GRACEFUL FAILURE CHECK ---
+                if (!res.ok) {
+                    console.error("API Error - Server returned:", res.status);
+                    return;
+                }
+
+                const data = await res.json();
                 setIsWarrior(data.isWarrior);
-                // Check if the user's last stored batch matches the current CM batch
                 setHasMintedWarriorThisBatch(data.lastWarriorMintBatch === currentBatchNumber);
 
             } catch (e) {
@@ -69,7 +84,7 @@ export default function Collectable() {
         fetchData();
         const interval = setInterval(fetchData, 10000);
         return () => clearInterval(interval);
-    }, [wallet.publicKey, connection]);
+    }, [wallet.publicKey, connection, CM_ID_STR]);
 
     // 2. GLOBAL BATCH LOCK TIMER (23:59:59)
     useEffect(() => {
@@ -90,21 +105,35 @@ export default function Collectable() {
 
     // 3. SECURE MINT FUNCTION
     const handleMint = async (mode: 'allow' | 'public') => {
-        if (isLocked || !wallet.publicKey) return;
+        // 1. Safety check for wallet and the CM ID string
+        if (isLocked || !wallet.publicKey || !CM_ID_STR) {
+            toast.error("SYSTEM_NOT_READY: Check configuration.");
+            return;
+        }
+
+        // 2. Local conversion of strings to PublicKeys (Safest for production)
+        const CM_PUBKEY = publicKey(CM_ID_STR);
+        const COLL_PUBKEY = publicKey(process.env.NEXT_PUBLIC_WARRIOR_COLLECTION_MINT!);
+        const SKR_PUBKEY = publicKey(process.env.NEXT_PUBLIC_SKR_TOKEN_MINT!);
+        const T_ATA = publicKey(process.env.NEXT_PUBLIC_WARRIOR_TREASURY_ATA!);
+        const T_WALLET = publicKey(process.env.NEXT_PUBLIC_WARRIOR_TREASURY_WALLET!);
+
         if (mode === 'allow' && hasMintedWarriorThisBatch) {
             toast.error(`Warrior Access limited to 1 per batch.`);
             return;
         }
 
         setStatus(mode);
-        // 3. SECURE MINT FUNCTION
+
+        // 3. Initialize Umi with identity
         const umi = createUmi(connection.rpcEndpoint)
             .use(walletAdapterIdentity(wallet))
             .use(mplCandyMachine())
             .use(mplToolbox()) as any;
 
         try {
-            const candyMachine = await fetchCandyMachine(umi, CANDY_MACHINE_ID);
+            // Use CM_PUBKEY here instead of the old CANDY_MACHINE_ID
+            const candyMachine = await fetchCandyMachine(umi, CM_PUBKEY);
             const guard = await fetchCandyGuard(umi, candyMachine.mintAuthority);
             const nftMint = generateSigner(umi);
 
@@ -113,14 +142,14 @@ export default function Collectable() {
                 .add(setComputeUnitLimit(umi, { units: 800_000 }))
                 .add(setComputeUnitPrice(umi, { microLamports: 60_000 }))
                 .add(mintV2(umi, {
-                    candyMachine: CANDY_MACHINE_ID,
+                    candyMachine: CM_PUBKEY, // Use local safe key
                     candyGuard: guard.publicKey,
                     nftMint,
                     group: some(mode),
-                    collectionMint: COLLECTION_MINT,
+                    collectionMint: COLL_PUBKEY, // Use local safe key
                     collectionUpdateAuthority: candyMachine.authority,
                     mintArgs: {
-                        tokenPayment: some({ mint: SKR_MINT, destinationAta: TREASURY_ATA }),
+                        tokenPayment: some({ mint: SKR_PUBKEY, destinationAta: T_ATA }),
                     },
                 }));
 
@@ -131,7 +160,10 @@ export default function Collectable() {
                         ...wrapped,
                         instruction: {
                             ...wrapped.instruction,
-                            keys: [...wrapped.instruction.keys, { pubkey: TREASURY_WALLET, isSigner: false, isWritable: true }],
+                            keys: [
+                                ...wrapped.instruction.keys,
+                                { pubkey: T_WALLET, isSigner: false, isWritable: true }
+                            ],
                         },
                     };
                 }
@@ -141,7 +173,7 @@ export default function Collectable() {
             // 4. EXECUTE ON CHAIN
             const { signature } = await finalBuilder.sendAndConfirm(umi);
 
-            // 5. BACKEND VERIFICATION (Anti-Cheat)
+            // 5. BACKEND VERIFICATION
             const verifyRes = await fetch('/api/collectable/verify-mint', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

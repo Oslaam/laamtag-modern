@@ -5,7 +5,7 @@ import SpinGame from '../components/SpinGame';
 import DiceTerminal from '../components/DiceTerminal';
 import RaffleLobby from '../components/RaffleLobby';
 const Collectable = dynamic(() => import('../components/Collectable'), { 
-    ssr: false // This tells the Robot: "Skip this during build!"
+    ssr: false
 });
 
 import { useWallet } from '@solana/wallet-adapter-react';
