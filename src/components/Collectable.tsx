@@ -21,6 +21,17 @@ export default function Collectable() {
     const { connection } = useConnection();
     const wallet = useWallet();
 
+    // --- 1. CONFIG & HYDRATION ---
+    const [isMounted, setIsMounted] = useState(false);
+
+    // Move IDs inside so they are only accessed in the browser
+    const CM_ID_STR = process.env.NEXT_PUBLIC_WARRIOR_CANDY_MACHINE_ID;
+    const COLL_MINT_STR = process.env.NEXT_PUBLIC_WARRIOR_COLLECTION_MINT;
+    const SKR_MINT_STR = process.env.NEXT_PUBLIC_SKR_TOKEN_MINT;
+    const T_ATA_STR = process.env.NEXT_PUBLIC_WARRIOR_TREASURY_ATA;
+    const T_WALLET_STR = process.env.NEXT_PUBLIC_WARRIOR_TREASURY_WALLET;
+
+    // --- 2. STATES ---
     const [status, setStatus] = useState<'idle' | 'allow' | 'public'>('idle');
     const [isWarrior, setIsWarrior] = useState(false);
     const [totalMinted, setTotalMinted] = useState(0);
@@ -29,21 +40,20 @@ export default function Collectable() {
     const [hasMintedWarriorThisBatch, setHasMintedWarriorThisBatch] = useState(false);
     const [optimisticCount, setOptimisticCount] = useState<number | null>(null);
 
-    // Create a safety check for your IDs
-    const CM_ID_STR = process.env.NEXT_PUBLIC_WARRIOR_CANDY_MACHINE_ID;
-
     const currentBatchLimit = Math.floor((optimisticCount ?? totalMinted) / 20) * 20 + 20;
 
-    // 1. DATA FETCHING & BATCH LOGIC
+    // Set mounted on first load
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    // --- 3. DATA FETCHING ---
     useEffect(() => {
         const fetchData = async () => {
-            // SHIELD 1: Don't run if wallet or config is missing
             if (!wallet.publicKey || !CM_ID_STR) return;
 
             try {
                 const CM_PUBKEY = publicKey(CM_ID_STR);
-
-                // Fetch Candy Machine state
                 const umi = createUmi(connection.rpcEndpoint).use(mplCandyMachine());
                 const candyMachine = await fetchCandyMachine(umi, CM_PUBKEY);
                 const redeemed = Number(candyMachine.itemsRedeemed);
@@ -53,12 +63,10 @@ export default function Collectable() {
 
                 const currentBatchNumber = Math.floor(redeemed / 20);
 
-                // Fetch user status from Prisma
                 const res = await fetch(`/api/collectable/check-status?walletAddress=${wallet.publicKey.toBase58()}`);
 
-                // --- STEP 2: GRACEFUL FAILURE CHECK ---
                 if (!res.ok) {
-                    console.error("API Error - Server returned:", res.status);
+                    console.error("API Error - Status:", res.status);
                     return;
                 }
 
@@ -71,12 +79,14 @@ export default function Collectable() {
             }
         };
 
-        fetchData();
-        const interval = setInterval(fetchData, 10000);
-        return () => clearInterval(interval);
-    }, [wallet.publicKey, connection, CM_ID_STR]);
+        if (isMounted) {
+            fetchData();
+            const interval = setInterval(fetchData, 10000);
+            return () => clearInterval(interval);
+        }
+    }, [wallet.publicKey, connection, CM_ID_STR, isMounted]);
 
-    // 2. GLOBAL BATCH LOCK TIMER (23:59:59)
+    // --- 4. LOCK TIMER ---
     useEffect(() => {
         if (!isLocked) return;
         const timer = setInterval(() => {
@@ -93,102 +103,104 @@ export default function Collectable() {
         return () => clearInterval(timer);
     }, [isLocked]);
 
-    // 3. SECURE MINT FUNCTION
+    // --- 5. SECURE MINT FUNCTION ---
     const handleMint = async (mode: 'allow' | 'public') => {
-    // 1. Safety check for wallet and the CM ID string
-    if (isLocked || !wallet.publicKey || !CM_ID_STR) {
-        toast.error("SYSTEM_NOT_READY: Check configuration.");
-        return;
-    }
-
-    // 2. Local conversion of strings to PublicKeys (Safest for production)
-    const CM_PUBKEY = publicKey(CM_ID_STR);
-    const COLL_PUBKEY = publicKey(process.env.NEXT_PUBLIC_WARRIOR_COLLECTION_MINT!);
-    const SKR_PUBKEY = publicKey(process.env.NEXT_PUBLIC_SKR_TOKEN_MINT!);
-    const T_ATA = publicKey(process.env.NEXT_PUBLIC_WARRIOR_TREASURY_ATA!);
-    const T_WALLET = publicKey(process.env.NEXT_PUBLIC_WARRIOR_TREASURY_WALLET!);
-
-    if (mode === 'allow' && hasMintedWarriorThisBatch) {
-        toast.error(`Warrior Access limited to 1 per batch.`);
-        return;
-    }
-
-    setStatus(mode);
-    
-    // 3. Initialize Umi with identity
-    const umi = createUmi(connection.rpcEndpoint)
-        .use(walletAdapterIdentity(wallet))
-        .use(mplCandyMachine())
-        .use(mplToolbox()) as any;
-
-    try {
-        // Use CM_PUBKEY here instead of the old CANDY_MACHINE_ID
-        const candyMachine = await fetchCandyMachine(umi, CM_PUBKEY);
-        const guard = await fetchCandyGuard(umi, candyMachine.mintAuthority);
-        const nftMint = generateSigner(umi);
-
-        // Build Transaction
-        const builder = transactionBuilder()
-            .add(setComputeUnitLimit(umi, { units: 800_000 }))
-            .add(setComputeUnitPrice(umi, { microLamports: 60_000 }))
-            .add(mintV2(umi, {
-                candyMachine: CM_PUBKEY, // Use local safe key
-                candyGuard: guard.publicKey,
-                nftMint,
-                group: some(mode),
-                collectionMint: COLL_PUBKEY, // Use local safe key
-                collectionUpdateAuthority: candyMachine.authority,
-                mintArgs: {
-                    tokenPayment: some({ mint: SKR_PUBKEY, destinationAta: T_ATA }),
-                },
-            }));
-
-        // Map instructions for 0x1779 fix
-        const finalBuilder = builder.mapInstructions((wrapped) => {
-            if (wrapped.instruction.programId.toString() === guard.publicKey.toString()) {
-                return {
-                    ...wrapped,
-                    instruction: {
-                        ...wrapped.instruction,
-                        keys: [
-                            ...wrapped.instruction.keys, 
-                            { pubkey: T_WALLET, isSigner: false, isWritable: true }
-                        ],
-                    },
-                };
-            }
-            return wrapped;
-        });
-
-        // 4. EXECUTE ON CHAIN
-        const { signature } = await finalBuilder.sendAndConfirm(umi);
-
-        // 5. BACKEND VERIFICATION
-        const verifyRes = await fetch('/api/collectable/verify-mint', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                signature: Buffer.from(signature).toString('base64'),
-                walletAddress: wallet.publicKey.toBase58(),
-                mode
-            })
-        });
-
-        if (verifyRes.ok) {
-            toast.success("MINT VERIFIED & SAVED!");
-            setOptimisticCount((totalMinted || 0) + 1);
-            if (mode === 'allow') setHasMintedWarriorThisBatch(true);
-        } else {
-            toast.error("Chain success, DB sync failed.");
+        // Validation check for all required environment strings
+        if (!isMounted || !wallet.publicKey || !CM_ID_STR || !COLL_MINT_STR || !SKR_MINT_STR || !T_ATA_STR || !T_WALLET_STR) {
+            toast.error("SYSTEM_NOT_READY: Check configuration.");
+            return;
         }
 
-    } catch (err: any) {
-        console.error("MINT_LOGS:", err);
-        toast.error("MINT FAILED: Check balance or network.");
-    } finally {
-        setStatus('idle');
-    }
-};
+        if (isLocked) {
+            toast.error("BATCH_LOCKED: Wait for the next window.");
+            return;
+        }
+
+        if (mode === 'allow' && hasMintedWarriorThisBatch) {
+            toast.error(`Warrior Access limited to 1 per batch.`);
+            return;
+        }
+
+        setStatus(mode);
+
+        // Convert strings to PublicKeys locally for the transaction
+        const CM_PUBKEY = publicKey(CM_ID_STR);
+        const COLL_PUBKEY = publicKey(COLL_MINT_STR);
+        const SKR_PUBKEY = publicKey(SKR_MINT_STR);
+        const T_ATA = publicKey(T_ATA_STR);
+        const T_WALLET = publicKey(T_WALLET_STR);
+
+        const umi = createUmi(connection.rpcEndpoint)
+            .use(walletAdapterIdentity(wallet))
+            .use(mplCandyMachine())
+            .use(mplToolbox()) as any;
+
+        try {
+            const candyMachine = await fetchCandyMachine(umi, CM_PUBKEY);
+            const guard = await fetchCandyGuard(umi, candyMachine.mintAuthority);
+            const nftMint = generateSigner(umi);
+
+            const builder = transactionBuilder()
+                .add(setComputeUnitLimit(umi, { units: 800_000 }))
+                .add(setComputeUnitPrice(umi, { microLamports: 60_000 }))
+                .add(mintV2(umi, {
+                    candyMachine: CM_PUBKEY,
+                    candyGuard: guard.publicKey,
+                    nftMint,
+                    group: some(mode),
+                    collectionMint: COLL_PUBKEY,
+                    collectionUpdateAuthority: candyMachine.authority,
+                    mintArgs: {
+                        tokenPayment: some({ mint: SKR_PUBKEY, destinationAta: T_ATA }),
+                    },
+                }));
+
+            const finalBuilder = builder.mapInstructions((wrapped) => {
+                if (wrapped.instruction.programId.toString() === guard.publicKey.toString()) {
+                    return {
+                        ...wrapped,
+                        instruction: {
+                            ...wrapped.instruction,
+                            keys: [
+                                ...wrapped.instruction.keys,
+                                { pubkey: T_WALLET, isSigner: false, isWritable: true }
+                            ],
+                        },
+                    };
+                }
+                return wrapped;
+            });
+
+            const { signature } = await finalBuilder.sendAndConfirm(umi);
+
+            const verifyRes = await fetch('/api/collectable/verify-mint', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    signature: Buffer.from(signature).toString('base64'),
+                    walletAddress: wallet.publicKey.toBase58(),
+                    mode
+                })
+            });
+
+            if (verifyRes.ok) {
+                toast.success("MINT VERIFIED & SAVED!");
+                setOptimisticCount((totalMinted || 0) + 1);
+                if (mode === 'allow') setHasMintedWarriorThisBatch(true);
+            } else {
+                toast.error("Chain success, DB sync failed.");
+            }
+
+        } catch (err: any) {
+            console.error("MINT_LOGS:", err);
+            toast.error("MINT FAILED: Check balance or network.");
+        } finally {
+            setStatus('idle');
+        }
+    };
+
+    // Prevent SSR errors by returning null until mounted
+    if (!isMounted) return null;
 
     return (
         <div className={`${styles.container} ${isLocked ? styles.systemLocked : ''}`}>
@@ -206,7 +218,6 @@ export default function Collectable() {
             </div>
 
             <div className={styles.mintGrid}>
-                {/* WARRIOR ACCESS (300 SKR - 1 PER BATCH) */}
                 <div className={`${styles.mintCard} ${(!isWarrior || isLocked || hasMintedWarriorThisBatch) ? styles.locked : ''}`}>
                     <div className={styles.cardTitle}>WARRIOR_ACCESS</div>
                     <div className={styles.price}>300 $SKR</div>
@@ -222,7 +233,6 @@ export default function Collectable() {
                     <div className={styles.limitNote}>1 MINT / BATCH</div>
                 </div>
 
-                {/* PUBLIC ACCESS (1000 SKR - NO LIMIT) */}
                 <div className={`${styles.mintCard} ${isLocked ? styles.locked : ''}`}>
                     <div className={styles.cardTitle}>PUBLIC_ACCESS</div>
                     <div className={styles.price}>1000 $SKR</div>
