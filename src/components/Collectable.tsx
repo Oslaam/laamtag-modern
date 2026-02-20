@@ -55,7 +55,7 @@ export default function Collectable() {
 
             try {
                 const CM_PUBKEY = publicKey(CM_ID_STR);
-                const umi = createUmi(RPC_ENDPOINT).use(mplCandyMachine());
+                const umi = createUmi(connection.rpcEndpoint).use(mplCandyMachine());
                 const candyMachine = await fetchCandyMachine(umi, CM_PUBKEY);
                 const redeemed = Number(candyMachine.itemsRedeemed);
 
@@ -106,7 +106,7 @@ export default function Collectable() {
 
     // --- 5. SECURE MINT FUNCTION ---
     const handleMint = async (mode: 'allow' | 'public') => {
-        if (!isMounted || !wallet.publicKey) return;
+        if (!isMounted || !wallet.publicKey || !wallet.connected) return;
 
         if (isLocked) {
             toast.error("BATCH_LOCKED: Wait for the next window.");
@@ -115,29 +115,30 @@ export default function Collectable() {
 
         setStatus(mode);
 
-        const umi = createUmi(RPC_ENDPOINT)
+        // USE THE CONNECTION FROM THE HOOK, NOT THE CONSTANT
+        const umi = createUmi(connection.rpcEndpoint)
             .use(walletAdapterIdentity(wallet))
             .use(mplToolbox())
-            .use(mplCandyMachine()) as any;
+            .use(mplCandyMachine());
 
         try {
             const CM_PUBKEY = publicKey(CM_ID_STR);
             const SKR_PUBKEY = publicKey(SKR_MINT_STR);
             const T_ATA = publicKey(T_ATA_STR);
-            const T_WALLET = publicKey(T_WALLET_STR); // 4sr6vgb...
+            const T_WALLET = publicKey(T_WALLET_STR);
 
             const candyMachine = await fetchCandyMachine(umi, CM_PUBKEY);
             const nftMint = generateSigner(umi);
 
-            // 1. Build the mint instruction
+            // Build the base transaction
             let builder = transactionBuilder()
                 .add(setComputeUnitLimit(umi, { units: 800_000 }))
                 .add(setComputeUnitPrice(umi, { microLamports: 80_000 }))
                 .add(mintV2(umi, {
                     candyMachine: CM_PUBKEY,
-                    candyGuard: candyMachine.mintAuthority, // This is GmQdFbm...
-                    collectionMint: publicKey(COLL_MINT_STR), // This is 5LoQty...
-                    collectionUpdateAuthority: candyMachine.authority, // This is 4sr6...
+                    candyGuard: candyMachine.mintAuthority,
+                    collectionMint: publicKey(COLL_MINT_STR),
+                    collectionUpdateAuthority: candyMachine.authority,
                     nftMint,
                     group: some(mode),
                     mintArgs: {
@@ -148,8 +149,7 @@ export default function Collectable() {
                     },
                 }));
 
-            // 2. CRITICAL: Inject the Treasury Wallet as a writable account
-            // The Token Payment guard needs the destination wallet owner to be present in the transaction
+            // Inject the account (Keep this if your CM guard requires it)
             builder = builder.mapInstructions((wrapped) => {
                 if (wrapped.instruction.programId.toString() === "CMYK9869v7YzzZcnvW8at6u2pAbSiv7atvUeKAs9X6j") {
                     return {
@@ -158,6 +158,7 @@ export default function Collectable() {
                             ...wrapped.instruction,
                             keys: [
                                 ...wrapped.instruction.keys,
+                                // Ensure this is marked as writable for the token payment logic
                                 { pubkey: T_WALLET, isSigner: false, isWritable: true }
                             ],
                         },
@@ -166,10 +167,9 @@ export default function Collectable() {
                 return wrapped;
             });
 
-            // 3. Send and Confirm
+            // Mobile browsers need a fresh signature request
             const { signature } = await builder.sendAndConfirm(umi);
-
-            // ... (rest of your verification logic remains the same)
+            toast.success("MINT SUCCESSFUL!");
 
         } catch (err: any) {
             console.error("MINT_LOGS:", err);
