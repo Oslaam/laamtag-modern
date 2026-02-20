@@ -26,7 +26,7 @@ import { verifyCandyMachine } from '../utils/check-cm';
 
 const MY_CANDY_ID = "7EQyVJBqdsbe6fSjg9ZLuaFsB1cppBa9QLFJE86ziKh9";
 const MY_TREASURY_ADDR = "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc";
-const RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://app.uselaamtag.xyz/api/rpc-proxy";
+const RPC_URL = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
 const MAX_SUPPLY = 5000;
 const RENT_PER_NFT = 0.0;
 const MINT_PRICE = 0.37;

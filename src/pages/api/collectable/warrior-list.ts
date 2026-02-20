@@ -1,52 +1,76 @@
-import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
-import { dasApi } from '@metaplex-foundation/digital-asset-standard-api';
-import { publicKey } from '@metaplex-foundation/umi';
 import { NextApiRequest, NextApiResponse } from 'next';
 
-// This checks both the public and private versions to be safe
-const WARRIOR_COLLECTION = process.env.NEXT_PUBLIC_WARRIOR_COLLECTION_MINT || process.env.WARRIOR_COLLECTION_MINT;
+const WARRIOR_COLLECTION = "5LoQty88d9q9GhBcwVLYZPjaPNKMmBkK765PWah5msgJ";
+const HELIUS_RPC = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
+
+const formatIpfsUrl = (url: string) => {
+    if (!url) return "";
+    if (url.startsWith("https://")) return url;
+    if (url.startsWith("ipfs://")) return url.replace("ipfs://", "https://ipfs.io/ipfs/");
+    return url;
+};
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { address } = req.query;
-
-    if (!address || !WARRIOR_COLLECTION) {
-        console.error("CONFIG_ERROR: Missing Wallet or Collection ID");
-        return res.status(400).json({ error: "Configuration Missing" });
-    }
+    if (!address) return res.status(400).json({ error: "Wallet address required" });
 
     try {
-        const umi = createUmi(process.env.NEXT_PUBLIC_SOLANA_RPC_URL!).use(dasApi());
+        console.log(`--- FETCHING WARRIORS FOR: ${address} ---`);
 
-        const assets = await (umi.rpc as any).getAssetsByOwner({
-            owner: publicKey(address as string),
-            limit: 100,
-        }) || { items: [] };
-
-        const items = assets.items || [];
-
-        // DEBUG: This helps us see in Railway logs what Helius is actually sending
-        console.log(`Found ${items.length} total NFTs for ${address}`);
-
-        const warriorNfts = items
-            .filter((asset: any) => {
-                // Check grouping (standard collection)
-                const group = asset.grouping?.find((g: any) => g.group_key === 'collection');
-                const isGroupMatch = group && group.group_value === WARRIOR_COLLECTION;
-
-                // Check metadata (fallback)
-                const isMetadataMatch = asset.content?.metadata?.collection?.address === WARRIOR_COLLECTION;
-
-                return isGroupMatch || isMetadataMatch;
+        const response = await fetch(HELIUS_RPC, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                jsonrpc: '2.0',
+                id: 'warrior-fetch',
+                method: 'getAssetsByOwner',
+                params: {
+                    ownerAddress: address,
+                    page: 1,
+                    limit: 100,
+                    displayOptions: { showFungible: false }
+                }
             })
-            .map((asset: any) => ({
-                mint: asset.id,
-                name: asset.content.metadata?.name || "Neural Warrior",
-                image: asset.content.links?.image || "",
-            }));
+        });
 
+        const data = await response.json();
+        const items = data?.result?.items || [];
+        const target = WARRIOR_COLLECTION.toLowerCase();
+
+        const filtered = items.filter((asset: any) => {
+            const grouping = asset.grouping?.find((g: any) => g.group_key === 'collection');
+            return grouping?.group_value?.toLowerCase() === target;
+        });
+
+        // Fetch off-chain metadata for each warrior to get the real image
+        const warriorNfts = await Promise.all(filtered.map(async (asset: any) => {
+            const name = asset.content?.metadata?.name || "Neural Warrior";
+
+            // Try standard fields first
+            let rawImage = asset.content?.links?.image || asset.content?.files?.[0]?.uri || "";
+
+            // If empty, fetch the metadata URI directly
+            if (!rawImage) {
+                const jsonUri = asset.content?.json_uri;
+                if (jsonUri) {
+                    try {
+                        const metaRes = await fetch(formatIpfsUrl(jsonUri));
+                        const meta = await metaRes.json();
+                        rawImage = meta?.image || "";
+                    } catch (e) {
+                        console.log(`Failed to fetch metadata for ${name}`);
+                    }
+                }
+            }
+            const image = formatIpfsUrl(rawImage);
+            return { mint: asset.id, name, image };
+        }));
+
+        console.log(`Successfully matched ${warriorNfts.length} Warriors.`);
         return res.status(200).json({ nfts: warriorNfts });
-    } catch (error) {
-        console.error("DAS API FETCH FAILED:", error);
-        return res.status(200).json({ nfts: [] });
+
+    } catch (error: any) {
+        console.error("API ERROR:", error.message);
+        return res.status(200).json({ nfts: [], error: error.message });
     }
 }

@@ -551,29 +551,6 @@ export default function ProfilePage() {
           <WarriorGallery />
         </div>
 
-        {/* STATS GRID */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '40px' }}>
-          <div className="terminal-card" style={{ padding: '20px', textAlign: 'center' }}>
-            <Coins className="text-yellow-500" size={20} style={{ margin: '0 auto 8px' }} />
-            <p style={{ fontSize: '20px', fontWeight: 900, margin: 0 }}>
-              {userData?.laamPoints?.toLocaleString() || 0}
-            </p>
-            <p style={{ fontSize: '8px', fontWeight: 900, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>
-              Total LAAM
-            </p>
-          </div>
-
-          <div className="terminal-card" style={{ padding: '20px', textAlign: 'center' }}>
-            <Trophy className="text-yellow-500" size={20} style={{ margin: '0 auto 8px' }} />
-            <p style={{ fontSize: '20px', fontWeight: 900, margin: 0 }}>
-              {userData?.personalMinted || 0}
-            </p>
-            <p style={{ fontSize: '8px', fontWeight: 900, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>
-              NFTs Minted
-            </p>
-          </div>
-        </div>
-
         {/* NFT GALLERY (Genesis) - ONLY ONE INSTANCE NEEDED */}
         <div style={{ paddingBottom: '100px' }}>
           <h2 style={{

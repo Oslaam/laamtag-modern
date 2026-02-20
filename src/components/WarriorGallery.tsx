@@ -9,6 +9,8 @@ export default function WarriorGallery() {
     const [loading, setLoading] = useState(false);
     const [mounted, setMounted] = useState(false);
 
+    const COLLECTION_IMAGE = "https://gateway.pinata.cloud/ipfs/QmWLfNnKrFyyCQ35TouqiuNFE3Aq5rdQigZ4rtKC1M9wZ1/collection.png";
+
     // Step 1: Prevent Server-Side Rendering crashes during build
     useEffect(() => {
         setMounted(true);
@@ -98,9 +100,12 @@ export default function WarriorGallery() {
                         }}>
                             <div style={{ aspectRatio: '1/1', borderRadius: '8px', overflow: 'hidden', marginBottom: '10px' }}>
                                 <img
-                                    src={nft.image}
+                                    src={nft.image || COLLECTION_IMAGE}
                                     alt={nft.name}
                                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    onError={(e) => {
+                                        (e.target as HTMLImageElement).src = COLLECTION_IMAGE;
+                                    }}
                                 />
                             </div>
                             <p style={{ fontSize: '10px', fontWeight: 900, color: '#22d3ee', textTransform: 'uppercase', margin: 0, textAlign: 'center' }}>

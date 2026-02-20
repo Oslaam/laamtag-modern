@@ -180,12 +180,12 @@ export default function GamesPage() {
                                 <ModuleCard title="Probability Matrix" desc="HIGH STAKES RECOVERY" imageSrc="/assets/images/dice.jpg" onClick={() => setActiveGame('DICE')} />
                                 <ModuleCard title="Data Scraper Raffle" desc="POOL ENTRY & REFUNDS" imageSrc="/assets/images/raffle.png" onClick={() => setActiveGame('RAFFLE')} />
                                 <ModuleCard title="Resistance Mode" desc="UNLOCK WITH $SKR" imageSrc="/assets/images/resistance.png" onClick={() => setActiveGame('RESISTANCE')} />
-                                {/* <ModuleCard
+                                <ModuleCard
                                     title="Warrior Trophy"
                                     desc="CLAIM ELIGIBLE REWARDS"
                                     imageSrc="/assets/images/collectable.jpg"
                                     onClick={() => setActiveGame('COLLECTABLE')}
-                                /> */}
+                                />
                                 {/* NEURAL DISCOVERY MODULE */}
                                 <div className={`${styles.neuralModule} ${pendingInvitePool ? styles.inviteModeActive : ''}`}>
                                     <div className={styles.neuralHeader}>
