@@ -51,11 +51,16 @@ export default function Collectable() {
     // --- 3. DATA FETCHING ---
     useEffect(() => {
         const fetchData = async () => {
-            if (!wallet.publicKey || !CM_ID_STR) return;
+            // Guard: Stop if no wallet or if we aren't mounted yet
+            if (!wallet.publicKey || !isMounted) return;
 
             try {
                 const CM_PUBKEY = publicKey(CM_ID_STR);
-                const umi = createUmi(connection.rpcEndpoint).use(mplCandyMachine());
+
+                // USE HARDCODED RPC TO MATCH MINT.TSX
+                const umi = createUmi("https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3")
+                    .use(mplCandyMachine());
+
                 const candyMachine = await fetchCandyMachine(umi, CM_PUBKEY);
                 const redeemed = Number(candyMachine.itemsRedeemed);
 
@@ -64,28 +69,28 @@ export default function Collectable() {
 
                 const currentBatchNumber = Math.floor(redeemed / 20);
 
+                // Fetching your custom API
                 const res = await fetch(`/api/collectable/check-status?walletAddress=${wallet.publicKey.toBase58()}`);
 
-                if (!res.ok) {
-                    console.error("API Error - Status:", res.status);
-                    return;
+                if (res.ok) {
+                    const data = await res.json();
+                    setIsWarrior(data.isWarrior);
+                    setHasMintedWarriorThisBatch(data.lastWarriorMintBatch === currentBatchNumber);
                 }
 
-                const data = await res.json();
-                setIsWarrior(data.isWarrior);
-                setHasMintedWarriorThisBatch(data.lastWarriorMintBatch === currentBatchNumber);
-
             } catch (e) {
-                console.error("SYNC_ERROR", e);
+                // Log less aggressively to keep console clean
+                console.warn("Collectable Syncing...");
             }
         };
 
-        if (isMounted) {
+        if (isMounted && wallet.publicKey) {
             fetchData();
-            const interval = setInterval(fetchData, 10000);
+            // CHANGE TO 30 SECONDS (30000)
+            const interval = setInterval(fetchData, 30000);
             return () => clearInterval(interval);
         }
-    }, [wallet.publicKey, connection, CM_ID_STR, isMounted]);
+    }, [wallet.publicKey, isMounted]); // Removed connection.rpcEndpoint from deps to prevent clashing
 
     // --- 4. LOCK TIMER ---
     useEffect(() => {

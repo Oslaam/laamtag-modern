@@ -46,8 +46,22 @@ const Mint: NextPage = () => {
 
   useEffect(() => {
     setIsClient(true);
-    verifyCandyMachine().then(status => setCmStatus(status));
-  }, []);
+
+    const checkHealth = async () => {
+      try {
+        // This calls your hardcoded utility
+        const status = await verifyCandyMachine();
+        setCmStatus(status);
+      } catch (err) {
+        console.error("Health Check Failed", err);
+        setCmStatus("CONNECTION ERROR");
+      }
+    };
+
+    if (isClient) {
+      checkHealth();
+    }
+  }, [isClient]);
 
   const fetchStatus = async () => {
     try {
