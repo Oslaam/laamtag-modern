@@ -34,19 +34,19 @@ const nextConfig = {
             },
         ];
     },
-    async rewrites() {
-        return [
-            {
-                source: '/manifest.json',
-                destination: '/api/manifest',
-            },
-            // This proxy helps avoid CORS errors on mobile
-            {
-                source: '/api/rpc-proxy',
-                destination: 'https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3',
-            },
-        ];
-    },
+    // async rewrites() {
+    //     return [
+    //         {
+    //             source: '/manifest.json',
+    //             destination: '/api/manifest',
+    //         },
+    //         // This proxy helps avoid CORS errors on mobile
+    //         {
+    //             source: '/api/rpc-proxy',
+    //             destination: 'https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3',
+    //         },
+    //     ];
+    // },
 };
 
 export default nextConfig;

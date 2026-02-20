@@ -25,11 +25,11 @@ export default function Collectable() {
     const [isMounted, setIsMounted] = useState(false);
 
     // Move IDs inside so they are only accessed in the browser
-    const CM_ID_STR = process.env.NEXT_PUBLIC_WARRIOR_CANDY_MACHINE_ID;
-    const COLL_MINT_STR = process.env.NEXT_PUBLIC_WARRIOR_COLLECTION_MINT;
-    const SKR_MINT_STR = process.env.NEXT_PUBLIC_SKR_TOKEN_MINT;
-    const T_ATA_STR = process.env.NEXT_PUBLIC_WARRIOR_TREASURY_ATA;
-    const T_WALLET_STR = process.env.NEXT_PUBLIC_WARRIOR_TREASURY_WALLET;
+    const CM_ID_STR = "CWikmfwwgHSYjXuXtBiXEE23M7sCpnGjBSjXxQuGizJm";
+    const COLL_MINT_STR = "5LoQty88d9q9GhBcwVLYZPjaPNKMmBkK765PWah5msgJ";
+    const SKR_MINT_STR = "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3";
+    const T_ATA_STR = "Csex5aLu6U6o1mqQrxWKqEmS6cLvitcxunQXMyZoDMEM";
+    const T_WALLET_STR = "4sr6vgbWJ14dBH7SFEBwETapqPb3vrpstyuBmbc1vd4u";
     const RPC_ENDPOINT = "/api/rpc-proxy";
 
     // TEMPORARY DEBUG - remove after fixing
