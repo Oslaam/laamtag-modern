@@ -19,7 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const assets = await (umi.rpc as any).getAssetsByOwner({
             owner: publicKey(address as string),
             limit: 100,
-        });
+        }) || { items: [] };
 
         const items = assets.items || [];
 
