@@ -32,6 +32,18 @@ export default function Collectable() {
     const T_WALLET_STR = process.env.NEXT_PUBLIC_WARRIOR_TREASURY_WALLET;
     const RPC_ENDPOINT = process.env.NEXT_PUBLIC_SOLANA_RPC_URL!;
 
+    // TEMPORARY DEBUG - remove after fixing
+    useEffect(() => {
+        console.log("ENV CHECK:", {
+            CM_ID_STR,
+            COLL_MINT_STR,
+            SKR_MINT_STR,
+            T_ATA_STR,
+            T_WALLET_STR,
+            RPC_ENDPOINT,
+        });
+    }, []);
+
     // --- 2. STATES ---
     const [status, setStatus] = useState<'idle' | 'allow' | 'public'>('idle');
     const [isWarrior, setIsWarrior] = useState(false);
