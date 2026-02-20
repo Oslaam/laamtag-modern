@@ -22,7 +22,7 @@ import {
 
 const SKR_MINT = new PublicKey("SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3");
 const TREASURY = new PublicKey("CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc");
-const RPC_URL = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
+const RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
 
 // --- Types & Props ---
 interface RaffleLobbyProps {

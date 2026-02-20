@@ -28,7 +28,7 @@ const INTERNAL_RES = 512;
 const SCALE = INTERNAL_RES / 128;
 const CELL_SIZE = 8 * SCALE;
 const HEADER_OFFSET = 16 * SCALE;
-const RPC_URL = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
+const RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
 
 export default function ResistanceMode() {
     const { publicKey, connected, wallet } = useWallet();

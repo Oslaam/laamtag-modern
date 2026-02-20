@@ -3,7 +3,7 @@ import { mplCandyMachine, fetchCandyMachine } from "@metaplex-foundation/mpl-can
 import { publicKey as umiPublicKey } from "@metaplex-foundation/umi";
 
 export const verifyCandyMachine = async () => {
-    const RPC_URL = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
+    const RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
     const umi = createUmi(RPC_URL).use(mplCandyMachine());
     const candyMachineId = umiPublicKey("7EQyVJBqdsbe6fSjg9ZLuaFsB1cppBa9QLFJE86ziKh9");
 

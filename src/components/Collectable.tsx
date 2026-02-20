@@ -30,7 +30,7 @@ export default function Collectable() {
     const SKR_MINT_STR = process.env.NEXT_PUBLIC_SKR_TOKEN_MINT;
     const T_ATA_STR = process.env.NEXT_PUBLIC_WARRIOR_TREASURY_ATA;
     const T_WALLET_STR = process.env.NEXT_PUBLIC_WARRIOR_TREASURY_WALLET;
-    const RPC_ENDPOINT = process.env.NEXT_PUBLIC_SOLANA_RPC_URL!;
+    const RPC_ENDPOINT = "/api/rpc-proxy";
 
     // TEMPORARY DEBUG - remove after fixing
     useEffect(() => {

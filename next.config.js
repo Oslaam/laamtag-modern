@@ -11,7 +11,16 @@ const nextConfig = {
         // Skips linting the anchor folder during build
         ignoreDuringBuilds: true,
     },
-    // ------------------------------------------------
+    
+    env: {
+        NEXT_PUBLIC_SOLANA_RPC_URL: process.env.NEXT_PUBLIC_SOLANA_RPC_URL,
+        NEXT_PUBLIC_WARRIOR_CANDY_MACHINE_ID: process.env.NEXT_PUBLIC_WARRIOR_CANDY_MACHINE_ID,
+        NEXT_PUBLIC_WARRIOR_COLLECTION_MINT: process.env.NEXT_PUBLIC_WARRIOR_COLLECTION_MINT,
+        NEXT_PUBLIC_SKR_TOKEN_MINT: process.env.NEXT_PUBLIC_SKR_TOKEN_MINT,
+        NEXT_PUBLIC_WARRIOR_TREASURY_ATA: process.env.NEXT_PUBLIC_WARRIOR_TREASURY_ATA,
+        NEXT_PUBLIC_WARRIOR_TREASURY_WALLET: process.env.NEXT_PUBLIC_WARRIOR_TREASURY_WALLET,
+        NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
+    },
 
     // Allow the mobile wallet to see the assetlinks and manifest without interference
     async headers() {
@@ -40,4 +49,4 @@ const nextConfig = {
     },
 };
 
-export default nextConfig;
+module.exports = nextConfig;
