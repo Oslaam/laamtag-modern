@@ -283,8 +283,9 @@ export default function ContactPage() {
                                         value={message}
                                         onChange={(e) => setMessage(e.target.value)}
                                         className={styles.chatInput}
+                                        disabled
                                     />
-                                    <button type="submit" className={styles.chatSendBtn}><Send size={18} /></button>
+                                    <button type="submit" className={styles.chatSendBtn} disabled><Send size={18} /></button>
                                 </form>
                             </div>
                         )}
