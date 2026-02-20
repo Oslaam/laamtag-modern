@@ -30,6 +30,7 @@ export default function Collectable() {
     const SKR_MINT_STR = process.env.NEXT_PUBLIC_SKR_TOKEN_MINT;
     const T_ATA_STR = process.env.NEXT_PUBLIC_WARRIOR_TREASURY_ATA;
     const T_WALLET_STR = process.env.NEXT_PUBLIC_WARRIOR_TREASURY_WALLET;
+    const RPC_ENDPOINT = process.env.NEXT_PUBLIC_SOLANA_RPC_URL!;
 
     // --- 2. STATES ---
     const [status, setStatus] = useState<'idle' | 'allow' | 'public'>('idle');
@@ -54,7 +55,7 @@ export default function Collectable() {
 
             try {
                 const CM_PUBKEY = publicKey(CM_ID_STR);
-                const umi = createUmi(connection.rpcEndpoint).use(mplCandyMachine());
+                const umi = createUmi(RPC_ENDPOINT).use(mplCandyMachine());
                 const candyMachine = await fetchCandyMachine(umi, CM_PUBKEY);
                 const redeemed = Number(candyMachine.itemsRedeemed);
 
@@ -130,7 +131,7 @@ export default function Collectable() {
         const T_ATA = publicKey(T_ATA_STR);
         const T_WALLET = publicKey(T_WALLET_STR);
 
-        const umi = createUmi(connection.rpcEndpoint)
+        const umi = createUmi(RPC_ENDPOINT)
             .use(walletAdapterIdentity(wallet))
             .use(mplCandyMachine())
             .use(mplToolbox()) as any;
