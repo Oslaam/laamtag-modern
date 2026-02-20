@@ -28,7 +28,7 @@ const INTERNAL_RES = 512;
 const SCALE = INTERNAL_RES / 128;
 const CELL_SIZE = 8 * SCALE;
 const HEADER_OFFSET = 16 * SCALE;
-const RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
+const RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://app.uselaamtag.xyz/api/rpc-proxy";
 
 export default function ResistanceMode() {
     const { publicKey, connected, wallet } = useWallet();

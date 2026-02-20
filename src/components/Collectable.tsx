@@ -30,7 +30,9 @@ export default function Collectable() {
     const SKR_MINT_STR = "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3";
     const T_ATA_STR = "Csex5aLu6U6o1mqQrxWKqEmS6cLvitcxunQXMyZoDMEM";
     const T_WALLET_STR = "4sr6vgbWJ14dBH7SFEBwETapqPb3vrpstyuBmbc1vd4u";
-    const RPC_ENDPOINT = "/api/rpc-proxy";
+    const RPC_ENDPOINT = typeof window !== "undefined"
+        ? `${window.location.origin}/api/rpc-proxy`
+        : "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
 
     // TEMPORARY DEBUG - remove after fixing
     useEffect(() => {

@@ -21,12 +21,12 @@ import {
   none,
   generateSigner,
 } from "@metaplex-foundation/umi";
-import { setComputeUnitLimit, setComputeUnitPrice } from "@metaplex-foundation/mpl-toolbox";
+import { mplToolbox, setComputeUnitLimit, setComputeUnitPrice } from "@metaplex-foundation/mpl-toolbox";
 import { verifyCandyMachine } from '../utils/check-cm';
 
 const MY_CANDY_ID = "7EQyVJBqdsbe6fSjg9ZLuaFsB1cppBa9QLFJE86ziKh9";
 const MY_TREASURY_ADDR = "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc";
-const RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
+const RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://app.uselaamtag.xyz/api/rpc-proxy";
 const MAX_SUPPLY = 5000;
 const RENT_PER_NFT = 0.0;
 const MINT_PRICE = 0.37;
@@ -94,7 +94,10 @@ const Mint: NextPage = () => {
     if (!publicKey || !wallet) return;
     setLoading(true);
     try {
-      const umi = createUmi(RPC_URL).use(walletAdapterIdentity(wallet)).use(mplCandyMachine());
+      const umi = createUmi(RPC_URL)
+        .use(walletAdapterIdentity(wallet))
+        .use(mplCandyMachine())
+        .use(mplToolbox());
       const candyMachine = await fetchCandyMachine(umi, umiPublicKey(MY_CANDY_ID.trim()));
       const itemsAvailable = Number(candyMachine.data?.itemsAvailable ?? 0);
       if (itemsAvailable <= 0) throw new Error("Candy Machine is SOLD OUT");
@@ -106,7 +109,7 @@ const Mint: NextPage = () => {
       for (let i = 0; i < maxMintable; i++) {
         try {
           const nftMint = generateSigner(umi);
-          const mintBuilder = mintV2(umi, {
+          const mintBuilder = mintV2(umi as any, {
             candyMachine: candyMachine.publicKey,
             candyGuard: candyMachine.mintAuthority,
             nftMint,
