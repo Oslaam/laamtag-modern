@@ -4,10 +4,9 @@ import { useState, useEffect } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import axios from "axios";
-import { Minus, Plus, Crown } from "lucide-react"; // Added Crown
+import { Minus, Plus, Crown } from "lucide-react";
 import SeekerGuard from "../components/SeekerGuard";
 
-// ... (Metaplex imports remain the same)
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-adapters";
 import {
@@ -20,6 +19,7 @@ import {
   some,
   none,
   generateSigner,
+  transactionBuilder,
 } from "@metaplex-foundation/umi";
 import { mplToolbox, setComputeUnitLimit, setComputeUnitPrice } from "@metaplex-foundation/mpl-toolbox";
 import { verifyCandyMachine } from '../utils/check-cm';
@@ -107,23 +107,33 @@ const Mint: NextPage = () => {
   const handleMint = async () => {
     if (!publicKey || !wallet) return;
     setLoading(true);
+
     try {
       const umi = createUmi(RPC_URL)
         .use(walletAdapterIdentity(wallet))
         .use(mplCandyMachine())
         .use(mplToolbox());
+
       const candyMachine = await fetchCandyMachine(umi, umiPublicKey(MY_CANDY_ID.trim()));
       const itemsAvailable = Number(candyMachine.data?.itemsAvailable ?? 0);
       if (itemsAvailable <= 0) throw new Error("Candy Machine is SOLD OUT");
 
+      // Limit the mint amount for mobile stability
       const maxMintable = Math.min(amount, 10 - stats.personal, itemsAvailable);
       const treasuryPubkey = umiPublicKey(MY_TREASURY_ADDR.trim());
-      const results = [];
 
-      for (let i = 0; i < maxMintable; i++) {
-        try {
-          const nftMint = generateSigner(umi);
-          const mintBuilder = mintV2(umi as any, {
+      // 1. Start the builder
+      let builder = transactionBuilder()
+        .add(setComputeUnitLimit(umi, { units: 800_000 }))
+        // 2. INCREASE FEE: 100,000 microLamports is the "sweet spot" for mobile simulation
+        .add(setComputeUnitPrice(umi, { microLamports: 100_000 }));
+
+      // 3. Add the Mint instruction MULTIPLE times based on the 'amount'
+      // This bundles everything into ONE wallet signature request
+      for (let i = 0; i < amount; i++) {
+        const nftMint = generateSigner(umi);
+        builder = builder.add(
+          mintV2(umi, {
             candyMachine: candyMachine.publicKey,
             candyGuard: candyMachine.mintAuthority,
             nftMint,
@@ -134,46 +144,32 @@ const Mint: NextPage = () => {
               solPayment: some({ destination: treasuryPubkey }),
               mintLimit: some({ id: 1 }),
             },
-          });
-
-          const transactionBuilder = setComputeUnitLimit(umi, { units: 800000 })
-            .prepend(setComputeUnitPrice(umi, { microLamports: 1000 }))
-            .add(mintBuilder);
-
-          await transactionBuilder.sendAndConfirm(umi);
-          results.push({ success: true });
-        } catch (err: any) {
-          results.push({ success: false });
-          break;
-        }
+          })
+        );
       }
 
-      const successCount = results.filter(r => r.success).length;
+      // 4. Send and Confirm (The MWA Handshake - User signs ONCE for all NFTs)
+      await builder.sendAndConfirm(umi);
 
-      if (successCount > 0) {
-        const newActualTotal = stats.personal + successCount;
-        await axios.post('/api/user/update-mints', {
-          walletAddress: publicKey.toBase58(),
-          actualCount: newActualTotal,
-          amountMinted: successCount
-        });
+      // --- AFTER SUCCESS ---
+      // Use the 'amount' variable here so the database matches the UI
+      await axios.post('/api/user/update-mints', {
+        walletAddress: publicKey.toBase58(),
+        actualCount: stats.personal + amount,
+        amountMinted: amount
+      });
 
-        try {
-          const rewardRes = await axios.post('/api/user/reward-nft', {
-            address: publicKey.toBase58(),
-            mintCount: successCount
-          });
-          if (rewardRes.data.success) {
-            alert(`🎉 SUCCESS! Minted ${successCount} NFT(s) and earned ${rewardRes.data.earned} LAAM!`);
-          }
-        } catch (rewardErr) {
-          console.error("Reward injection failed:", rewardErr);
-          alert(`Minted ${successCount} NFT(s), but points will be synced later.`);
-        }
-        fetchStatus();
-      }
+      const rewardRes = await axios.post('/api/user/reward-nft', {
+        address: publicKey.toBase58(),
+        mintCount: amount // Updated to use the actual amount minted
+      });
+
+      alert(`🎉 SUCCESS! Minted ${amount} NFT(s) and earned ${rewardRes.data.earned} LAAM!`);
+      fetchStatus();
+
     } catch (err: any) {
-      alert(err.message || "Mint process failed");
+      console.error("MINT_ERROR:", err);
+      alert(err.message || "Simulation failed. Ensure you have enough SOL for price + fees.");
     } finally {
       setLoading(false);
     }

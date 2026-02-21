@@ -118,27 +118,27 @@ export default function Collectable() {
             return;
         }
 
+        // 1. ASSET PREP (Mirroring your staking.tsx logic)
         setStatus(mode);
-
-        // USE THE CONNECTION FROM THE HOOK, NOT THE CONSTANT
-        const umi = createUmi(connection.rpcEndpoint)
-            .use(walletAdapterIdentity(wallet))
-            .use(mplToolbox())
-            .use(mplCandyMachine());
+        const loadId = toast.loading("Preparing Mint...");
 
         try {
-            const CM_PUBKEY = publicKey(CM_ID_STR);
-            const SKR_PUBKEY = publicKey(SKR_MINT_STR);
-            const T_ATA = publicKey(T_ATA_STR);
-            const T_WALLET = publicKey(T_WALLET_STR);
+            // Use hardcoded RPC like your other working pages should
+            const umi = createUmi(RPC_ENDPOINT)
+                .use(walletAdapterIdentity(wallet))
+                .use(mplToolbox())
+                .use(mplCandyMachine());
 
+            const CM_PUBKEY = publicKey(CM_ID_STR);
+
+            // Fetch CM data before building (Like you do in staking/shop)
             const candyMachine = await fetchCandyMachine(umi, CM_PUBKEY);
             const nftMint = generateSigner(umi);
 
-            // Build the base transaction
+            // 2. BUILD TRANSACTION WITH HIGH PRIORITY (Crucial for Mobile)
             let builder = transactionBuilder()
-                .add(setComputeUnitLimit(umi, { units: 800_000 }))
-                .add(setComputeUnitPrice(umi, { microLamports: 80_000 }))
+                .add(setComputeUnitLimit(umi, { units: 600_000 })) // Optimized limit
+                .add(setComputeUnitPrice(umi, { microLamports: 150_000 })) // Higher fee for mobile stability
                 .add(mintV2(umi, {
                     candyMachine: CM_PUBKEY,
                     candyGuard: candyMachine.mintAuthority,
@@ -148,13 +148,13 @@ export default function Collectable() {
                     group: some(mode),
                     mintArgs: {
                         tokenPayment: some({
-                            mint: SKR_PUBKEY,
-                            destinationAta: T_ATA
+                            mint: publicKey(SKR_MINT_STR),
+                            destinationAta: publicKey(T_ATA_STR)
                         }),
                     },
                 }));
 
-            // Inject the account (Keep this if your CM guard requires it)
+            // 3. INJECT ACCOUNT (Carefully)
             builder = builder.mapInstructions((wrapped) => {
                 if (wrapped.instruction.programId.toString() === "CMYK9869v7YzzZcnvW8at6u2pAbSiv7atvUeKAs9X6j") {
                     return {
@@ -163,8 +163,7 @@ export default function Collectable() {
                             ...wrapped.instruction,
                             keys: [
                                 ...wrapped.instruction.keys,
-                                // Ensure this is marked as writable for the token payment logic
-                                { pubkey: T_WALLET, isSigner: false, isWritable: true }
+                                { pubkey: publicKey(T_WALLET_STR), isSigner: false, isWritable: true }
                             ],
                         },
                     };
@@ -172,13 +171,17 @@ export default function Collectable() {
                 return wrapped;
             });
 
-            // Mobile browsers need a fresh signature request
+            toast.loading("Awaiting Wallet Signature...", { id: loadId });
+
+            // 4. SEND (This triggers the mobile handshake)
             const { signature } = await builder.sendAndConfirm(umi);
-            toast.success("MINT SUCCESSFUL!");
+
+            toast.success("MINT SUCCESSFUL!", { id: loadId });
 
         } catch (err: any) {
-            console.error("MINT_LOGS:", err);
-            toast.error("MINT FAILED: Check logs or $SKR balance.");
+            console.error("MINT_ERROR:", err);
+            // If simulation fails, it's usually because of the 'tokenPayment' or 'T_WALLET' account
+            toast.error("Mint Failed: Simulation Error", { id: loadId });
         } finally {
             setStatus('idle');
         }
