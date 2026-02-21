@@ -16,9 +16,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             where: { walletAddress },
             select: {
                 personalMinted: true,
+                warriorMinted: true,
                 hasAccess: true,
                 lastWarriorMint: true,
-                lastWarriorMintBatch: true // ADDED THIS: frontend needs this to calculate batch lock
+                lastWarriorMintBatch: true
             }
         });
 
@@ -31,7 +32,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             });
         }
 
-        const isWarrior = user.hasAccess || user.personalMinted > 0;
+        const isWarrior = user.hasAccess || (user.personalMinted > 0);
 
         return res.status(200).json({
             isWarrior,

@@ -15,6 +15,7 @@ model User {
   lastCheckIn        DateTime?
   streakCount        Int              @default(0)
   personalMinted     Int              @default(0)
+  warriorMinted Int      @default(0)
   lastWarriorMint    DateTime?
   lastWarriorMintBatch Int   @default(-1)
   tagTickets         Float              @default(0)

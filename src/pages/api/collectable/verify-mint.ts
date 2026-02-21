@@ -47,7 +47,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         // 5. Update DB
         const updateData: any = {
-            personalMinted: { increment: 1 },
+            warriorMinted: { increment: 1 },
         };
 
         if (mode === 'allow') {
