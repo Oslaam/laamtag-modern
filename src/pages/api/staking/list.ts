@@ -4,6 +4,7 @@ import prisma from '../../../lib/prisma';
 import axios from 'axios';
 
 const HELIUS_RPC = `https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3`;
+const CREATOR_ADDRESS = "DhMECuyiL61unsDLhGTrqxKLrUoTPtEd9SXamr9Xbeoz";
 const COLLECTION_IDS = [
     "Dtuj3q4a2LxqhgQa3sDeGWeRsohKk38s5XgyrkRR6FLc",
     "1a04e8d91d2cbed3d7114ade645e2dbf3d531e4657d2dbf57fd44c99a0cfa901"
@@ -38,11 +39,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
 
 
-        const walletItems = response.data.result.items.filter((item: any) =>
-            item.grouping?.some((g: any) =>
+        const walletItems = response.data.result.items.filter((item: any) => {
+            // Check 1: Is it in our Collection IDs?
+            const isInCollection = item.grouping?.some((g: any) =>
                 g.group_key === "collection" && COLLECTION_IDS.includes(g.group_value)
-            )
-        );
+            );
+
+            // Check 2: Was it made by our Candy Machine Creator?
+            const isFromOurCreator = item.creators?.some((c: any) =>
+                c.address === CREATOR_ADDRESS && c.verified === true
+            );
+
+            return isInCollection || isFromOurCreator;
+        });
 
         // 3. Fetch Staked Status from DB
         const dbStakes = await prisma.stakedNFT.findMany({
