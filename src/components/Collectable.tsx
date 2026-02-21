@@ -14,6 +14,7 @@ import {
     setComputeUnitPrice,
     mplToolbox
 } from '@metaplex-foundation/mpl-toolbox';
+import { base58 } from '@metaplex-foundation/umi/serializers';
 import { toast } from 'react-hot-toast';
 import styles from '../styles/Collectable.module.css';
 
@@ -113,32 +114,33 @@ export default function Collectable() {
     const handleMint = async (mode: 'allow' | 'public') => {
         if (!isMounted || !wallet.publicKey || !wallet.connected) return;
 
+        // 1. RULE CHECK (Handled by your Database/API logic)
         if (isLocked) {
             toast.error("BATCH_LOCKED: Wait for the next window.");
             return;
         }
+        if (mode === 'allow' && hasMintedWarriorThisBatch) {
+            toast.error("WARRIOR_LIMIT: 1 per batch allowed.");
+            return;
+        }
 
-        // 1. ASSET PREP (Mirroring your staking.tsx logic)
         setStatus(mode);
         const loadId = toast.loading("Preparing Mint...");
 
         try {
-            // Use hardcoded RPC like your other working pages should
             const umi = createUmi(RPC_ENDPOINT)
                 .use(walletAdapterIdentity(wallet))
                 .use(mplToolbox())
                 .use(mplCandyMachine());
 
             const CM_PUBKEY = publicKey(CM_ID_STR);
-
-            // Fetch CM data before building (Like you do in staking/shop)
             const candyMachine = await fetchCandyMachine(umi, CM_PUBKEY);
             const nftMint = generateSigner(umi);
 
-            // 2. BUILD TRANSACTION WITH HIGH PRIORITY (Crucial for Mobile)
+            // 2. BUILD THE TRANSACTION
             let builder = transactionBuilder()
-                .add(setComputeUnitLimit(umi, { units: 600_000 })) // Optimized limit
-                .add(setComputeUnitPrice(umi, { microLamports: 150_000 })) // Higher fee for mobile stability
+                .add(setComputeUnitLimit(umi, { units: 800_000 }))
+                .add(setComputeUnitPrice(umi, { microLamports: 150_000 }))
                 .add(mintV2(umi, {
                     candyMachine: CM_PUBKEY,
                     candyGuard: candyMachine.mintAuthority,
@@ -151,12 +153,14 @@ export default function Collectable() {
                             mint: publicKey(SKR_MINT_STR),
                             destinationAta: publicKey(T_ATA_STR)
                         }),
+                        // WE REMOVED mintLimit here because it's not in your config.json
                     },
                 }));
 
-            // 3. INJECT ACCOUNT (Carefully)
+            // 3. FIX ACCOUNT INJECTION (The "Instruction 4" fix)
             builder = builder.mapInstructions((wrapped) => {
-                if (wrapped.instruction.programId.toString() === "CMYK9869v7YzzZcnvW8at6u2pAbSiv7atvUeKAs9X6j") {
+                // This ID is the standard Candy Machine program ID
+                if (wrapped.instruction.programId.toString() === "CndyV3L7kwLE9Vq89U9B9KdeE77VBaK5DEn3Yf2KNoR") {
                     return {
                         ...wrapped,
                         instruction: {
@@ -171,17 +175,26 @@ export default function Collectable() {
                 return wrapped;
             });
 
-            toast.loading("Awaiting Wallet Signature...", { id: loadId });
-
-            // 4. SEND (This triggers the mobile handshake)
+            // 4. SIGN AND SEND
             const { signature } = await builder.sendAndConfirm(umi);
 
+            // 5. UPDATE DATABASE (This locks the user for the batch)
+            await fetch('/api/collectable/verify-mint', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    // Convert the Umi signature to a Base58 string properly
+                    signature: typeof signature === 'string' ? signature : base58.deserialize(signature)[0],
+                    walletAddress: wallet.publicKey.toBase58(),
+                    mode: mode
+                })
+            });
             toast.success("MINT SUCCESSFUL!", { id: loadId });
+            setTimeout(() => window.location.reload(), 2000);
 
         } catch (err: any) {
             console.error("MINT_ERROR:", err);
-            // If simulation fails, it's usually because of the 'tokenPayment' or 'T_WALLET' account
-            toast.error("Mint Failed: Simulation Error", { id: loadId });
+            toast.error("Transaction Failed. Check your $SKR balance.");
         } finally {
             setStatus('idle');
         }
