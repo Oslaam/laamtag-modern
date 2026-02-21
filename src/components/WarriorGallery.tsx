@@ -27,7 +27,8 @@ export default function WarriorGallery() {
             // SELF-HEALING LOGIC
             await axios.post('/api/user/update-mints', {
                 walletAddress: publicKey.toBase58(),
-                actualCount: nftArray.length
+                actualCount: nftArray.length,
+                type: 'warrior'
             });
         } catch (e) {
             console.error("Warrior Load Error:", e);
