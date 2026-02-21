@@ -23,35 +23,38 @@ async function runFlatAudit() {
         });
 
         const items = res.data.result.items;
-
-        // 2. Get the staking records from your database
         const dbStakes = await prisma.stakedNFT.findMany();
-        
-        // Map database records by Mint Address for quick lookup
         const stakeMap = new Map(dbStakes.map(s => [s.mintAddress, s.ownerAddress]));
 
         // 3. Build the flat list
-        const report = items.map((item: any) => {
+        let report = items.map((item: any) => {
             const currentOwner = item.ownership.owner;
             const mintAddress = item.id;
-            
-            // The "Original Minter" is the ownerAddress stored in your DB for that NFT
-            // If it's not in the DB, the current owner is the only owner we know.
             const originalOwner = stakeMap.get(mintAddress) || currentOwner;
-            
-            // Check if it's currently sitting in the Treasury Vault
             const isVaulted = currentOwner === TREASURY_VAULT ? "YES (In Vault)" : "NO (In User Wallet)";
 
             return {
+                "Original Minter (User)": originalOwner, // Moved to first column for better visibility
                 "NFT Mint Address": mintAddress,
-                "Original Minter (User)": originalOwner,
                 "Is in Treasury Vault?": isVaulted,
                 "Current On-Chain Owner": currentOwner
             };
         });
 
+        // --- NEW: SORTING LOGIC ---
+        // This sorts the report by the "Original Minter (User)" string
+        report.sort((a, b) => {
+            const ownerA = a["Original Minter (User)"].toLowerCase();
+            const ownerB = b["Original Minter (User)"].toLowerCase();
+            if (ownerA < ownerB) return -1;
+            if (ownerA > ownerB) return 1;
+            return 0;
+        });
+        // --------------------------
+
         console.log("\n====================================================================================================");
-        console.log(`                          LAAMTAG NFT-BY-NFT STATUS REPORT (${items.length} Items)`);
+        console.log(`                LAAMTAG NFT-BY-NFT STATUS REPORT (${items.length} Items)`);
+        console.log("                (Sorted by Original Minter)");
         console.log("====================================================================================================");
 
         console.table(report);
@@ -64,7 +67,6 @@ async function runFlatAudit() {
 }
 
 runFlatAudit();
-
 // npx ts-node audit-collection.ts
 
 //  cd "C:\Users\User\Desktop\The Scaffold\laamtag-modern"
