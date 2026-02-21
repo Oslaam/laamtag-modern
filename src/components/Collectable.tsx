@@ -176,7 +176,15 @@ export default function Collectable() {
             });
 
             // 4. SIGN AND SEND
-            const { signature } = await builder.sendAndConfirm(umi);
+            const { signature } = await builder.sendAndConfirm(umi, {
+                send: {
+                    skipPreflight: true,
+                    maxRetries: 3,
+                },
+                confirm: {
+                    commitment: 'confirmed',
+                }
+            });
 
             // 5. UPDATE DATABASE (This locks the user for the batch)
             await fetch('/api/collectable/verify-mint', {
@@ -194,7 +202,7 @@ export default function Collectable() {
 
         } catch (err: any) {
             console.error("MINT_ERROR:", err);
-            toast.error("Transaction Failed. Check your $SKR balance.");
+            toast.error("Transaction Failed. Check your $SKR balance.", { id: loadId });
         } finally {
             setStatus('idle');
         }
