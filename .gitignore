@@ -24,3 +24,6 @@ yarn-error.log*
 authority.json
 
 *.json
+
+script-*.js
+script
