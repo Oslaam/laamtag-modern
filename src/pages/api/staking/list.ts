@@ -4,7 +4,10 @@ import prisma from '../../../lib/prisma';
 import axios from 'axios';
 
 const HELIUS_RPC = `https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3`;
-const MY_COLLECTION_ID = "Dtuj3q4a2LxqhgQa3sDeGWeRsohKk38s5XgyrkRR6FLc";
+const COLLECTION_IDS = [
+    "Dtuj3q4a2LxqhgQa3sDeGWeRsohKk38s5XgyrkRR6FLc",
+    "1a04e8d91d2cbed3d7114ade645e2dbf3d531e4657d2dbf57fd44c99a0cfa901"
+];
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { address } = req.query;
@@ -33,8 +36,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             },
         });
 
+
+
         const walletItems = response.data.result.items.filter((item: any) =>
-            item.grouping?.some((g: any) => g.group_key === "collection" && g.group_value === MY_COLLECTION_ID)
+            item.grouping?.some((g: any) =>
+                g.group_key === "collection" && COLLECTION_IDS.includes(g.group_value)
+            )
         );
 
         // 3. Fetch Staked Status from DB
