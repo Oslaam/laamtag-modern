@@ -170,13 +170,12 @@ export default function NftGallery() {
             setRawStakes(res.data.rawStakes);
 
             // --- NEW SELF-HEALING LOGIC ---
-            // This automatically fixes the "4 instead of 2" error in the database
+            // explicitly targets personalMinted only
             await axios.post('/api/user/update-mints', {
                 walletAddress: publicKey.toString(),
-                actualCount: nftArray.length // The actual number of NFTs in the wallet
+                actualCount: nftArray.length,
+                type: 'genesis'
             });
-            // ------------------------------
-
         } catch (e) {
             console.error("Gallery Load Error:", e);
         } finally {
