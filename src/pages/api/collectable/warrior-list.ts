@@ -15,62 +15,62 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!address) return res.status(400).json({ error: "Wallet address required" });
 
     try {
-        console.log(`--- FETCHING WARRIORS FOR: ${address} ---`);
+        console.log(`--- SEARCHING WARRIORS FOR: ${address} ---`);
 
         const response = await fetch(HELIUS_RPC, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 jsonrpc: '2.0',
-                id: 'warrior-fetch',
-                method: 'getAssetsByOwner',
+                id: 'warrior-search',
+                method: 'searchAssets',
                 params: {
                     ownerAddress: address,
+                    tokenType: "all",
+                    grouping: ["collection", WARRIOR_COLLECTION],
                     page: 1,
                     limit: 100,
-                    displayOptions: { showFungible: false }
+                    options: {
+                        showCollectionMetadata: true,
+                    }
                 }
             })
         });
 
         const data = await response.json();
         const items = data?.result?.items || [];
-        const target = WARRIOR_COLLECTION.toLowerCase();
 
-        const filtered = items.filter((asset: any) => {
-            const grouping = asset.grouping?.find((g: any) => g.group_key === 'collection');
-            return grouping?.group_value?.toLowerCase() === target;
-        });
+        // No more manual filtering needed! Helius only returned what we asked for.
 
-        // Fetch off-chain metadata for each warrior to get the real image
-        const warriorNfts = await Promise.all(filtered.map(async (asset: any) => {
+        const warriorNfts = await Promise.all(items.map(async (asset: any) => {
             const name = asset.content?.metadata?.name || "Neural Warrior";
 
-            // Try standard fields first
+            // Check links.image, then files array, then fall back to an empty string
             let rawImage = asset.content?.links?.image || asset.content?.files?.[0]?.uri || "";
 
-            // If empty, fetch the metadata URI directly
-            if (!rawImage) {
-                const jsonUri = asset.content?.json_uri;
-                if (jsonUri) {
-                    try {
-                        const metaRes = await fetch(formatIpfsUrl(jsonUri));
-                        const meta = await metaRes.json();
-                        rawImage = meta?.image || "";
-                    } catch (e) {
-                        console.log(`Failed to fetch metadata for ${name}`);
-                    }
+            // If the image is missing from the main response, try fetching the JSON metadata
+            if (!rawImage && asset.content?.json_uri) {
+                try {
+                    const metaRes = await fetch(formatIpfsUrl(asset.content.json_uri));
+                    const meta = await metaRes.json();
+                    rawImage = meta?.image || "";
+                } catch (e) {
+                    console.log(`Metadata fetch failed for ${name}`);
                 }
             }
-            const image = formatIpfsUrl(rawImage);
-            return { mint: asset.id, name, image };
+
+            return {
+                mint: asset.id,
+                name,
+                image: formatIpfsUrl(rawImage)
+            };
         }));
 
-        console.log(`Successfully matched ${warriorNfts.length} Warriors.`);
+        console.log(`Found ${warriorNfts.length} Warriors for this wallet.`);
         return res.status(200).json({ nfts: warriorNfts });
 
     } catch (error: any) {
-        console.error("API ERROR:", error.message);
-        return res.status(200).json({ nfts: [], error: error.message });
+        console.error("Warrior API ERROR:", error.message);
+        return res.status(500).json({ nfts: [], error: error.message });
     }
 }

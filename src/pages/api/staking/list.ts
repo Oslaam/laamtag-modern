@@ -1,22 +1,15 @@
-// src/pages/api/staking/list.ts
 import { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '../../../lib/prisma';
 import axios from 'axios';
 
 const HELIUS_RPC = `https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3`;
 const CREATOR_ADDRESS = "DhMECuyiL61unsDLhGTrqxKLrUoTPtEd9SXamr9Xbeoz";
-const COLLECTION_IDS = [
-    "Dtuj3q4a2LxqhgQa3sDeGWeRsohKk38s5XgyrkRR6FLc",
-    "1a04e8d91d2cbed3d7114ade645e2dbf3d531e4657d2dbf57fd44c99a0cfa901"
-];
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { address } = req.query;
-
     if (!address) return res.status(400).json({ error: "Address required" });
 
     try {
-        // 1. Fetch active boosts first
         const activeBoosts = await prisma.multiplierBoost.findMany({
             where: {
                 userAddress: address as string,
@@ -24,72 +17,60 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             }
         });
 
-        // 2. Fetch Assets from Helius
+        // 2. Fetch Assets using SEARCH (Best for big wallets)
         const response = await axios.post(HELIUS_RPC, {
             jsonrpc: "2.0",
-            id: "my-id",
-            method: "getAssetsByOwner",
+            id: "staking-search",
+            method: "searchAssets",
             params: {
                 ownerAddress: address,
+                tokenType: "all",
+                // Use the primary Collection ID here
+                grouping: ["collection", "Dtuj3q4a2LxqhgQa3sDeGWeRsohKk38s5XgyrkRR6FLc"],
                 page: 1,
-                limit: 100,
-                displayOptions: { showCollectionMetadata: true }
+                limit: 1000,
+                options: { showCollectionMetadata: true }
             },
         });
 
+        // Helius filtered it for us, so everything here belongs to you
+        const walletItems = response.data.result.items || [];
 
-
-        const walletItems = response.data.result.items.filter((item: any) => {
-            // Check 1: Is it in our Collection IDs?
-            const isInCollection = item.grouping?.some((g: any) =>
-                g.group_key === "collection" && COLLECTION_IDS.includes(g.group_value)
-            );
-
-            // Check 2: Was it made by our Candy Machine Creator?
-            const isFromOurCreator = item.creators?.some((c: any) =>
-                c.address === CREATOR_ADDRESS && c.verified === true
-            );
-
-            return isInCollection || isFromOurCreator;
-        });
-
-        // 3. Fetch Staked Status from DB
         const dbStakes = await prisma.stakedNFT.findMany({
             where: { ownerAddress: address as string }
         });
 
         const vaultedMints = dbStakes.map(s => s.mintAddress);
         let vaultedItems = [];
+
         if (vaultedMints.length > 0) {
             const vaultResponse = await axios.post(HELIUS_RPC, {
                 jsonrpc: "2.0",
-                id: "my-id",
+                id: "vault-fetch",
                 method: "getAssetBatch",
                 params: { ids: vaultedMints },
             });
-            vaultedItems = vaultResponse.data.result;
+            vaultedItems = vaultResponse.data.result || [];
         }
 
-        // 4. Format the output
         const formattedWalletNfts = walletItems.map((nft: any) => ({
             mint: nft.id,
-            name: nft.content.metadata.name,
-            image: nft.content.links.image,
+            name: nft.content?.metadata?.name || "Neural Warrior",
+            image: nft.content?.links?.image || "",
             staked: false
         }));
 
         const formattedVaultNfts = vaultedItems.map((nft: any) => ({
             mint: nft.id,
-            name: nft.content.metadata.name,
-            image: nft.content.links.image,
+            name: nft.content?.metadata?.name || "Neural Warrior",
+            image: nft.content?.links?.image || "",
             staked: true
         }));
 
-        // 5. Single Return Point
         return res.status(200).json({
             nfts: [...formattedWalletNfts, ...formattedVaultNfts],
             rawStakes: dbStakes,
-            activeBoosts: activeBoosts // Now the UI knows which NFT has a boost
+            activeBoosts: activeBoosts
         });
 
     } catch (error) {
