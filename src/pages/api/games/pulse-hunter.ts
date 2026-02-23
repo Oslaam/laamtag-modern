@@ -5,7 +5,7 @@ import { Connection } from '@solana/web3.js';
 const RPC_URL = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
 const SKR_MINT = "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3";
 const TREASURY = "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc";
-const UNLOCK_AMOUNT = 200_000_000; // 200 SKR in raw units
+const UNLOCK_AMOUNT = 300_000_000;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     // ─── GET: Load game state ───────────────────────────────────────────────────
@@ -62,7 +62,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 return res.status(200).json({ success: true, message: "Recovered from previous attempt" });
             }
 
-            // ── Verify on-chain ──────────────────────────────────────────────────
+            // Verify on-chain
             const connection = new Connection(RPC_URL, {
                 commitment: 'confirmed',
                 confirmTransactionInitialTimeout: 60000,
@@ -70,7 +70,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             });
 
             let tx: any = null;
-            // Retry up to 5 times — mobile networks can delay tx propagation
             for (let attempt = 0; attempt < 5; attempt++) {
                 try {
                     tx = await connection.getParsedTransaction(signature, {
@@ -98,7 +97,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 });
             }
 
-            // ── Verify the correct amount went to TREASURY ───────────────────────
             let verified = false;
             try {
                 const preBalances = tx.meta?.preTokenBalances ?? [];
@@ -119,7 +117,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 }
             } catch (parseErr) {
                 console.error("Balance parse error:", parseErr);
-                // If parsing fails but tx is confirmed with no error, allow it
                 verified = !tx.meta?.err;
             }
 
@@ -130,13 +127,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 });
             }
 
-            // ── Unlock user and record signature ─────────────────────────────────
             await prisma.user.update({
                 where: { walletAddress },
                 data: { hasPulseHunterUnlocked: true }
             });
 
-            // Try to record the signature (requires UsedSignature model in schema)
+            await prisma.activity.create({
+                data: {
+                    userId: walletAddress,
+                    type: 'PULSE_HUNTER_UNLOCK',
+                    asset: 'SKR',
+                    amount: -300,               
+                    signature: signature,
+                    createdAt: new Date()
+                }
+            });
+
             try {
                 await (prisma as any).usedSignature.create({
                     data: {
@@ -153,7 +159,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             return res.status(200).json({ success: true });
         }
 
-        // ─── GUESS ACTION ───────────────────────────────────────────────────────
+        // GUESS ACTION
         if (action === 'guess') {
             let game = await prisma.pulseHunterGame.findUnique({ where: { userId: walletAddress } });
 

@@ -40,7 +40,7 @@ export default function PulseHunter({ user, onUpdateUser }) {
         return "SIGNAL LOST";
     };
 
-    // ─── On mount: check localStorage for a pending unlock ──────────────────────
+    // On mount: check localStorage for a pending unlock 
     useEffect(() => {
         if (!publicKey || user.hasPulseHunterUnlocked) return;
         try {
@@ -63,7 +63,7 @@ export default function PulseHunter({ user, onUpdateUser }) {
         }
     }, [publicKey, user.hasPulseHunterUnlocked]);
 
-    // ─── Silent auto-retry on mount ─────────────────────────────────────────────
+    // Silent auto-retry on mount
     const autoRetryUnlock = async (sig: string, walletAddr: string) => {
         setUnlockStatus("RECOVERING PREVIOUS SESSION...");
         try {
@@ -121,7 +121,7 @@ export default function PulseHunter({ user, onUpdateUser }) {
         }
     }, [pendingSignature, publicKey, user, onUpdateUser]);
 
-    // ─── Fetch initial game state ────────────────────────────────────────────────
+    // Fetch initial game state
     useEffect(() => {
         if (!publicKey) return;
         const fetchGameState = async () => {
@@ -142,7 +142,7 @@ export default function PulseHunter({ user, onUpdateUser }) {
         fetchGameState();
     }, [publicKey]);
 
-    // ─── 2-Hour Countdown Timer ──────────────────────────────────────────────────
+    // 2-Hour Countdown Timer
     useEffect(() => {
         if (!isLocked || !lastAttemptTimestamp) return;
         const interval = setInterval(() => {
@@ -164,7 +164,7 @@ export default function PulseHunter({ user, onUpdateUser }) {
         return () => clearInterval(interval);
     }, [isLocked, lastAttemptTimestamp]);
 
-    // ─── Handle Guess ────────────────────────────────────────────────────────────
+    //  Handle Guess
     const handleGuess = useCallback(async () => {
         const numGuess = parseInt(guess);
         if (!guess || isNaN(numGuess) || numGuess < 1 || numGuess > 100 || loading || isLocked) {
@@ -198,7 +198,7 @@ export default function PulseHunter({ user, onUpdateUser }) {
         finally { setLoading(false); }
     }, [guess, loading, isLocked, user.walletAddress]);
 
-    // ─── Handle Unlock ───────────────────────────────────────────────────────────
+    // Handle Unlock
     const handleUnlock = useCallback(async () => {
         if (!wallet.publicKey || !wallet.wallet) {
             toast.error("WALLET NOT CONNECTED");
@@ -222,7 +222,7 @@ export default function PulseHunter({ user, onUpdateUser }) {
             setUnlockStatus("AWAITING WALLET APPROVAL...");
 
             const result = await setComputeUnitPrice(umi, { microLamports: 50000 })
-                .add(transferTokens(umi, { source, destination, authority: umi.identity, amount: BigInt(200_000_000) }))
+                .add(transferTokens(umi, { source, destination, authority: umi.identity, amount: BigInt(300_000_000) }))
                 .sendAndConfirm(umi, { confirm: { commitment: 'confirmed' } });
 
             const sig = base58.deserialize(result.signature)[0];
