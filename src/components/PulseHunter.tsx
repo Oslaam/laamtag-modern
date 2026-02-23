@@ -14,21 +14,25 @@ import {
 import { base58 } from "@metaplex-foundation/umi/serializers";
 import toast from 'react-hot-toast';
 import { publicKey as umiPk } from '@metaplex-foundation/umi';
-import { Radio, XCircle, Zap, Loader2, Target, TrendingUp, TrendingDown } from 'lucide-react';
+import { Radio, XCircle, Zap, Loader2, Target, TrendingUp, TrendingDown, RefreshCw } from 'lucide-react';
+
+const STORAGE_KEY = 'pendingUnlock_pulseHunter';
 
 export default function PulseHunter({ user, onUpdateUser }) {
     const { publicKey } = useWallet();
     const wallet = useWallet();
 
     const [loading, setLoading] = useState(false);
+    const [recovering, setRecovering] = useState(false);
     const [guess, setGuess] = useState('');
     const [message, setMessage] = useState('INITIATE SIGNAL SCAN...');
     const [attempts, setAttempts] = useState(0);
     const [isLocked, setIsLocked] = useState(false);
     const [lockoutTimer, setLockoutTimer] = useState<string | null>(null);
     const [lastAttemptTimestamp, setLastAttemptTimestamp] = useState<number | null>(null);
+    const [pendingSignature, setPendingSignature] = useState<string | null>(null);
+    const [unlockStatus, setUnlockStatus] = useState<string>('');
 
-    // Secure Instruction Logic
     const getInstructionMessage = (currentAttempts: number) => {
         if (currentAttempts === 0) return "PICK A NUMBER (1-100) TO WIN 1,000 $SKR";
         if (currentAttempts === 1) return "TRY AGAIN (1-100) FOR 500 $SKR";
@@ -36,7 +40,88 @@ export default function PulseHunter({ user, onUpdateUser }) {
         return "SIGNAL LOST";
     };
 
-    // Fetch initial state
+    // ─── On mount: check localStorage for a pending unlock ──────────────────────
+    useEffect(() => {
+        if (!publicKey || user.hasPulseHunterUnlocked) return;
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) return;
+            const { signature, walletAddress, timestamp } = JSON.parse(raw);
+
+            // Expire after 2 hours
+            if (Date.now() - timestamp > 2 * 60 * 60 * 1000) {
+                localStorage.removeItem(STORAGE_KEY);
+                return;
+            }
+            // Only recover for the same wallet
+            if (walletAddress !== publicKey.toString()) return;
+
+            setPendingSignature(signature);
+            autoRetryUnlock(signature, walletAddress);
+        } catch (_) {
+            localStorage.removeItem(STORAGE_KEY);
+        }
+    }, [publicKey, user.hasPulseHunterUnlocked]);
+
+    // ─── Silent auto-retry on mount ─────────────────────────────────────────────
+    const autoRetryUnlock = async (sig: string, walletAddr: string) => {
+        setUnlockStatus("RECOVERING PREVIOUS SESSION...");
+        try {
+            const res = await fetch('/api/games/pulse-hunter', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ walletAddress: walletAddr, action: 'unlock', signature: sig })
+            });
+            const data = await res.json();
+            if (data.success) {
+                localStorage.removeItem(STORAGE_KEY);
+                setPendingSignature(null);
+                setUnlockStatus('');
+                onUpdateUser({ ...user, hasPulseHunterUnlocked: true });
+                toast.success("SIGNAL UNLOCKED (RECOVERED)");
+            } else {
+                setUnlockStatus("AUTO-RECOVER FAILED. USE RECOVER BUTTON BELOW.");
+            }
+        } catch (_) {
+            setUnlockStatus("AUTO-RECOVER FAILED. USE RECOVER BUTTON BELOW.");
+        }
+    };
+
+    // ─── Manual recover button handler ──────────────────────────────────────────
+    const handleRecover = useCallback(async () => {
+        if (!pendingSignature || !publicKey) return;
+        setRecovering(true);
+        setUnlockStatus("VERIFYING SIGNAL ON-CHAIN...");
+        try {
+            const res = await fetch('/api/games/pulse-hunter', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    walletAddress: publicKey.toString(),
+                    action: 'unlock',
+                    signature: pendingSignature
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                localStorage.removeItem(STORAGE_KEY);
+                setPendingSignature(null);
+                setUnlockStatus('');
+                onUpdateUser({ ...user, hasPulseHunterUnlocked: true });
+                toast.success("SIGNAL UNLOCKED");
+            } else {
+                setUnlockStatus(data.error || "RECOVERY FAILED. TRY AGAIN.");
+                toast.error(data.error || "RECOVERY FAILED");
+            }
+        } catch (err) {
+            setUnlockStatus("NETWORK ERROR. CHECK CONNECTION AND RETRY.");
+            toast.error("NETWORK ERROR");
+        } finally {
+            setRecovering(false);
+        }
+    }, [pendingSignature, publicKey, user, onUpdateUser]);
+
+    // ─── Fetch initial game state ────────────────────────────────────────────────
     useEffect(() => {
         if (!publicKey) return;
         const fetchGameState = async () => {
@@ -48,7 +133,7 @@ export default function PulseHunter({ user, onUpdateUser }) {
                     if (data.lastAttempt) {
                         const timestamp = new Date(data.lastAttempt).getTime();
                         setLastAttemptTimestamp(timestamp);
-                        const cooldownEnd = timestamp + (2 * 60 * 60 * 1000); // 2 Hours
+                        const cooldownEnd = timestamp + (2 * 60 * 60 * 1000);
                         setIsLocked(Date.now() < cooldownEnd && data.isLocked);
                     }
                 }
@@ -57,13 +142,12 @@ export default function PulseHunter({ user, onUpdateUser }) {
         fetchGameState();
     }, [publicKey]);
 
-    // 2-Hour Countdown Timer
+    // ─── 2-Hour Countdown Timer ──────────────────────────────────────────────────
     useEffect(() => {
         if (!isLocked || !lastAttemptTimestamp) return;
         const interval = setInterval(() => {
-            const cooldownEnd = lastAttemptTimestamp + (2 * 60 * 60 * 1000); // 2 Hours
+            const cooldownEnd = lastAttemptTimestamp + (2 * 60 * 60 * 1000);
             const diff = cooldownEnd - Date.now();
-
             if (diff <= 0) {
                 setIsLocked(false);
                 setLockoutTimer(null);
@@ -80,13 +164,13 @@ export default function PulseHunter({ user, onUpdateUser }) {
         return () => clearInterval(interval);
     }, [isLocked, lastAttemptTimestamp]);
 
+    // ─── Handle Guess ────────────────────────────────────────────────────────────
     const handleGuess = useCallback(async () => {
         const numGuess = parseInt(guess);
         if (!guess || isNaN(numGuess) || numGuess < 1 || numGuess > 100 || loading || isLocked) {
             toast.error("ENTER A NUMBER BETWEEN 1-100");
             return;
         }
-
         setLoading(true);
         try {
             const res = await fetch('/api/games/pulse-hunter', {
@@ -95,7 +179,6 @@ export default function PulseHunter({ user, onUpdateUser }) {
                 body: JSON.stringify({ walletAddress: user.walletAddress, action: 'guess', userGuess: guess })
             });
             const data = await res.json();
-
             if (data.win) {
                 setMessage(`JACKPOT! SIGNAL MATCHED ON ATTEMPT ${data.attemptUsed}. +${data.prize} $SKR`);
                 setIsLocked(true);
@@ -115,44 +198,77 @@ export default function PulseHunter({ user, onUpdateUser }) {
         finally { setLoading(false); }
     }, [guess, loading, isLocked, user.walletAddress]);
 
-    // ... handleUnlock logic remains same as your original provided code ...
+    // ─── Handle Unlock ───────────────────────────────────────────────────────────
     const handleUnlock = useCallback(async () => {
         if (!wallet.publicKey || !wallet.wallet) {
             toast.error("WALLET NOT CONNECTED");
             return;
         }
         setLoading(true);
+        setUnlockStatus("INITIATING PAYMENT...");
         const RPC_URL = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
 
         try {
-            const umi = createUmi(RPC_URL).use(walletAdapterIdentity(wallet.wallet.adapter as any)).use(mplToolbox());
+            const umi = createUmi(RPC_URL)
+                .use(walletAdapterIdentity(wallet.wallet.adapter as any))
+                .use(mplToolbox());
+
             const SKR_MINT_UMI = umiPk("SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3");
             const TREASURY_UMI = umiPk("CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc");
 
             const source = findAssociatedTokenPda(umi, { mint: SKR_MINT_UMI, owner: umiPk(wallet.publicKey.toBase58()) })[0];
             const destination = findAssociatedTokenPda(umi, { mint: SKR_MINT_UMI, owner: TREASURY_UMI })[0];
 
+            setUnlockStatus("AWAITING WALLET APPROVAL...");
+
             const result = await setComputeUnitPrice(umi, { microLamports: 50000 })
                 .add(transferTokens(umi, { source, destination, authority: umi.identity, amount: BigInt(200_000_000) }))
                 .sendAndConfirm(umi, { confirm: { commitment: 'confirmed' } });
 
-            const signature = base58.deserialize(result.signature)[0];
+            const sig = base58.deserialize(result.signature)[0];
+
+            // ── Save to localStorage IMMEDIATELY after on-chain confirm ──
+            // This is the critical safety net for mobile connection drops
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                signature: sig,
+                walletAddress: wallet.publicKey.toString(),
+                timestamp: Date.now()
+            }));
+            setPendingSignature(sig);
+
+            setUnlockStatus("PAYMENT CONFIRMED. ACTIVATING...");
+
             const res = await fetch('/api/games/pulse-hunter', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ walletAddress: user.walletAddress, action: 'unlock', signature: signature })
+                body: JSON.stringify({ walletAddress: user.walletAddress, action: 'unlock', signature: sig })
             });
 
             const data = await res.json();
             if (data.success) {
+                localStorage.removeItem(STORAGE_KEY);
+                setPendingSignature(null);
+                setUnlockStatus('');
                 onUpdateUser({ ...user, hasPulseHunterUnlocked: true });
                 toast.success("SIGNAL UNLOCKED");
+            } else {
+                setUnlockStatus("ACTIVATION FAILED. YOUR PAYMENT IS SAFE — USE RECOVER BUTTON.");
+                toast.error("ACTIVATION FAILED — USE RECOVER BUTTON");
             }
-        } catch (err) {
-            toast.error("DECRYPTION FAILED");
-        } finally { setLoading(false); }
-    }, [wallet, user, onUpdateUser]);
+        } catch (err: any) {
+            if (pendingSignature) {
+                setUnlockStatus("CONNECTION DROPPED. YOUR PAYMENT IS SAFE — USE RECOVER BUTTON BELOW.");
+                toast.error("CONNECTION DROPPED. USE RECOVER BUTTON.");
+            } else {
+                setUnlockStatus('');
+                toast.error("DECRYPTION FAILED");
+            }
+        } finally {
+            setLoading(false);
+        }
+    }, [wallet, user, onUpdateUser, pendingSignature]);
 
+    // ─── PRE-UNLOCK SCREEN ───────────────────────────────────────────────────────
     if (!user.hasPulseHunterUnlocked) {
         return (
             <div className={styles.container}>
@@ -160,14 +276,40 @@ export default function PulseHunter({ user, onUpdateUser }) {
                     <Zap color="#eab308" className={styles.pulseIcon} />
                     <h2 className={styles.glitchText}>PULSE HUNTER</h2>
                     <p className={styles.dimText}>ENCRYPTED SIGNAL DETECTED</p>
-                    <button onClick={handleUnlock} className={styles.unlockButton}>
-                        {loading ? <Loader2 className="animate-spin" /> : "DECRYPT ACCESS (200 $SKR)"}
+
+                    {unlockStatus && (
+                        <p className={styles.statusMsg}>{unlockStatus}</p>
+                    )}
+
+                    {pendingSignature && !loading && (
+                        <button
+                            onClick={handleRecover}
+                            className={styles.recoverButton}
+                            disabled={recovering}
+                        >
+                            {recovering
+                                ? <><Loader2 className="animate-spin" size={14} style={{ display: 'inline' }} /> RECOVERING...</>
+                                : <><RefreshCw size={14} style={{ display: 'inline', marginRight: 6 }} /> RECOVER ACCESS (TX ALREADY SENT)</>
+                            }
+                        </button>
+                    )}
+
+                    <button
+                        onClick={handleUnlock}
+                        className={styles.unlockButton}
+                        disabled={loading || recovering}
+                    >
+                        {loading
+                            ? <><Loader2 className="animate-spin" size={14} style={{ display: 'inline' }} /> PROCESSING...</>
+                            : "DECRYPT ACCESS (200 $SKR)"
+                        }
                     </button>
                 </div>
             </div>
         );
     }
 
+    // ─── GAME SCREEN ─────────────────────────────────────────────────────────────
     return (
         <div className={styles.container}>
             <div className={styles.header}>
