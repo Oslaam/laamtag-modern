@@ -264,3 +264,11 @@ model GameInvite {
   status      String   @default("PENDING") // PENDING, ACCEPTED, DECLINED
   createdAt   DateTime @default(now())
 }
+
+model UsedSignature {
+  id        String   @id @default(cuid())
+  signature String   @unique
+  userId    String
+  purpose   String
+  createdAt DateTime @default(now())
+}
