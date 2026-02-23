@@ -35,6 +35,7 @@ model User {
   currentStage       Int              @default(1)
   hasPaidDiceEntry   Boolean          @default(false)
   hasResistanceUnlocked Boolean       @default(false)
+  hasPulseHunterUnlocked Boolean @default(false)
   boosts             MultiplierBoost[]
   lastLaamCheckIn DateTime?
   lastTagCheckIn  DateTime?
@@ -142,6 +143,16 @@ model GuessGame {
   isLocked      Boolean  @default(false)
   pendingPoints Int      @default(0)
   currentTarget Int?
+}
+
+model PulseHunterGame {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  lastAttempt    DateTime @default(now())
+  attempts       Int      @default(0)
+  isLocked       Boolean  @default(false)
+  pendingSkr     Float    @default(0)
+  currentTarget  Int?
 }
 
 enum QuestStatus {

@@ -17,15 +17,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             take: 100 // Higher take to calculate streak accurately
         });
 
-        // 1. Calculate Today's LAAM Earnings
+        // 1. Calculate Today's Earnings (LAAM + SKR)
         const todayEarned = history
             .filter(item =>
                 new Date(item.createdAt) >= startOfToday &&
-                item.asset === 'LAAM' &&
+                (item.asset === 'LAAM' || item.asset === 'SKR') &&
                 item.amount > 0
             )
             .reduce((sum, item) => sum + item.amount, 0);
-
         // 2. Calculate Earning Streak (Consecutive days with a Reward/Win)
         let streak = 0;
         const earningDates = new Set(

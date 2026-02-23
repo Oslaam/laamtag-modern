@@ -9,7 +9,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const rewards = await prisma.pendingReward.findMany({
             where: {
                 userId: address as string,
-                isClaimed: false // ONLY fetch unclaimed rewards
+                isClaimed: false
+            },
+            orderBy: {
+                createdAt: 'desc'
             }
         });
         return res.status(200).json({ rewards });

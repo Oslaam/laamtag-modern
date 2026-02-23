@@ -41,7 +41,12 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
             }
 
             if (activeFilter === 'WINS') {
-                return item.type.includes('WIN') || item.type.includes('REWARD');
+                return (
+                    item.type.includes('WIN') ||
+                    item.type.includes('REWARD') ||
+                    item.type.includes('GAME') ||
+                    item.type.includes('HUNTER')
+                );
             }
 
             if (activeFilter === 'STAKING') return item.type.includes('STAKING');
@@ -139,11 +144,30 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
                                 </h3>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                     {groupedHistory[date].map((item: any) => {
+                                        // 1. Define the logic checks
                                         const isCost = item.type.includes('COST') || item.type.includes('FEE') || item.type.includes('LOSS') || item.type.includes('ENTRY') || item.amount < 0;
-                                        const isRecruit = item.type.includes('RECRUIT'); // Check for Recruit Reward
+                                        const isRecruit = item.type.includes('RECRUIT');
+                                        const isGameWin = item.type.includes('GAME') || item.type.includes('HUNTER');
 
-                                        const themeColor = isCost ? '#ef4444' : (isRecruit ? '#8b5cf6' : '#22c55e'); // Purple for Recruit
-                                        const bgColor = isCost ? 'rgba(239, 68, 68, 0.1)' : (isRecruit ? 'rgba(139, 92, 246, 0.1)' : 'rgba(34, 197, 94, 0.1)');
+                                        // 2. Set the colors (Red for costs, Purple for recruits, Gold for game/SKR wins, Green for the rest)
+                                        const themeColor = isCost
+                                            ? '#ef4444'
+                                            : isRecruit
+                                                ? '#8b5cf6'
+                                                : (isGameWin || item.asset === 'SKR')
+                                                    ? '#eab308'
+                                                    : '#22c55e';
+
+                                        // 3. Set the background transparency to match the theme color
+                                        const bgColor = isCost
+                                            ? 'rgba(239, 68, 68, 0.1)'
+                                            : isRecruit
+                                                ? 'rgba(139, 92, 246, 0.1)'
+                                                : (isGameWin || item.asset === 'SKR')
+                                                    ? 'rgba(234, 179, 8, 0.1)'
+                                                    : 'rgba(34, 197, 94, 0.1)';
+
+                                        // 4. Format the number display
                                         const displayAmount = isCost ? `-${Math.abs(item.amount)}` : `+${Math.abs(item.amount)}`;
 
                                         return (

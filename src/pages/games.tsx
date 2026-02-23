@@ -4,7 +4,11 @@ import GuessGameComponent from '../components/GuessGame';
 import SpinGame from '../components/SpinGame';
 import DiceTerminal from '../components/DiceTerminal';
 import RaffleLobby from '../components/RaffleLobby';
-const Collectable = dynamic(() => import('../components/Collectable'), { 
+
+const PulseHunter = dynamic(() => import('../components/PulseHunter'), {
+    ssr: false
+});
+const Collectable = dynamic(() => import('../components/Collectable'), {
     ssr: false
 });
 
@@ -38,7 +42,7 @@ const getRankStyle = (points: number) => {
 };
 
 export default function GamesPage() {
-    const [activeGame, setActiveGame] = useState<'GUESS' | 'SPIN' | 'SHOOTER' | 'DICE' | 'RAFFLE' | 'RESISTANCE' | 'COLLECTABLE' | null>(null);
+    const [activeGame, setActiveGame] = useState<'GUESS' | 'SPIN' | 'SHOOTER' | 'DICE' | 'RAFFLE' | 'PULSE' | 'RESISTANCE' | 'COLLECTABLE' | null>(null);
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [user, setUser] = useState<any>(null);
     const [discoveredUsers, setDiscoveredUsers] = useState<any[]>([]);
@@ -177,6 +181,7 @@ export default function GamesPage() {
                                 <ModuleCard title="Frequency Jammer" desc="1 TAG PER ATTEMPT" imageSrc="/assets/images/jammer.png" onClick={() => setActiveGame('GUESS')} />
                                 <ModuleCard title="The Reactor" desc="5 TAG PER ATTEMPT" imageSrc="/assets/images/reactor.png" onClick={() => setActiveGame('SPIN')} />
                                 <ModuleCard title="Void Shooter" desc="ELIMINATE TO EARN" imageSrc="/assets/images/shooter.jpg" onClick={() => setActiveGame('SHOOTER')} />
+                                <ModuleCard title="Pulse Hunter" desc="DECRYPT FOR SKR" imageSrc="/assets/images/hunter.png" onClick={() => setActiveGame('PULSE')} />
                                 <ModuleCard title="Probability Matrix" desc="HIGH STAKES RECOVERY" imageSrc="/assets/images/dice.jpg" onClick={() => setActiveGame('DICE')} />
                                 <ModuleCard title="Data Scraper Raffle" desc="POOL ENTRY & REFUNDS" imageSrc="/assets/images/raffle.png" onClick={() => setActiveGame('RAFFLE')} />
                                 <ModuleCard title="Resistance Mode" desc="UNLOCK WITH $SKR" imageSrc="/assets/images/resistance.png" onClick={() => setActiveGame('RESISTANCE')} />
@@ -202,7 +207,7 @@ export default function GamesPage() {
                                     </div>
 
                                     <div className={styles.userList}>
-                                       {(discoveredUsers?.length || 0) > 0 ? discoveredUsers.map((target) => {
+                                        {(discoveredUsers?.length || 0) > 0 ? discoveredUsers.map((target) => {
                                             const rankInfo = getRankStyle(target.laamPoints || 0);
                                             const displayName = target.username || `${target.walletAddress.slice(0, 4)}...${target.walletAddress.slice(-4)}`;
 
@@ -236,13 +241,15 @@ export default function GamesPage() {
                                     <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '10px', fontWeight: 900, fontStyle: 'italic' }}>
                                         {activeGame === 'GUESS' ? 'COST: 1 TAG PER ATTEMPT' :
                                             activeGame === 'SPIN' ? 'COST: 5 TAG PER ATTEMPT' :
-                                                activeGame === 'DICE' ? 'AUTHORIZED ACCESS ONLY' :
-                                                    activeGame === 'RAFFLE' ? 'DATA SCRAPING IN PROGRESS' : 'MISSION: CLAIM WARRIOR TROPHY'}
+                                                activeGame === 'PULSE' ? 'SIGNAL ENCRYPTION ACTIVE' :
+                                                    activeGame === 'DICE' ? 'AUTHORIZED ACCESS ONLY' :
+                                                        activeGame === 'RAFFLE' ? 'DATA SCRAPING IN PROGRESS' : 'MISSION: CLAIM WARRIOR TROPHY'}
                                     </p>
                                 </div>
                                 {activeGame === 'GUESS' && <GuessGameComponent />}
                                 {activeGame === 'SPIN' && <SpinGame />}
                                 {activeGame === 'SHOOTER' && <ShooterContainer />}
+                                {activeGame === 'PULSE' && user && <PulseHunter user={user} onUpdateUser={mutate} />}
                                 {activeGame === 'DICE' && user && <DiceTerminal user={user} refreshUser={mutate} />}
                                 {activeGame === 'RAFFLE' && (
                                     <RaffleLobby

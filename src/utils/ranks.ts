@@ -1,4 +1,6 @@
 export const getRank = (points: number) => {
+  if (points >= 5000000) return { name: "Ascendant", color: "text-amber-300", bg: "bg-amber-300/10" };
+  if (points >= 1000000) return { name: "Eternal", color: "text-purple-300", bg: "bg-purple-300/10" };
   if (points >= 500000) return { name: "Mythic", color: "text-fuchsia-400", bg: "bg-fuchsia-400/10" };
   if (points >= 400000) return { name: "Legend", color: "text-red-400", bg: "bg-red-400/10" };
   if (points >= 300000) return { name: "Diamond", color: "text-cyan-400", bg: "bg-cyan-400/10" };

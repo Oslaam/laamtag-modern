@@ -1,0 +1,215 @@
+.container {
+    --neon-green: #859b16;
+    --neon-gold: #eab308;
+    --dark-bg: #050706;
+    --scanline-color: rgba(18, 16, 16, 0.2);
+
+    position: relative;
+    background-color: var(--dark-bg);
+    color: var(--neon-green);
+    font-family: 'Courier New', Courier, monospace;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    border: 1px solid rgba(0, 255, 65, 0.2);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 1);
+}
+
+/* CRT Scanline Effect */
+.container::before {
+    content: " ";
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    background: linear-gradient(var(--scanline-color) 50%, rgba(0, 0, 0, 0.1) 50%);
+    background-size: 100% 4px;
+    z-index: 5;
+    pointer-events: none;
+    animation: scanlineMove 10s linear infinite;
+}
+
+@keyframes scanlineMove {
+    0% {
+        background-position: 0 0;
+    }
+
+    100% {
+        background-position: 0 100%;
+    }
+}
+
+.glassFrame {
+    text-align: center;
+    padding: 40px 20px;
+    border: 1px dashed var(--neon-gold);
+    background: rgba(234, 179, 8, 0.03);
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(0, 255, 65, 0.2);
+    padding-bottom: 10px;
+}
+
+.statusGroup {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.statusText {
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 1px;
+}
+
+.attemptsBadge {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.highlight {
+    color: var(--neon-green);
+    text-shadow: 0 0 8px var(--neon-green);
+}
+
+.displayArea {
+    min-height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    position: relative;
+}
+
+.messageText {
+    font-size: 1rem;
+    text-align: center;
+    text-shadow: 0 0 10px var(--neon-green);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: center;
+}
+
+.subInstruction {
+    font-size: 9px;
+    color: var(--neon-gold);
+    text-align: center;
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.inputGroup {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+.inputWrapper {
+    position: relative;
+}
+
+.terminalInput {
+    background: #000;
+    border: 1px solid var(--neon-green);
+    color: var(--neon-green);
+    padding: 12px;
+    font-family: 'Courier New', monospace;
+    width: 100px;
+    text-align: center;
+    font-size: 1.5rem;
+    outline: none;
+    box-shadow: 0 0 10px rgba(0, 255, 65, 0.1);
+}
+
+.guessButton {
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--neon-green);
+    color: var(--neon-green);
+    padding: 12px;
+    cursor: pointer;
+    font-weight: 900;
+    letter-spacing: 2px;
+    transition: 0.2s;
+}
+
+.guessButton:hover {
+    background: var(--neon-green);
+    color: #000;
+    box-shadow: 0 0 20px var(--neon-green);
+}
+
+.lockoutBox {
+    text-align: center;
+    width: 100%;
+}
+
+.revealText {
+    color: #fff;
+    font-size: 11px;
+    margin: 10px 0;
+    padding: 5px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.timerText {
+    color: #ef4444;
+    font-size: 1.8rem;
+    text-shadow: 0 0 10px #ef4444;
+}
+
+.dimText {
+    font-size: 9px;
+    opacity: 0.5;
+    text-transform: uppercase;
+}
+
+.hintIcon {
+    animation: bounce 1s infinite alternate;
+}
+
+@keyframes bounce {
+    from {
+        transform: translateY(-2px);
+    }
+
+    to {
+        transform: translateY(2px);
+    }
+}
+
+.pulseIcon {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.5;
+        transform: scale(1.1);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}

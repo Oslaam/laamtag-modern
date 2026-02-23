@@ -18,7 +18,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // Map the data so the frontend gets a clean 'username' field
         const activities = activitiesRaw.map(act => ({
             ...act,
-            username: act.user?.username || null
+            username: act.user?.username || null,
+            asset: act.asset?.toUpperCase() || 'SKR'
         }));
 
         res.status(200).json(activities);

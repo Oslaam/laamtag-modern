@@ -52,6 +52,10 @@ export default function ActivityTicker() {
 
     const getIcon = (type: string) => {
         const t = type.toUpperCase();
+
+        // Check for Games first so they get the bounce!
+        if (t.includes('GAME') || t.includes('HUNTER')) return <Trophy size={12} className="text-yellow-500 animate-bounce" />;
+
         if (t.includes('SYSTEM')) return <Wifi size={12} className="text-green-500 animate-pulse" />;
         if (t.includes('MINT')) return <Hammer size={12} className="text-pink-400" />;
         if (t.includes('RECRUIT')) return <Users size={12} className="text-purple-400" />;
@@ -60,6 +64,7 @@ export default function ActivityTicker() {
         if (t.includes('PURCHASE') || t.includes('BUY') || t.includes('SHOP')) return <ShoppingCart size={12} className="text-orange-400" />;
         if (t.includes('SWAP')) return <RefreshCcw size={12} className="text-blue-400" />;
         if (t.includes('WITHDRAW')) return <ArrowUpRight size={12} className="text-red-400" />;
+
         return <Zap size={12} className="text-yellow-500" />;
     };
 
@@ -86,11 +91,13 @@ export default function ActivityTicker() {
                     const displayName = formatDisplayName(act.userId, act.username);
 
                     // Colors: .laam = Gold, .skr = Cyan, default = white
-                    const nameColor = act.username?.includes('.laam')
+                    const nameColor = (act.type.includes('WIN') || act.type.includes('GAME'))
                         ? '#eab308'
-                        : act.username?.includes('.skr')
-                            ? '#22d3ee'
-                            : '#fff';
+                        : act.username?.includes('.laam')
+                            ? '#eab308'
+                            : act.username?.includes('.skr')
+                                ? '#22d3ee'
+                                : '#fff';
 
                     return (
                         <div
