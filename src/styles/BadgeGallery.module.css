@@ -1,0 +1,34 @@
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+    padding: 20px;
+}
+
+.badgeCard {
+    background: #1f2937;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    border: 1px solid #374151;
+    transition: all 0.3s ease;
+}
+
+.locked {
+    filter: grayscale(1);
+    /* This makes the whole card grey */
+    opacity: 0.6;
+}
+
+.unlocked {
+    border-color: #f59e0b;
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.1);
+}
+
+.badgeImagePlaceholder {
+    width: 100px;
+    height: 100px;
+    background: #374151;
+    margin: 10px auto;
+    border-radius: 50%;
+}

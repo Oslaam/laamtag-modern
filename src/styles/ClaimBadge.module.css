@@ -1,0 +1,217 @@
+/* Container for the entire badge section */
+.badgeLobby {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Header styling */
+.lobbyTitle {
+    color: #fff;
+    font-size: 18px;
+    text-align: center;
+    margin-bottom: 30px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+/* Responsive Grid Arrangement */
+.badgeGrid {
+    display: grid;
+    width: 100%;
+    /* Default: 4 columns for desktop */
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+}
+
+/* Individual Badge Card */
+.badgeCard {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.badgeCard:hover:not(.locked) {
+    border-color: #eab308;
+    background: rgba(234, 179, 8, 0.05);
+    transform: translateY(-5px);
+}
+
+/* Visual state for locked badges */
+.locked {
+    opacity: 0.4;
+    filter: grayscale(1);
+}
+
+.badgeImg {
+    width: 80px;
+    height: 80px;
+    object-fit: contain;
+    margin-bottom: 15px;
+}
+
+.badgeName {
+    color: #fff;
+    font-size: 12px;
+    font-weight: 900;
+    margin: 0 0 15px 0;
+    text-align: center;
+    letter-spacing: 1px;
+}
+
+/* Button States */
+.btnClaim,
+.btnOwned,
+.btnLocked {
+    width: 100%;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 900;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    text-transform: uppercase;
+}
+
+/* Available to Mint */
+.btnClaim {
+    background: #eab308;
+    color: #000;
+}
+
+.btnClaim:hover {
+    background: #facc15;
+    box-shadow: 0 0 15px rgba(234, 179, 8, 0.4);
+}
+
+/* Already Minted */
+.btnOwned {
+    background: rgba(34, 197, 94, 0.2);
+    color: #22c55e;
+    border: 1px solid #22c55e;
+    cursor: default;
+}
+
+/* Cannot Mint */
+.btnLocked {
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: not-allowed;
+}
+
+/* --- RESPONSIVENESS --- */
+
+/* Tablets */
+@media (max-width: 1024px) {
+    .badgeGrid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* Mobile Phones */
+@media (max-width: 768px) {
+    .badgeGrid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+
+    .lobbyTitle {
+        font-size: 14px;
+    }
+
+    .badgeImg {
+        width: 60px;
+        height: 60px;
+    }
+}
+
+/* Bomb Shake Effect */
+.bombShake {
+    animation: shake 0.5s cubic-bezier(.36, .07, .19, .97) both;
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    perspective: 1000px;
+    background: #f87171 !important;
+    /* Turns red briefly */
+    color: #fff !important;
+}
+
+@keyframes shake {
+
+    10%,
+    90% {
+        transform: translate3d(-1px, 0, 0);
+    }
+
+    20%,
+    80% {
+        transform: translate3d(2px, 0, 0);
+    }
+
+    30%,
+    50%,
+    70% {
+        transform: translate3d(-4px, 0, 0);
+    }
+
+    40%,
+    60% {
+        transform: translate3d(4px, 0, 0);
+    }
+}
+
+/* Optional: Add a subtle glow to eligible badges to make them pop before deployment */
+.btnClaim {
+    position: relative;
+    overflow: hidden;
+}
+
+.btnClaim::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transform: rotate(45deg);
+    animation: shine 3s infinite;
+}
+
+@keyframes shine {
+    0% {
+        left: -100%;
+    }
+
+    100% {
+        left: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .badgeGrid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .badgeCard {
+        padding: 12px;
+    }
+
+    .badgeName {
+        font-size: 10px;
+    }
+}

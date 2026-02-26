@@ -129,3 +129,105 @@
     font-style: italic;
     padding: 20px;
 }
+
+.badgeGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 16px;
+    padding: 10px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.tabContainer {
+    display: flex;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 4px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.tabLink {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 10px;
+    font-weight: 900;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: 8px;
+}
+
+.activeTab {
+    background: rgba(234, 179, 8, 0.1);
+    color: #eab308;
+}
+
+.moduleGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    /* Two columns for mobile/small screens */
+    gap: 12px;
+}
+
+.moduleCard {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.moduleCard:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: #eab308;
+}
+
+.moduleImage {
+    width: 40px;
+    height: 40px;
+    margin-bottom: 12px;
+}
+
+.moduleTitle {
+    font-size: 11px;
+    color: #fff;
+    margin: 0;
+    text-transform: uppercase;
+}
+
+.moduleDesc {
+    font-size: 8px;
+    color: rgba(255, 255, 255, 0.4);
+    margin-top: 4px;
+}
+
+.exitButton {
+    background: none;
+    border: none;
+    color: #eab308;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 900;
+}
+
+@media (max-width: 480px) {
+    .moduleGrid {
+        grid-template-columns: 1fr 1fr;
+        /* Keep it 2 cols or change to 1fr for single col */
+    }
+}

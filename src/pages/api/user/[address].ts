@@ -17,13 +17,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         tagTickets: true,
         rank: true,
         personalMinted: true,
+        warriorMinted: true,
+        lastCheckIn: true,
+        hasPaidDiceEntry: true,
         hasResistanceUnlocked: true,
+        hasPulseHunterUnlocked: true,
         referralCode: true,
         referredBy: true,
         hasAccess: true,
         isAdmin: true,
+        streakCount: true, 
+        claimedBadges: {
+          select: {
+            badge: {
+              select: {
+                name: true
+              }
+            }
+          }
+        },
         _count: {
-          select: { referrals: true }
+          select: {
+            referrals: true,
+            quests: { where: { status: 'COMPLETED' } },
+            boosts: true
+          }
         }
       }
     });
@@ -40,23 +58,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         hasDomain: false,
         isEligibleFree: false,
         referralProgress: 0,
-        claimableRewards: 0
+        claimableRewards: 0,
+        claimedBadges: [],
+        completedQuestsCount: 0,
+        purchasedBoostsCount: 0,
+        friendsCount: 0
       });
     }
 
-    // --- RECRUITMENT CALCULATION ---
+    const friendsCount = await prisma.friendship.count({
+      where: {
+        status: "ACCEPTED",
+        OR: [
+          { senderId: address },
+          { receiverId: address }
+        ]
+      }
+    });
+
     const recruitsCount = user._count?.referrals || 0;
-    const recruitsNeededPerCrate = 10; // Every 10 recruits = 1 Crate
-
-    // Progress toward the NEXT crate (e.g., 1 recruit = 10%)
+    const recruitsNeededPerCrate = 10;
     const referralProgress = (recruitsCount % recruitsNeededPerCrate) * 10;
-
-    // Total crates earned but not yet claimed 
-    // (Note: This assumes your DB logic handles 'claimed' status, 
-    // otherwise this just shows total earned crates based on recruit count)
     const claimableRewards = Math.floor(recruitsCount / recruitsNeededPerCrate);
 
-    // Count staked NFTs
     const stakedCount = await prisma.stakedNFT.count({
       where: { ownerAddress: address }
     });
@@ -64,12 +88,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({
       ...user,
       stakedCount,
+      friendsCount,
       hasDomain: !!user.username,
       isEligibleFree: stakedCount > 0,
       hasAccess: user.hasAccess || user.isAdmin,
-      // Add these two fields to make the progress bar move
       referralProgress,
-      claimableRewards
+      claimableRewards,
+      completedQuestsCount: user._count?.quests || 0,
+      purchasedBoostsCount: user._count?.boosts || 0
     });
   } catch (error) {
     console.error("Profile fetch error:", error);

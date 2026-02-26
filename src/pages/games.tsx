@@ -1,34 +1,31 @@
 import { useState, useEffect, useCallback } from 'react';
-import SeekerGuard from '../components/SeekerGuard';
-import GuessGameComponent from '../components/GuessGame';
-import SpinGame from '../components/SpinGame';
-import DiceTerminal from '../components/DiceTerminal';
-import RaffleLobby from '../components/RaffleLobby';
-
-const PulseHunter = dynamic(() => import('../components/PulseHunter'), {
-    ssr: false
-});
-const Collectable = dynamic(() => import('../components/Collectable'), {
-    ssr: false
-});
-
-import { useWallet } from '@solana/wallet-adapter-react';
 import dynamic from 'next/dynamic';
+import { useWallet } from '@solana/wallet-adapter-react';
 import { toast, Toaster } from 'react-hot-toast';
+import { History, ChevronLeft, Zap, UserPlus, Trophy, Gamepad2, Users } from 'lucide-react';
 import styles from '../styles/Games.module.css';
 
-
-const ShooterContainer = dynamic(
-    () => import('../components/ShooterContainer'),
-    { ssr: false }
-);
+// Components
+import SeekerGuard from '../components/SeekerGuard';
 import LootVault from '../components/LootVault';
 import HistoryModal from '../components/HistoryModal';
-import { History, ChevronLeft, Zap, UserPlus } from 'lucide-react';
-import ResistanceMode from '../components/ResistanceMode';
 
-// Helper for Rank Colors based on your provided tiers
+// Dynamic Imports
+const GuessGameComponent = dynamic(() => import('../components/GuessGame'), { ssr: false });
+const SpinGame = dynamic(() => import('../components/SpinGame'), { ssr: false });
+const DiceTerminal = dynamic(() => import('../components/DiceTerminal'), { ssr: false });
+const RaffleLobby = dynamic(() => import('../components/RaffleLobby'), { ssr: false });
+const PulseHunter = dynamic(() => import('../components/PulseHunter'), { ssr: false });
+const Collectable = dynamic(() => import('../components/Collectable'), { ssr: false });
+const ClaimBadge = dynamic(() => import('../components/ClaimBadge'), { ssr: false });
+const ShooterContainer = dynamic(() => import('../components/ShooterContainer'), { ssr: false });
+const ResistanceMode = dynamic(() => import('../components/ResistanceMode'), { ssr: false });
+
+type ViewMode = 'GAMES' | 'DISCOVERY' | 'COLLECTORS';
+
 const getRankStyle = (points: number) => {
+    if (points >= 1000000) return { name: "Ascendant", color: "#60a5fa" };
+    if (points >= 750000) return { name: "Eternal", color: "#a855f7" };
     if (points >= 500000) return { name: "Mythic", color: "#e879f9" };
     if (points >= 400000) return { name: "Legend", color: "#f87171" };
     if (points >= 300000) return { name: "Diamond", color: "#22d3ee" };
@@ -42,13 +39,12 @@ const getRankStyle = (points: number) => {
 };
 
 export default function GamesPage() {
-    const [activeGame, setActiveGame] = useState<'GUESS' | 'SPIN' | 'SHOOTER' | 'DICE' | 'RAFFLE' | 'PULSE' | 'RESISTANCE' | 'COLLECTABLE' | null>(null);
+    const [activeView, setActiveView] = useState<ViewMode>('GAMES');
+    const [activeGame, setActiveGame] = useState<string | null>(null);
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [user, setUser] = useState<any>(null);
     const [discoveredUsers, setDiscoveredUsers] = useState<any[]>([]);
     const [isLinking, setIsLinking] = useState<string | null>(null);
-
-    // New state for handling Raffle Invites via Neural Discovery
     const [pendingInvitePool, setPendingInvitePool] = useState<string | null>(null);
 
     const { publicKey } = useWallet();
@@ -59,9 +55,7 @@ export default function GamesPage() {
             const res = await fetch(`/api/user/me?address=${publicKey.toBase58()}`);
             const data = await res.json();
             if (res.ok) setUser(data);
-        } catch (err) {
-            console.error("Failed to fetch user:", err);
-        }
+        } catch (err) { console.error(err); }
     }, [publicKey]);
 
     const fetchDiscovery = useCallback(async () => {
@@ -70,23 +64,8 @@ export default function GamesPage() {
             const res = await fetch(`/api/user/friends-discovery?exclude=${publicKey.toBase58()}`);
             const data = await res.json();
             if (res.ok) setDiscoveredUsers(data);
-        } catch (err) {
-            console.error("Discovery offline");
-        }
+        } catch (err) { console.error("Discovery offline"); }
     }, [publicKey]);
-
-    useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        const moduleParam = params.get('module');
-        const poolParam = params.get('poolId');
-
-        if (moduleParam === 'RAFFLE') {
-            setActiveGame('RAFFLE');
-            if (poolParam) {
-                toast.success(`TARGETING POOL: ${poolParam.slice(0, 5)}...`);
-            }
-        }
-    }, []);
 
     useEffect(() => {
         fetchUser();
@@ -98,53 +77,24 @@ export default function GamesPage() {
     const handleSendRequest = async (targetAddress: string, targetName: string) => {
         if (!publicKey) return toast.error("CONNECT_WALLET");
         setIsLinking(targetAddress);
-
         try {
-            // Check if we are in "Invite Mode" for a Raffle
-            if (pendingInvitePool) {
-                const res = await fetch('/api/friends/invite-game', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        senderAddress: publicKey.toBase58(),
-                        receiverAddress: targetAddress,
-                        gameType: 'RAFFLE',
-                        poolId: pendingInvitePool
-                    })
-                });
+            const endpoint = pendingInvitePool ? '/api/friends/invite-game' : '/api/friends/request';
+            const body = pendingInvitePool 
+                ? { senderAddress: publicKey.toBase58(), receiverAddress: targetAddress, gameType: 'RAFFLE', poolId: pendingInvitePool }
+                : { senderAddress: publicKey.toBase58(), receiverAddress: targetAddress, senderUsername: user?.username || 'A tagger' };
 
-                if (res.ok) {
-                    toast.success(`RAFFLE_INVITE_SENT_TO_${targetName.toUpperCase()}`);
-                    setPendingInvitePool(null); // Clear invite mode
-                } else {
-                    throw new Error("INVITE_FAILED");
-                }
-                return;
-            }
-
-            // Normal Friend Request Logic
-            const res = await fetch('/api/friends/request', {
+            const res = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    senderAddress: publicKey.toBase58(),
-                    receiverAddress: targetAddress,
-                    senderUsername: user?.username || 'A tagger'
-                })
+                body: JSON.stringify(body)
             });
 
             if (res.ok) {
-                toast.success(`REQUEST_SENT_TO_${targetName.toUpperCase()}`);
-                setDiscoveredUsers(prev => prev.filter(u => u.walletAddress !== targetAddress));
-            } else {
-                const data = await res.json();
-                toast.error(data.error || "LINK_FAILED");
+                toast.success(pendingInvitePool ? `INVITE_SENT` : `REQUEST_SENT`);
+                if (!pendingInvitePool) setDiscoveredUsers(prev => prev.filter(u => u.walletAddress !== targetAddress));
+                setPendingInvitePool(null);
             }
-        } catch (err) {
-            toast.error("SYSTEM_OFFLINE");
-        } finally {
-            setIsLinking(null);
-        }
+        } catch (err) { toast.error("SYSTEM_OFFLINE"); } finally { setIsLinking(null); }
     };
 
     return (
@@ -152,116 +102,100 @@ export default function GamesPage() {
             <div className="main-content">
                 <Toaster position="bottom-center" />
                 <div className="content-wrapper">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
-                        <div style={{ flex: 1 }}>
-                            {activeGame && (
-                                <button onClick={() => { setActiveGame(null); setPendingInvitePool(null); }} style={{ background: 'none', border: 'none', color: '#eab308', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontWeight: 900 }}>
-                                    <ChevronLeft size={14} /> EXIT MODULE
-                                </button>
-                            )}
-                        </div>
-                        <div style={{ textAlign: 'center', flex: 2 }}>
-                            <h1 className="page-title" style={{ color: '#eab308', margin: 0 }}>Gaming Terminal</h1>
-                            <p className="terminal-desc" style={{ fontSize: '10px', marginTop: '4px' }}>
-                                {activeGame ? `SYSTEM ACTIVE: ${activeGame}` : 'SELECT MODULE'}
-                            </p>
-                        </div>
-                        <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
-                            <button onClick={() => setIsHistoryOpen(true)} className="terminal-button-icon">
-                                <History size={18} />
+                    
+                    {/* Header with Exit Control */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                        {activeGame ? (
+                            <button onClick={() => { setActiveGame(null); setPendingInvitePool(null); }} className={styles.exitButton}>
+                                <ChevronLeft size={14} /> EXIT MODULE
                             </button>
-                        </div>
+                        ) : <div />}
+                        <button onClick={() => setIsHistoryOpen(true)} className={styles.historyTrigger}>
+                            <History size={16} />
+                        </button>
                     </div>
 
                     <LootVault />
 
-                    <div style={{ marginTop: '40px' }}>
+                    {!activeGame && (
+                        <div className={styles.tabContainer}>
+                            <button onClick={() => setActiveView('GAMES')} className={`${styles.tabLink} ${activeView === 'GAMES' ? styles.activeTab : ''}`}>
+                                <Gamepad2 size={14} /> GAMES
+                            </button>
+                            <button onClick={() => setActiveView('DISCOVERY')} className={`${styles.tabLink} ${activeView === 'DISCOVERY' ? styles.activeTab : ''}`}>
+                                <Users size={14} /> DISCOVERY
+                            </button>
+                            <button onClick={() => setActiveView('COLLECTORS')} className={`${styles.tabLink} ${activeView === 'COLLECTORS' ? styles.activeTab : ''}`}>
+                                <Trophy size={14} /> COLLECTORS
+                            </button>
+                        </div>
+                    )}
+
+                    <div style={{ marginTop: '24px' }}>
                         {!activeGame ? (
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                <ModuleCard title="Frequency Jammer" desc="1 TAG PER ATTEMPT" imageSrc="/assets/images/jammer.png" onClick={() => setActiveGame('GUESS')} />
-                                <ModuleCard title="The Reactor" desc="5 TAG PER ATTEMPT" imageSrc="/assets/images/reactor.png" onClick={() => setActiveGame('SPIN')} />
-                                <ModuleCard title="Void Shooter" desc="ELIMINATE TO EARN" imageSrc="/assets/images/shooter.jpg" onClick={() => setActiveGame('SHOOTER')} />
-                                <ModuleCard title="Pulse Hunter" desc="DECRYPT FOR SKR" imageSrc="/assets/images/hunter.png" onClick={() => setActiveGame('PULSE')} />
-                                <ModuleCard title="Probability Matrix" desc="HIGH STAKES RECOVERY" imageSrc="/assets/images/dice.jpg" onClick={() => setActiveGame('DICE')} />
-                                <ModuleCard title="Data Scraper Raffle" desc="POOL ENTRY & REFUNDS" imageSrc="/assets/images/raffle.png" onClick={() => setActiveGame('RAFFLE')} />
-                                <ModuleCard title="Resistance Mode" desc="UNLOCK WITH $SKR" imageSrc="/assets/images/resistance.png" onClick={() => setActiveGame('RESISTANCE')} />
-                                <ModuleCard
-                                    title="Warrior Trophy"
-                                    desc="CLAIM ELIGIBLE REWARDS"
-                                    imageSrc="/assets/images/collectable.jpg"
-                                    onClick={() => setActiveGame('COLLECTABLE')}
-                                />
-                                {/* NEURAL DISCOVERY MODULE */}
-                                <div className={`${styles.neuralModule} ${pendingInvitePool ? styles.inviteModeActive : ''}`}>
-                                    <div className={styles.neuralHeader}>
-                                        <div className={styles.neuralIcon}>
-                                            {pendingInvitePool ? <Zap size={14} color="#eab308" /> : <Zap size={14} color="#eab308" />}
-                                        </div>
-                                        <div>
-                                            <h3 className={styles.neuralTitle}>{pendingInvitePool ? "SELECT TARGET" : "NEURAL DISCOVERY"}</h3>
-                                            <p className={styles.neuralSubtitle}>{pendingInvitePool ? `INVITING TO POOL ${pendingInvitePool.slice(0, 5)}` : "PROBE FOR ACTIVE TAGGERS"}</p>
-                                        </div>
-                                        {pendingInvitePool && (
-                                            <button onClick={() => setPendingInvitePool(null)} style={{ marginLeft: 'auto', fontSize: '8px', color: '#f87171', border: '1px solid #f87171', background: 'none', padding: '2px 4px', cursor: 'pointer' }}>CANCEL</button>
-                                        )}
+                            <>
+                                {/* GAMES VIEW */}
+                                {activeView === 'GAMES' && (
+                                    <div className={styles.moduleGrid}>
+                                        <ModuleCard title="Frequency Jammer" desc="1 TAG / ATTEMPT" imageSrc="/assets/images/jammer.png" onClick={() => setActiveGame('GUESS')} />
+                                        <ModuleCard title="The Reactor" desc="5 TAG / ATTEMPT" imageSrc="/assets/images/reactor.png" onClick={() => setActiveGame('SPIN')} />
+                                        <ModuleCard title="Void Shooter" desc="ELIMINATE TO EARN" imageSrc="/assets/images/shooter.jpg" onClick={() => setActiveGame('SHOOTER')} />
+                                        <ModuleCard title="Pulse Hunter" desc="DECRYPT FOR SKR" imageSrc="/assets/images/hunter.png" onClick={() => setActiveGame('PULSE')} />
+                                        <ModuleCard title="Probability Matrix" desc="HIGH STAKES" imageSrc="/assets/images/dice.jpg" onClick={() => setActiveGame('DICE')} />
+                                        <ModuleCard title="Data Scraper" desc="RAFFLE POOLS" imageSrc="/assets/images/raffle.png" onClick={() => setActiveGame('RAFFLE')} />
+                                        <ModuleCard title="Resistance" desc="UNLOCK WITH SKR" imageSrc="/assets/images/resistance.png" onClick={() => setActiveGame('RESISTANCE')} />
                                     </div>
+                                )}
 
-                                    <div className={styles.userList}>
-                                        {(discoveredUsers?.length || 0) > 0 ? discoveredUsers.map((target) => {
-                                            const rankInfo = getRankStyle(target.laamPoints || 0);
-                                            const displayName = target.username || `${target.walletAddress.slice(0, 4)}...${target.walletAddress.slice(-4)}`;
-
-                                            return (
-                                                <div key={target.walletAddress} className={styles.userRow}>
-                                                    <div className={styles.userInfo}>
-                                                        <span className={styles.userName} style={{ color: '#fff', fontWeight: 900 }}>{displayName}</span>
-                                                        <span className={styles.userRank} style={{ color: rankInfo.color, fontSize: '9px', fontWeight: 900 }}>
-                                                            RANK: {rankInfo.name.toUpperCase()}
-                                                        </span>
+                                {/* DISCOVERY VIEW */}
+                                {activeView === 'DISCOVERY' && (
+                                    <div className={styles.neuralModule}>
+                                        <div className={styles.neuralHeader}>
+                                            <div className={styles.neuralIcon}><Zap size={14} color="#eab308" /></div>
+                                            <div>
+                                                <h3 className={styles.neuralTitle}>{pendingInvitePool ? "SELECT TARGET" : "NEURAL DISCOVERY"}</h3>
+                                                <p className={styles.neuralSubtitle}>{pendingInvitePool ? `INVITING TO POOL ${pendingInvitePool.slice(0, 5)}` : "PROBE FOR ACTIVE TAGGERS"}</p>
+                                            </div>
+                                        </div>
+                                        <div className={styles.userList}>
+                                            {discoveredUsers.length > 0 ? discoveredUsers.map((target) => {
+                                                const rankInfo = getRankStyle(target.laamPoints || 0);
+                                                return (
+                                                    <div key={target.walletAddress} className={styles.userRow}>
+                                                        <div className={styles.userInfo}>
+                                                            <span className={styles.userName}>{target.username || target.walletAddress.slice(0,8)}</span>
+                                                            <span className={styles.userRank} style={{ color: rankInfo.color }}>RANK: {rankInfo.name}</span>
+                                                        </div>
+                                                        <button disabled={isLinking === target.walletAddress} onClick={() => handleSendRequest(target.walletAddress, target.username || 'Tagger')} className={styles.linkButton}>
+                                                            {isLinking === target.walletAddress ? '...' : pendingInvitePool ? <Zap size={14} /> : <UserPlus size={14} />}
+                                                        </button>
                                                     </div>
-                                                    <button
-                                                        disabled={isLinking === target.walletAddress}
-                                                        onClick={() => handleSendRequest(target.walletAddress, displayName)}
-                                                        className={styles.linkButton}
-                                                        style={{ borderColor: pendingInvitePool ? '#eab308' : '' }}
-                                                    >
-                                                        {isLinking === target.walletAddress ? '...' : pendingInvitePool ? <Zap size={14} /> : <UserPlus size={14} />}
-                                                    </button>
-                                                </div>
-                                            );
-                                        }) : (
-                                            <p className={styles.emptyText}>SCANNING SECTOR FOR SIGNALS...</p>
-                                        )}
+                                                );
+                                            }) : <p className={styles.emptyText}>SCANNING SECTOR...</p>}
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
+                                )}
+
+                                {/* COLLECTORS VIEW */}
+                                {activeView === 'COLLECTORS' && (
+                                    <div className={styles.moduleGrid}>
+                                        <ModuleCard title="Warrior Trophy" desc="CLAIM REWARDS" imageSrc="/assets/images/collectable.jpg" onClick={() => setActiveGame('COLLECTABLE')} />
+                                        <ModuleCard title="Claim Badge" desc="NEURAL UPLINK" imageSrc="/assets/images/claim-badge.png" onClick={() => setActiveGame('BADGE')} />
+                                    </div>
+                                )}
+                            </>
                         ) : (
+                            /* ACTIVE MODULE TERMINAL */
                             <div className="terminal-card" style={{ padding: '24px' }}>
-                                <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                                    <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '10px', fontWeight: 900, fontStyle: 'italic' }}>
-                                        {activeGame === 'GUESS' ? 'COST: 1 TAG PER ATTEMPT' :
-                                            activeGame === 'SPIN' ? 'COST: 5 TAG PER ATTEMPT' :
-                                                activeGame === 'PULSE' ? 'SIGNAL ENCRYPTION ACTIVE' :
-                                                    activeGame === 'DICE' ? 'AUTHORIZED ACCESS ONLY' :
-                                                        activeGame === 'RAFFLE' ? 'DATA SCRAPING IN PROGRESS' : 'MISSION: CLAIM WARRIOR TROPHY'}
-                                    </p>
-                                </div>
                                 {activeGame === 'GUESS' && <GuessGameComponent />}
                                 {activeGame === 'SPIN' && <SpinGame />}
                                 {activeGame === 'SHOOTER' && <ShooterContainer />}
                                 {activeGame === 'PULSE' && user && <PulseHunter user={user} onUpdateUser={mutate} />}
                                 {activeGame === 'DICE' && user && <DiceTerminal user={user} refreshUser={mutate} />}
-                                {activeGame === 'RAFFLE' && (
-                                    <RaffleLobby
-                                        onInviteRequested={(poolId: string) => {
-                                            setActiveGame(null);
-                                            setPendingInvitePool(poolId);
-                                            toast("SELECT OPERATOR TO INVITE", { icon: '📡' });
-                                        }}
-                                    />
-                                )}
+                                {activeGame === 'RAFFLE' && <RaffleLobby onInviteRequested={(id) => { setActiveGame(null); setPendingInvitePool(id); setActiveView('DISCOVERY'); }} />}
                                 {activeGame === 'RESISTANCE' && <ResistanceMode />}
                                 {activeGame === 'COLLECTABLE' && <Collectable />}
+                                {activeGame === 'BADGE' && user && <ClaimBadge user={user} mutate={mutate} />}
                             </div>
                         )}
                     </div>
@@ -273,11 +207,11 @@ export default function GamesPage() {
 }
 
 const ModuleCard = ({ title, desc, imageSrc, onClick }: any) => (
-    <button onClick={onClick} className="terminal-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 16px', gap: '12px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.1)', transition: 'all 0.3s ease', textAlign: 'center', background: 'rgba(255,255,255,0.02)' }}>
-        <img src={imageSrc} alt={title} style={{ width: '48px', height: '48px', objectFit: 'contain' }} />
-        <div>
-            <h3 style={{ margin: 0, fontSize: '12px', color: '#fff', textTransform: 'uppercase' }}>{title}</h3>
-            <p style={{ margin: '4px 0 0 0', fontSize: '8px', color: 'rgba(255,255,255,0.4)', fontWeight: 900 }}>{desc}</p>
+    <button onClick={onClick} className={styles.moduleCard}>
+        <img src={imageSrc} alt={title} className={styles.moduleImage} />
+        <div className={styles.moduleTextContent}>
+            <h3 className={styles.moduleTitle}>{title}</h3>
+            <p className={styles.moduleDesc}>{desc}</p>
         </div>
     </button>
 );
