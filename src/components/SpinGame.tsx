@@ -24,14 +24,14 @@ export default function SpinGame() {
     }, []);
 
     const segments = [
-        { label: "1 TAG", color: "#1e3a8a" },
         { label: "5 TAG", color: "#1e40af" },
         { label: "50 L", color: "#854d0e" },
         { label: "100 L", color: "#a16207" },
         { label: "500 L", color: "#ca8a04" },
+        { label: "50 SKR", color: "#627a08" },
         { label: "1 USDC", color: "#166534" },
         { label: "0.01 SOL", color: "#6b21a8" },
-        { label: "EMPTY", color: "#1f2937" },
+        { label: "VOID", color: "#1f2937" },
         { label: "GEN BOX", color: "#991b1b" },
         { label: "SPEC BOX", color: "#c2410c" },
     ];
@@ -148,16 +148,52 @@ export default function SpinGame() {
                     transition: 'transform 2.5s cubic-bezier(0.15, 0, 0.15, 1)',
                     background: `conic-gradient(${segments.map((seg, i) => `${seg.color} ${i * 36}deg ${(i + 1) * 36}deg`).join(', ')})`
                 }}>
-                    {segments.map((seg, i) => (
-                        <div key={i} style={{
-                            position: 'absolute', top: '0', left: '50%', height: '50%', width: '60px', marginLeft: '-30px',
-                            transformOrigin: 'bottom center', transform: `rotate(${i * 36 + 18}deg)`,
-                            display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '20px'
-                        }}>
-                            <span style={{ fontSize: '24px' }}>{seg.label.includes('BOX') ? '📦' : seg.label === 'EMPTY' ? '💀' : '⚡'}</span>
-                            <span style={{ fontSize: '9px', fontWeight: '900', color: 'white', textShadow: '1px 1px 2px #000' }}>{seg.label}</span>
-                        </div>
-                    ))}
+                    {segments.map((seg, i) => {
+                        const angleDeg = i * 36 + 18;
+                        const isBottomHalf = angleDeg >= 198 && angleDeg <= 342;
+                        return (
+                            <div key={i} style={{
+                                position: 'absolute',
+                                top: '0',
+                                left: '50%',
+                                height: '50%',
+                                width: '36px',
+                                marginLeft: '-18px',
+                                transformOrigin: 'bottom center',
+                                transform: `rotate(${angleDeg}deg)`,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'flex-start',
+                                paddingTop: '0px',
+                            }}>
+                                <div style={{
+                                    transform: isBottomHalf ? 'rotate(180deg)' : 'none',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    gap: '3px',
+                                }}>
+                                    <span style={{ fontSize: '13px', lineHeight: 1 }}>
+                                        {seg.label.includes('BOX') ? '📦' : seg.label === 'VOID' ? '💀' : '⚡'}
+                                    </span>
+                                    <span style={{
+                                        fontSize: '10.5px',
+                                        fontWeight: '900',
+                                        color: 'white',
+                                        textShadow: '1px 1px 3px #000, 0 0 6px #000',
+                                        textAlign: 'center',
+                                        width: '38px',
+                                        lineHeight: '1.2',
+                                        wordBreak: 'break-word',
+                                        letterSpacing: '0.3px',
+                                    }}>
+                                        {seg.label}
+                                    </span>
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
                 <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '60px', height: '60px', background: '#000', borderRadius: '50%', border: '4px solid #333', zIndex: 40 }} />
             </div>

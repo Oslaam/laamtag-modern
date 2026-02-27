@@ -37,6 +37,7 @@ model User {
   hasPaidDiceEntry   Boolean          @default(false)
   hasResistanceUnlocked Boolean       @default(false)
   hasPulseHunterUnlocked Boolean @default(false)
+  hasPlinkoUnlocked      Boolean            @default(false)
   boosts             MultiplierBoost[]
   lastLaamCheckIn DateTime?
   lastTagCheckIn  DateTime?

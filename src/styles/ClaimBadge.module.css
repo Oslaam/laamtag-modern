@@ -1,3 +1,145 @@
+ /* .badgeLobby {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.lobbyTitle {
+    color: #fff;
+    font-size: 18px;
+    text-align: center;
+    margin-bottom: 30px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.badgeGrid {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+}
+
+.badgeCard {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.badgeCard:hover:not(.locked) {
+    border-color: #eab308;
+    background: rgba(234, 179, 8, 0.05);
+    transform: translateY(-5px);
+}
+
+.locked {
+    opacity: 0.4;
+    filter: grayscale(1);
+}
+
+.badgeImg {
+    width: 80px;
+    height: 80px;
+    object-fit: contain;
+    margin-bottom: 15px;
+}
+
+.badgeName {
+    color: #fff;
+    font-size: 12px;
+    font-weight: 900;
+    margin: 0 0 15px 0;
+    text-align: center;
+    letter-spacing: 1px;
+}
+
+.btnClaim,
+.btnOwned,
+.btnLocked {
+    width: 100%;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 900;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    text-transform: uppercase;
+}
+
+.btnClaim {
+    background: #eab308;
+    color: #000;
+}
+
+.btnClaim:hover {
+    background: #facc15;
+    box-shadow: 0 0 15px rgba(234, 179, 8, 0.4);
+}
+
+.btnOwned {
+    background: rgba(34, 197, 94, 0.2);
+    color: #22c55e;
+    border: 1px solid #22c55e;
+    cursor: default;
+}
+
+.btnLocked {
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: not-allowed;
+}
+
+
+@media (max-width: 1024px) {
+    .badgeGrid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .badgeGrid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+
+    .lobbyTitle {
+        font-size: 14px;
+    }
+
+    .badgeImg {
+        width: 60px;
+        height: 60px;
+    }
+}
+
+@media (max-width: 480px) {
+    .badgeGrid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .badgeCard {
+        padding: 12px;
+    }
+
+    .badgeName {
+        font-size: 10px;
+    }
+}  */
+
 /* Container for the entire badge section */
 .badgeLobby {
     width: 100%;

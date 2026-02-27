@@ -1,0 +1,245 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #0f172a;
+    padding: 1rem;
+    border-radius: 1.5rem;
+    border: 1px solid #1e293b;
+    width: 95%;
+    max-width: 600px;
+    margin: 20px auto;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    font-family: sans-serif;
+}
+
+.board {
+    position: relative;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 0;
+    background: rgba(15, 23, 42, 0.3);
+    border-radius: 1rem;
+    overflow: hidden;
+}
+
+.pegRow {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    height: 30px;
+}
+
+.peg {
+    width: 6px;
+    height: 6px;
+    background-color: #475569;
+    border-radius: 50%;
+    margin: 0 2%;
+    box-shadow: 0 0 5px rgba(255, 255, 255, 0.1);
+}
+
+.multiplierRow {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0 5px;
+    margin-top: 15px;
+    gap: 2px;
+}
+
+.multiplierBox {
+    flex: 1;
+    text-align: center;
+    font-size: clamp(0.5rem, 2vw, 0.75rem);
+    font-weight: 900;
+    padding: 10px 0;
+    border-radius: 4px;
+    color: #000;
+    text-transform: uppercase;
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.2);
+    min-width: 0;
+    transition: transform 0.1s ease-out;
+}
+
+/* Optional: Add this class via JS when the ball hits a box */
+.multiplierBox.hit {
+    transform: scale(1.1);
+    filter: brightness(1.2);
+}
+
+.ball {
+    position: absolute;
+    top: 5px;
+    width: 12px;
+    height: 12px;
+    background: radial-gradient(circle at 30% 30%, #facc15, #eab308);
+    border-radius: 50%;
+    box-shadow: 0 0 15px rgba(234, 179, 8, 0.8);
+    z-index: 50;
+    /* IMPORTANT: Prevents CSS from fighting Framer Motion */
+    transition: none !important;
+}
+
+.controls {
+    width: 100%;
+    margin-top: 1.5rem;
+    padding: 1.25rem;
+    background: #111827;
+    border: 1px solid #334155;
+    border-radius: 1.25rem;
+    box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.controlGrid {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.inputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.label {
+    color: #94a3b8;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding-left: 4px;
+}
+
+.selectWrapper,
+.inputWrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.selectInput,
+.numberInput {
+    width: 100%;
+    background: #020617;
+    color: #f8fafc;
+    border: 1px solid #475569;
+    padding: 0.75rem;
+    border-radius: 0.75rem;
+    font-weight: 700;
+    font-size: 0.9rem;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.selectInput:focus,
+.numberInput:focus {
+    border-color: #eab308;
+    box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.15);
+}
+
+.selectArrow {
+    position: absolute;
+    right: 12px;
+    font-size: 10px;
+    color: #64748b;
+    pointer-events: none;
+}
+
+.currencyBadge {
+    position: absolute;
+    right: 12px;
+    font-size: 10px;
+    font-weight: 900;
+    color: #eab308;
+    background: rgba(234, 179, 8, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.playButton {
+    position: relative;
+    width: 100%;
+    background: #eab308;
+    color: #000;
+    padding: 1rem;
+    border-radius: 0.75rem;
+    font-weight: 900;
+    font-size: 1.1rem;
+    text-transform: uppercase;
+    border: none;
+    cursor: pointer;
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+
+.playButton:hover:not(:disabled) {
+    background: #facc15;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px -5px rgba(234, 179, 8, 0.4);
+}
+
+.playButton:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.playButton:disabled {
+    background: #334155;
+    color: #94a3b8;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.buttonGlow {
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg,
+            transparent,
+            rgba(255, 255, 255, 0.2),
+            transparent);
+    animation: shine 3s infinite;
+}
+
+@keyframes shine {
+    0% {
+        left: -100%;
+    }
+
+    20% {
+        left: 100%;
+    }
+
+    100% {
+        left: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .controlGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .pegRow {
+        height: 22px;
+    }
+
+    .peg {
+        width: 4px;
+        height: 4px;
+    }
+
+    .multiplierBox {
+        padding: 6px 0;
+    }
+
+    .container {
+        padding: 0.5rem;
+    }
+}

@@ -22,11 +22,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         hasPaidDiceEntry: true,
         hasResistanceUnlocked: true,
         hasPulseHunterUnlocked: true,
+        hasPlinkoUnlocked: true,
         referralCode: true,
         referredBy: true,
         hasAccess: true,
         isAdmin: true,
-        streakCount: true, 
+        streakCount: true,
         claimedBadges: {
           select: {
             badge: {

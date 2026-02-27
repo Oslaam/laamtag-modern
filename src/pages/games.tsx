@@ -20,6 +20,7 @@ const Collectable = dynamic(() => import('../components/Collectable'), { ssr: fa
 const ClaimBadge = dynamic(() => import('../components/ClaimBadge'), { ssr: false });
 const ShooterContainer = dynamic(() => import('../components/ShooterContainer'), { ssr: false });
 const ResistanceMode = dynamic(() => import('../components/ResistanceMode'), { ssr: false });
+const PlinkoGame = dynamic(() => import('../components/PlinkoGame'), { ssr: false }); // Added Plinko
 
 type ViewMode = 'GAMES' | 'DISCOVERY' | 'COLLECTORS';
 
@@ -79,7 +80,7 @@ export default function GamesPage() {
         setIsLinking(targetAddress);
         try {
             const endpoint = pendingInvitePool ? '/api/friends/invite-game' : '/api/friends/request';
-            const body = pendingInvitePool 
+            const body = pendingInvitePool
                 ? { senderAddress: publicKey.toBase58(), receiverAddress: targetAddress, gameType: 'RAFFLE', poolId: pendingInvitePool }
                 : { senderAddress: publicKey.toBase58(), receiverAddress: targetAddress, senderUsername: user?.username || 'A tagger' };
 
@@ -102,7 +103,7 @@ export default function GamesPage() {
             <div className="main-content">
                 <Toaster position="bottom-center" />
                 <div className="content-wrapper">
-                    
+
                     {/* Header with Exit Control */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                         {activeGame ? (
@@ -139,11 +140,12 @@ export default function GamesPage() {
                                     <div className={styles.moduleGrid}>
                                         <ModuleCard title="Frequency Jammer" desc="1 TAG / ATTEMPT" imageSrc="/assets/images/jammer.png" onClick={() => setActiveGame('GUESS')} />
                                         <ModuleCard title="The Reactor" desc="5 TAG / ATTEMPT" imageSrc="/assets/images/reactor.png" onClick={() => setActiveGame('SPIN')} />
+                                        <ModuleCard title="Blanko Drop" desc="MASTER THE DROP" imageSrc="/assets/images/plinko.png" onClick={() => setActiveGame('PLINKO')} />
                                         <ModuleCard title="Void Shooter" desc="ELIMINATE TO EARN" imageSrc="/assets/images/shooter.jpg" onClick={() => setActiveGame('SHOOTER')} />
                                         <ModuleCard title="Pulse Hunter" desc="DECRYPT FOR SKR" imageSrc="/assets/images/hunter.png" onClick={() => setActiveGame('PULSE')} />
                                         <ModuleCard title="Probability Matrix" desc="HIGH STAKES" imageSrc="/assets/images/dice.jpg" onClick={() => setActiveGame('DICE')} />
                                         <ModuleCard title="Data Scraper" desc="RAFFLE POOLS" imageSrc="/assets/images/raffle.png" onClick={() => setActiveGame('RAFFLE')} />
-                                        <ModuleCard title="Resistance" desc="UNLOCK WITH SKR" imageSrc="/assets/images/resistance.png" onClick={() => setActiveGame('RESISTANCE')} />
+                                        <ModuleCard title="Resistance" desc="SECURE TERMINAL" imageSrc="/assets/images/resistance.png" onClick={() => setActiveGame('RESISTANCE')} />
                                     </div>
                                 )}
 
@@ -163,7 +165,7 @@ export default function GamesPage() {
                                                 return (
                                                     <div key={target.walletAddress} className={styles.userRow}>
                                                         <div className={styles.userInfo}>
-                                                            <span className={styles.userName}>{target.username || target.walletAddress.slice(0,8)}</span>
+                                                            <span className={styles.userName}>{target.username || target.walletAddress.slice(0, 8)}</span>
                                                             <span className={styles.userRank} style={{ color: rankInfo.color }}>RANK: {rankInfo.name}</span>
                                                         </div>
                                                         <button disabled={isLinking === target.walletAddress} onClick={() => handleSendRequest(target.walletAddress, target.username || 'Tagger')} className={styles.linkButton}>
@@ -189,6 +191,7 @@ export default function GamesPage() {
                             <div className="terminal-card" style={{ padding: '24px' }}>
                                 {activeGame === 'GUESS' && <GuessGameComponent />}
                                 {activeGame === 'SPIN' && <SpinGame />}
+                                {activeGame === 'PLINKO' && <PlinkoGame />}
                                 {activeGame === 'SHOOTER' && <ShooterContainer />}
                                 {activeGame === 'PULSE' && user && <PulseHunter user={user} onUpdateUser={mutate} />}
                                 {activeGame === 'DICE' && user && <DiceTerminal user={user} refreshUser={mutate} />}

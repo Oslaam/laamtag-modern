@@ -16,15 +16,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         const rewards = [
-            { label: "1 TAG", type: "TAG", value: 1, chance: 13 },
-            { label: "5 TAG", type: "TAG", value: 5, chance: 19 },
+            { label: "5 TAG", type: "TAG", value: 5, chance: 20 },
             { label: "50 L", type: "LAAM", value: 50, chance: 30 },
-            { label: "100 L", type: "LAAM", value: 100, chance: 11.1 },
-            { label: "500 L", type: "LAAM", value: 500, chance: 13.7 },
-            { label: "1 USDC", type: "USDC", value: 1, chance: 0.1 },
-            { label: "0.01 SOL", type: "SOL", value: 0.01, chance: 0.1 },
-            { label: "EMPTY", type: "EMPTY", value: 0, chance: 9 },
-            { label: "GEN BOX", type: "GEN_BOX", value: 0, chance: 0.1 },
+            { label: "100 L", type: "LAAM", value: 100, chance: 14 },
+            { label: "500 L", type: "LAAM", value: 500, chance: 15 },
+            { label: "50 SKR", type: "SKR", value: 50, chance: 5 },
+            { label: "1 USDC", type: "USDC", value: 1, chance: 0.7 },
+            { label: "0.01 SOL", type: "SOL", value: 0.01, chance: 0.7 },
+            { label: "EMPTY", type: "VOID", value: 0, chance: 10 },
+            { label: "GEN BOX", type: "GEN_BOX", value: 0, chance: 0.7 },
             {
                 label: "SPEC BOX",
                 type: "SPEC_BOX",
@@ -83,7 +83,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
         else if (win.type === "LAAM") updateUserData.laamPoints = { increment: win.value };
         else if (win.type === "TAG") updateUserData.tagTickets = { increment: win.value };
-        else if (win.type === "SOL" || win.type === "USDC") {
+        else if (win.type === "SOL" || win.type === "USDC" || win.type === "SKR") {
             pendingRewardData = { asset: win.type, amount: win.value };
         }
 
