@@ -1,14 +1,21 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useWallet, useConnection } from '@solana/wallet-adapter-react';
-import { PublicKey, Transaction } from '@solana/web3.js';
-import { createTransferCheckedInstruction, getAssociatedTokenAddress } from '@solana/spl-token';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { PublicKey } from '@solana/web3.js';
+import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
+import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-adapters";
+import { publicKey as umiPublicKey } from "@metaplex-foundation/umi";
+import { base58 } from "@metaplex-foundation/umi/serializers";
+import { mplToolbox, transferTokens, findAssociatedTokenPda, setComputeUnitPrice } from "@metaplex-foundation/mpl-toolbox";
+
 import { toast } from 'react-hot-toast';
 import styles from '../styles/PlinkoGame.module.css';
 
-const SKR_MINT = new PublicKey("SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3");
-const TREASURY = new PublicKey("CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc");
+// Using constants matching your API config
+const SKR_MINT_STR = "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3";
+const TREASURY_STR = "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc";
 const UNLOCK_FEE = 300;
+const RPC_URL = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
 
 const MULTIPLIERS: Record<number, number[]> = {
     8: [5.6, 2.1, 1.1, 0.5, 0, 0.5, 1.1, 2.1, 5.6],
@@ -23,8 +30,7 @@ const MULTIPLIERS: Record<number, number[]> = {
 };
 
 const PlinkoGame = () => {
-    const { publicKey, sendTransaction } = useWallet();
-    const { connection } = useConnection();
+    const { publicKey, wallet } = useWallet();
     const boardRef = useRef<HTMLDivElement>(null);
 
     const [isUnlocked, setIsUnlocked] = useState(false);
@@ -49,61 +55,99 @@ const PlinkoGame = () => {
     }, [publicKey]);
 
     const handleUnlock = async () => {
-        if (!publicKey) return toast.error("Connect Wallet First");
+        if (!publicKey || !wallet) return toast.error("Connect Wallet First");
+
+        setLoading(true);
+        const toastId = toast.loading("Initializing Unlock...");
+
         try {
-            setLoading(true);
-            const userAta = await getAssociatedTokenAddress(SKR_MINT, publicKey);
-            const treasuryAta = await getAssociatedTokenAddress(SKR_MINT, TREASURY);
+            const umi = createUmi(RPC_URL)
+                .use(walletAdapterIdentity(wallet.adapter as any))
+                .use(mplToolbox());
 
-            const tx = new Transaction().add(
-                createTransferCheckedInstruction(
-                    userAta, SKR_MINT, treasuryAta, publicKey,
-                    UNLOCK_FEE * 1_000_000, 6
-                )
-            );
+            const SKR_MINT_UMI = umiPublicKey(SKR_MINT_STR);
+            const TREASURY_UMI = umiPublicKey(TREASURY_STR);
 
-            const signature = await sendTransaction(tx, connection);
-            await connection.confirmTransaction(signature, 'confirmed');
+            const source = findAssociatedTokenPda(umi, {
+                mint: SKR_MINT_UMI,
+                owner: umiPublicKey(publicKey.toBase58())
+            })[0];
+
+            const destination = findAssociatedTokenPda(umi, {
+                mint: SKR_MINT_UMI,
+                owner: TREASURY_UMI
+            })[0];
+
+            const result = await setComputeUnitPrice(umi, { microLamports: 50000 })
+                .add(transferTokens(umi, {
+                    source,
+                    destination,
+                    authority: umi.identity,
+                    amount: BigInt(UNLOCK_FEE * 1_000_000)
+                }))
+                .sendAndConfirm(umi, { confirm: { commitment: 'confirmed' } });
+
+            const signature = base58.deserialize(result.signature)[0];
 
             const res = await fetch('/api/games/plinko/play', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'UNLOCK_GAME', walletAddress: publicKey.toBase58(), signature })
+                body: JSON.stringify({
+                    action: 'UNLOCK_GAME',
+                    walletAddress: publicKey.toBase58(),
+                    signature
+                })
             });
 
             const data = await res.json();
             if (data.success) {
                 setIsUnlocked(true);
-                toast.success("Plinko Unlocked!");
+                toast.success("Plinko Unlocked!", { id: toastId });
             } else {
                 throw new Error(data.error);
             }
         } catch (err: any) {
-            toast.error(err.message || "Unlock failed");
+            toast.error(err.message || "Unlock failed", { id: toastId });
         } finally {
             setLoading(false);
         }
     };
 
     const handlePlay = useCallback(async () => {
-        if (!publicKey || isAnimating) return;
+        if (!publicKey || !wallet || isAnimating) return;
         if (betAmount < 200) return toast.error("Minimum bet is 200 $SKR");
 
+        const toastId = toast.loading("Processing Bet...");
+
         try {
-            const userAta = await getAssociatedTokenAddress(SKR_MINT, publicKey);
-            const treasuryAta = await getAssociatedTokenAddress(SKR_MINT, TREASURY);
+            const umi = createUmi(RPC_URL)
+                .use(walletAdapterIdentity(wallet.adapter as any))
+                .use(mplToolbox());
 
-            const tx = new Transaction().add(
-                createTransferCheckedInstruction(
-                    userAta, SKR_MINT, treasuryAta, publicKey,
-                    betAmount * 1_000_000, 6
-                )
-            );
+            const SKR_MINT_UMI = umiPublicKey(SKR_MINT_STR);
+            const TREASURY_UMI = umiPublicKey(TREASURY_STR);
 
-            const signature = await sendTransaction(tx, connection);
-            const loadingToast = toast.loading("Processing Bet...");
-            await connection.confirmTransaction(signature, 'confirmed');
-            toast.dismiss(loadingToast);
+            const source = findAssociatedTokenPda(umi, {
+                mint: SKR_MINT_UMI,
+                owner: umiPublicKey(publicKey.toBase58())
+            })[0];
+
+            const destination = findAssociatedTokenPda(umi, {
+                mint: SKR_MINT_UMI,
+                owner: TREASURY_UMI
+            })[0];
+
+            // Send Bet via Umi (Priority fee added for mobile stability)
+            const result = await setComputeUnitPrice(umi, { microLamports: 50000 })
+                .add(transferTokens(umi, {
+                    source,
+                    destination,
+                    authority: umi.identity,
+                    amount: BigInt(betAmount * 1_000_000)
+                }))
+                .sendAndConfirm(umi, { confirm: { commitment: 'confirmed' } });
+
+            const signature = base58.deserialize(result.signature)[0];
 
             const response = await fetch('/api/games/plinko/play', {
                 method: 'POST',
@@ -116,13 +160,14 @@ const PlinkoGame = () => {
                     signature
                 }),
             });
+
             const data = await response.json();
             if (data.error) throw new Error(data.error);
 
+            toast.dismiss(toastId);
             setBallPath(data.path);
             setIsAnimating(true);
 
-            // UPDATED: Sync with 4.0s animation duration + buffer
             setTimeout(() => {
                 setIsAnimating(false);
                 setBallPath(null);
@@ -132,10 +177,12 @@ const PlinkoGame = () => {
                     toast.error("Better luck next time!");
                 }
             }, 4200);
+
         } catch (error: any) {
-            toast.error(error.message || "Transaction failed");
+            console.error(error);
+            toast.error(error.message || "Transaction failed", { id: toastId });
         }
-    }, [isAnimating, lines, publicKey, betAmount, connection, sendTransaction]);
+    }, [isAnimating, lines, publicKey, wallet, betAmount]);
 
     if (loading) return <div className="text-white font-bold text-center p-10 uppercase tracking-widest">Initialising Engine...</div>;
 
@@ -203,7 +250,6 @@ const PlinkoGame = () => {
                                         y: getBallYTarget(),
                                         x: getBallXOffset()
                                     },
-                                    // UPDATED: Slower transition
                                     transition: { duration: 4.0, ease: "circIn" },
                                     style: { left: "50%", position: "absolute", marginLeft: "-6px" }
                                 } as any)}
