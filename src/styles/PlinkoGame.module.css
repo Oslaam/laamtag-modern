@@ -79,8 +79,26 @@
     border-radius: 50%;
     box-shadow: 0 0 15px rgba(234, 179, 8, 0.8);
     z-index: 50;
-    /* IMPORTANT: Prevents CSS from fighting Framer Motion */
     transition: none !important;
+    will-change: transform;
+}
+
+.peg {
+    width: 6px;
+    height: 6px;
+    background-color: #475569;
+    border-radius: 50%;
+    margin: 0 2%;
+    box-shadow: 0 0 5px rgba(255, 255, 255, 0.1);
+    transition: background-color 0.1s ease, box-shadow 0.1s ease;
+}
+
+/* The "Hit" animation class */
+.pegHit {
+    background-color: #facc15 !important;
+    /* Matches your ball color */
+    box-shadow: 0 0 12px #facc15, 0 0 20px rgba(250, 204, 21, 0.4);
+    transform: scale(1.3);
 }
 
 .controls {

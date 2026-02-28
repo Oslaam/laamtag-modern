@@ -39,6 +39,7 @@ const PlinkoGame = () => {
     const [ballPath, setBallPath] = useState<number[] | null>(null);
     const [loading, setLoading] = useState(true);
     const [betAmount, setBetAmount] = useState<number>(200);
+    const [activeRow, setActiveRow] = useState<number | null>(null);
 
     useEffect(() => {
         if (!publicKey) {
@@ -202,6 +203,32 @@ const PlinkoGame = () => {
         return lines * rowHeight;
     };
 
+    const getBallKeyframes = () => {
+        if (!ballPath || !boardRef.current) return { x: [0], y: [0] };
+
+        const boardWidth = boardRef.current.offsetWidth;
+        const isMobile = window.innerWidth < 480;
+        const rowHeight = isMobile ? 22 : 30;
+        const horizontalStep = (boardWidth * 0.04); // Adjust this multiplier to match your peg spacing (%)
+
+        let currentX = 0;
+        const xKeyframes = [0];
+        const yKeyframes = [0];
+
+        ballPath.forEach((step, index) => {
+            // 0 = left, 1 = right
+            currentX += (step === 1 ? horizontalStep : -horizontalStep);
+            xKeyframes.push(currentX);
+            yKeyframes.push((index + 1) * rowHeight);
+        });
+
+        // Final drop into multiplier box
+        yKeyframes.push(yKeyframes[yKeyframes.length - 1] + 25);
+        xKeyframes.push(currentX);
+
+        return { x: xKeyframes, y: yKeyframes };
+    };
+
     return (
         <div className={styles.container}>
             {!isUnlocked ? (
@@ -217,7 +244,10 @@ const PlinkoGame = () => {
                     {[...Array(lines)].map((_, rowIndex) => (
                         <div key={rowIndex} className={styles.pegRow}>
                             {[...Array(rowIndex + 3)].map((_, pegIndex) => (
-                                <div key={pegIndex} className={styles.peg} />
+                                <div
+                                    key={pegIndex}
+                                    className={`${styles.peg} ${activeRow === rowIndex ? styles.pegHit : ''}`}
+                                />
                             ))}
                         </div>
                     ))}
@@ -241,20 +271,37 @@ const PlinkoGame = () => {
                     </div>
 
                     <AnimatePresence>
-                        {isAnimating && ballPath && (
-                            <motion.div
-                                {...({
-                                    className: styles.ball,
-                                    initial: { y: 0, x: 0 },
-                                    animate: {
-                                        y: getBallYTarget(),
-                                        x: getBallXOffset()
-                                    },
-                                    transition: { duration: 4.0, ease: "circIn" },
-                                    style: { left: "50%", position: "absolute", marginLeft: "-6px" }
-                                } as any)}
-                            />
-                        )}
+                        {isAnimating && ballPath && (() => {
+                            const keyframes = getBallKeyframes();
+                            return (
+                                <motion.div
+                                    {...({
+                                        className: styles.ball,
+                                        initial: { y: 0, x: 0 },
+                                        animate: {
+                                            y: keyframes.y,
+                                            x: keyframes.x
+                                        },
+                                        transition: {
+                                            duration: 4.0,
+                                            ease: "linear",
+                                            times: Array.from({ length: keyframes.y.length }, (_, i) => i / (keyframes.y.length - 1))
+                                        },
+                                        // ADD THIS: Detects progress and highlights the row
+                                        onUpdate: (latest: any) => {
+                                            const isMobile = window.innerWidth < 480;
+                                            const rowHeight = isMobile ? 22 : 30;
+                                            const currentRow = Math.floor(latest.y / rowHeight);
+                                            if (currentRow >= 0 && currentRow < lines) {
+                                                setActiveRow(currentRow);
+                                            }
+                                        },
+                                        onAnimationComplete: () => setActiveRow(null),
+                                        style: { left: "50%", position: "absolute", marginLeft: "-6px" }
+                                    } as any)}
+                                />
+                            );
+                        })()}
                     </AnimatePresence>
 
                     <div className={styles.controls}>
