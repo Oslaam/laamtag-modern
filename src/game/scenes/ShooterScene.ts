@@ -149,7 +149,6 @@ export class ShooterScene extends Phaser.Scene {
         EventBus.off('pause-game');
         EventBus.off('resume-stage');
 
-        // FIX: Start game immediately when React says so, even if intro is fading
         EventBus.on('start-game', () => {
             this.isStarted = true;
             if (this.physics) this.physics.resume();
@@ -166,10 +165,8 @@ export class ShooterScene extends Phaser.Scene {
             }
         });
 
-        // FIXED: Removed "if (!this.isManualReady) return;" 
-        // This allows the upgrades to be saved even while the "INITIALIZING" screen is visible.
         EventBus.on('apply-upgrades', (data: any) => {
-            // We no longer return early here. We accept the data immediately.
+
             if (data.weaponLevel) this.stats.weaponLevel = data.weaponLevel;
             if (data.shieldLevel) this.stats.shieldLevel = data.shieldLevel;
             if (data.shoeLevel) this.stats.shoeLevel = data.shoeLevel;
@@ -201,6 +198,8 @@ export class ShooterScene extends Phaser.Scene {
             EventBus.off('apply-upgrades');
             EventBus.off('redeploy-player');
             EventBus.off('resume-stage');
+
+            if (this.fireEvent) this.fireEvent.remove();
         });
 
         this.scale.on('resize', (gameSize: Phaser.Structs.Size) => {
@@ -368,6 +367,7 @@ export class ShooterScene extends Phaser.Scene {
         this.boss = this.physics.add.sprite(width + 150, height / 2, 'boss1');
         this.boss.setDisplaySize(200, 200).setRotation(Phaser.Math.DegToRad(-90));
         this.boss.setData('hp', maxHp).setData('maxHp', maxHp);
+        this.physics.add.overlap(this.bullets, this.boss, (boss, bullet) => this.handleHit(bullet, boss), undefined, this);
 
         // 2. Tween to a position 200px from the current right edge
         this.tweens.add({
@@ -415,21 +415,36 @@ export class ShooterScene extends Phaser.Scene {
         bullet.destroy();
         this.createExplosion(target.x, target.y, 0xffffff, 5);
 
+        // Visual feedback for hitting the boss
+        if (target === this.boss) {
+            target.setTint(0xff0000); // Flash Red
+            this.time.delayedCall(50, () => {
+                if (target && target.active) target.clearTint();
+            });
+        }
+
+        // Calculate damage based on Weapon Level
         const playerDamage = 10 * (1 + (this.stats.weaponLevel - 1) * 0.35);
         let hp = target.getData('hp') - playerDamage;
         target.setData('hp', hp);
 
+        // Check if the target is destroyed
         if (hp <= 0) {
             if (target === this.boss) {
                 this.onBossKilled();
             } else {
+                // Logic for regular enemies
                 this.createExplosion(target.x, target.y, 0xff4444, 25);
                 this.enemiesKilled++;
 
-                // --- ADD THIS LINE TO UPDATE THE SCREEN ---
+                // Update the UI counter
                 this.enemyCountText.setText(`TARGET: ${this.enemiesKilled}/${this.enemiesToKill}`);
 
-                if (Math.random() > 0.88) this.spawnSpecialBomb(target.x, target.y);
+                // 12% chance to drop a special bomb (TAG, LAAM, or Health)
+                if (Math.random() > 0.88) {
+                    this.spawnSpecialBomb(target.x, target.y);
+                }
+
                 target.destroy();
             }
         }
