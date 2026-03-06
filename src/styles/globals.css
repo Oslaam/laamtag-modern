@@ -1,3 +1,9 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 html,
 body {
   padding: 0;
@@ -5,18 +11,18 @@ body {
   background: #000;
   color: #fff;
   font-family: system-ui, -apple-system, sans-serif;
-  overflow-x: visible;
-  /* Ensures no weird scroll snapping or phantom space */
+  overflow-x: hidden;
   height: auto;
+  width: 100%;
 }
 
 /* THE LAYOUT CONTAINERS */
 .app-container {
   display: flex;
   flex-direction: column;
-  /* Use dvh (dynamic viewport height) for better mobile support */
   min-height: 100dvh;
   width: 100%;
+  overflow-x: hidden;
 }
 
 .main-content {
@@ -24,14 +30,13 @@ body {
   padding: 1rem;
   display: flex;
   flex-direction: column;
+  width: 100%;
 }
 
 .content-wrapper {
   max-width: 600px;
   margin: 0 auto;
   width: 100%;
-  /* Reduced from 200px to 100px to eliminate the "black hole" space */
-  /* This provides just enough room to clear the fixed footer nav */
   padding-bottom: 100px;
 }
 
@@ -43,6 +48,7 @@ body {
   backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   padding: 1.5rem 1rem 1rem 1rem;
+  width: 100%;
 }
 
 .header-nav {
@@ -57,6 +63,8 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .logo {
@@ -76,6 +84,9 @@ body {
   border-radius: 12px;
   padding: 0.5rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  width: 100%;
 }
 
 .stat-box {
@@ -83,6 +94,7 @@ body {
   border-right: 1px solid rgba(255, 255, 255, 0.05);
   text-align: center;
   min-width: 45px;
+  flex: 1;
 }
 
 .stat-box:last-child {
@@ -113,8 +125,8 @@ body {
   background: rgba(0, 0, 0, 0.95);
   backdrop-filter: blur(20px);
   border-top: 1px solid rgba(234, 179, 8, 0.2);
-  /* Adjusted padding for a tighter fit */
   padding: 1rem 1rem 1.5rem 1rem;
+  width: 100%;
   transition: all 0.3s ease;
 }
 
@@ -183,6 +195,8 @@ body {
   font-size: 10px !important;
   height: 32px !important;
   border-radius: 8px !important;
+  max-width: 100% !important;
+  /* ✅ prevents wallet button overflow */
 }
 
 /* Standard Page Title */
@@ -193,13 +207,14 @@ body {
   letter-spacing: -0.02em;
 }
 
-/* The "Mattle" Card Style */
+/* Terminal Card */
 .terminal-card {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
   padding: 1.5rem;
   margin-bottom: 1rem;
+  width: 100%;
 }
 
 /* Secondary Links/Actions */
@@ -240,4 +255,145 @@ body {
 
 .primary-btn:active {
   transform: scale(0.98);
+}
+
+/* Extra small phones — 320px to 374px */
+@media (max-width: 374px) {
+  .logo {
+    font-size: 1.4rem;
+  }
+
+  .page-title {
+    font-size: 1.5rem;
+  }
+
+  .terminal-card {
+    padding: 1rem;
+    border-radius: 12px;
+  }
+
+  .main-content {
+    padding: 0.75rem;
+  }
+
+  .stat-label {
+    font-size: 6px;
+  }
+
+  .stat-value {
+    font-size: 9px;
+  }
+
+  .footer-item span {
+    font-size: 7px;
+    letter-spacing: 0;
+  }
+
+  .footer-grid {
+    gap: 0.5rem 0.1rem;
+  }
+
+  .primary-btn {
+    font-size: 0.85rem;
+    padding: 0.85rem;
+  }
+}
+
+/* Small phones — 375px to 480px */
+@media (min-width: 375px) and (max-width: 480px) {
+  .logo {
+    font-size: 1.6rem;
+  }
+
+  .page-title {
+    font-size: 1.75rem;
+  }
+
+  .terminal-card {
+    padding: 1.25rem;
+  }
+
+  .main-content {
+    padding: 0.875rem;
+  }
+}
+
+/* Medium phones — 481px to 640px */
+@media (min-width: 481px) and (max-width: 640px) {
+  .page-title {
+    font-size: 1.9rem;
+  }
+
+  .content-wrapper {
+    padding-bottom: 110px;
+  }
+}
+
+/* Tablets — 641px to 1024px */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .content-wrapper {
+    max-width: 700px;
+    padding-bottom: 120px;
+  }
+
+  .page-title {
+    font-size: 2.25rem;
+  }
+
+  .terminal-card {
+    padding: 1.75rem;
+  }
+
+  .footer-grid {
+    max-width: 600px;
+  }
+
+  .footer-item span {
+    font-size: 9px;
+  }
+
+  .logo {
+    font-size: 2rem;
+  }
+}
+
+/* Desktop — 1025px and above */
+@media (min-width: 1025px) {
+  .content-wrapper {
+    max-width: 800px;
+    padding-bottom: 80px;
+  }
+
+  .page-title {
+    font-size: 2.5rem;
+  }
+
+  .terminal-card {
+    padding: 2rem;
+  }
+
+  .footer-grid {
+    max-width: 600px;
+  }
+
+  .main-footer {
+    padding: 1rem 2rem 1.5rem 2rem;
+  }
+
+  .main-content {
+    padding: 1.5rem 2rem;
+  }
+
+  .logo {
+    font-size: 2.2rem;
+  }
+
+  /* On desktop, footer items can be slightly larger */
+  .footer-item span {
+    font-size: 9px;
+  }
+
+  .icon-container {
+    padding: 0.5rem;
+  }
 }
