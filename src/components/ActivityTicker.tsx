@@ -24,7 +24,7 @@ export default function ActivityTicker() {
         const interval = setInterval(fetchFeed, 30000);
 
         // 2. Real-time Connection Listener
-        socketInitializer();
+        // socketInitializer();
 
         return () => {
             clearInterval(interval);

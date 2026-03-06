@@ -1,0 +1,320 @@
+.battlefieldFrame {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+    font-family: 'Courier New', Courier, monospace;
+    background: #020617;
+    color: #e2e8f0;
+}
+
+/* WAR CREDIT DISPLAY */
+.statsHeader {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 10px;
+}
+
+.creditBadge {
+    background: #0f172a;
+    border: 1px solid #f59e0b;
+    padding: 8px 20px;
+    color: #f59e0b;
+    font-weight: 900;
+    font-size: 13px;
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.15);
+    clip-path: polygon(5% 0, 100% 0, 95% 100%, 0% 100%);
+}
+
+/* MISSION MAP / SECTORS */
+.mapGrid {
+    background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.85)),
+        url('/assets/images/barracks-bg.jpg');
+    background-size: cover;
+    background-position: center;
+    border: 2px solid #334155;
+    border-radius: 4px;
+    padding: 30px;
+    box-shadow: inset 0 0 100px #000;
+}
+
+.sectorContainer {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.sector {
+    background: none;
+    border: 1px solid #1e293b;
+    padding: 20px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.sector p {
+    font-size: 11px;
+    color: #94a3b8;
+    margin: 10px 0;
+}
+
+.normalZone {
+    border-top: 4px solid #3b82f6;
+}
+
+.vipZone {
+    border-top: 4px solid #ef4444;
+}
+
+.sectorHeader {
+    color: #fff;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+
+.sector button {
+    width: 100%;
+    padding: 10px;
+    margin-top: 10px;
+    font-family: inherit;
+    font-weight: 900;
+    font-size: 11px;
+    cursor: pointer;
+    transition: 0.2s;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sector button:disabled {
+    background: #1e293b;
+    color: #475569;
+    cursor: not-allowed;
+}
+
+.normalZone button {
+    background: #3b82f6;
+    color: white;
+}
+
+.vipZone button {
+    background: #ef4444;
+    color: white;
+}
+
+/* TERMINAL SECTIONS (WALLET, BARRACKS, BATTLEFIELD) */
+.terminalSection {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    padding: 15px;
+}
+
+.terminalHeader {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 8px;
+    text-transform: uppercase;
+}
+
+/* UNIT GRIDS */
+.unitGrid,
+.unitGridSmall {
+    display: grid;
+    gap: 15px;
+}
+
+.unitGrid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+
+.unitGridSmall {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+}
+
+/* CARDS */
+.unitCard,
+.miniCard {
+    background: #020617;
+    border: 1px solid #1e293b;
+    position: relative;
+    padding: 8px;
+    transition: all 0.2s ease;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.miniCard {
+    text-align: center;
+}
+
+.miniCard img {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 2px;
+    margin-bottom: 8px;
+}
+
+.unitCard.selected {
+    border-color: #f59e0b;
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.2);
+}
+
+.unitCard.locked {
+    opacity: 0.8;
+    background: #0f172a;
+    cursor: default;
+}
+
+.warriorImage {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    display: block;
+}
+
+.rarityBadge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-size: 8px;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 2px 6px;
+    border: 1px solid #475569;
+    font-weight: 900;
+}
+
+/* BUTTONS & STATUS */
+.unitStatus {
+    font-size: 10px;
+    color: #4ade80;
+    margin-top: 8px;
+    text-align: center;
+}
+
+.availablePulse {
+    animation: pulse 1.5s infinite;
+    margin-right: 5px;
+}
+
+.missionInfo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    margin-top: 8px;
+}
+
+.claimButton {
+    width: 100%;
+    background: #4ade80;
+    color: #064e3b;
+    font-size: 10px;
+    font-weight: 900;
+    border: none;
+    padding: 8px;
+    margin-top: 8px;
+    cursor: pointer;
+}
+
+.cardActions {
+    display: flex;
+    gap: 5px;
+    padding: 10px 5px;
+    background: rgba(0, 0, 0, 0.5);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.selectBtn {
+    flex: 2;
+    background: #1e293b;
+    color: #f8fafc;
+    border: 1px solid #334155;
+    font-size: 10px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.selectBtn:hover {
+    background: #334155;
+}
+
+.withdrawBtn {
+    flex: 1;
+    background: #450a0a;
+    /* Dark Red */
+    color: #f87171;
+    border: 1px solid #7f1d1d;
+    font-size: 9px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.withdrawBtn:hover {
+    background: #7f1d1d;
+    color: white;
+}
+
+.readyGlow {
+    border-color: #4ade80 !important;
+    box-shadow: 0 0 15px rgba(74, 222, 128, 0.2);
+}
+
+.loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 300px;
+    color: #3b82f6;
+}
+
+/* Dynamic Rarity Coloring */
+.rarityBadge[data-rarity="Legendary"] {
+    color: #f59e0b;
+    border-color: #f59e0b;
+    box-shadow: 0 0 5px rgba(245, 158, 11, 0.5);
+}
+
+.rarityBadge[data-rarity="Epic"] {
+    color: #a855f7;
+    border-color: #a855f7;
+}
+
+.rarityBadge[data-rarity="Rare"] {
+    color: #3b82f6;
+    border-color: #3b82f6;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.3;
+    }
+}
+
+@media (max-width: 768px) {
+    .sectorContainer {
+        grid-template-columns: 1fr;
+    }
+
+    .unitGrid {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    }
+}

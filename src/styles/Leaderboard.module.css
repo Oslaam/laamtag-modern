@@ -1,0 +1,446 @@
+.wrapper {
+    padding: 24px 16px 0;
+}
+
+/* ── Header ── */
+.header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.pageTitle {
+    color: #eab308;
+    margin: 0 0 8px;
+}
+
+.subtitle {
+    font-size: 10px;
+    letter-spacing: 2px;
+    opacity: 0.5;
+    margin: 0;
+}
+
+/* ── Terminal Card ── */
+.card {
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.02);
+    overflow: hidden;
+    margin-bottom: 48px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.cardRecruiter {
+    border-radius: 12px;
+    border: 1px solid rgba(234, 179, 8, 0.2);
+    background: rgba(255, 255, 255, 0.02);
+    overflow: hidden;
+    margin-bottom: 48px;
+    max-width: 600px;
+    /* Centering recruiter card as well */
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* ── Table Header Row ── */
+.tableHead {
+    display: grid;
+    grid-template-columns: 56px 1fr 72px 96px;
+    padding: 14px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.tableHeadRecruiter {
+    display: grid;
+    grid-template-columns: 56px 1fr 110px;
+    padding: 12px 20px;
+    background: rgba(234, 179, 8, 0.05);
+    border-bottom: 1px solid rgba(234, 179, 8, 0.1);
+}
+
+.headCell {
+    font-size: 9px;
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.headCellGold {
+    font-size: 9px;
+    font-weight: 900;
+    color: rgba(234, 179, 8, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.headRight {
+    text-align: right;
+}
+
+.headCenter {
+    text-align: center;
+}
+
+/* ── Scrollable Body ── */
+.tableBody {
+    max-height: 40vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(234, 179, 8, 0.3) transparent;
+}
+
+.tableBody::-webkit-scrollbar {
+    width: 4px;
+}
+
+.tableBody::-webkit-scrollbar-thumb {
+    background: rgba(234, 179, 8, 0.3);
+    border-radius: 2px;
+}
+
+/* ── Data Rows ── */
+.row {
+    display: grid;
+    grid-template-columns: 56px 1fr 72px 96px;
+    padding: 14px 20px;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    transition: background 0.15s ease;
+}
+
+.row:last-child {
+    border-bottom: none;
+}
+
+.rowHighlight {
+    display: grid;
+    grid-template-columns: 56px 1fr 72px 96px;
+    padding: 14px 20px;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    transition: background 0.15s ease;
+    background: rgba(234, 179, 8, 0.1);
+}
+
+.recruiterRow {
+    display: grid;
+    grid-template-columns: 56px 1fr 110px;
+    padding: 14px 20px;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+/* ── Rank Cell ── */
+.rankCell {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.rankNumTop {
+    font-weight: 900;
+    color: #eab308;
+    font-size: 16px;
+}
+
+.rankNum {
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 12px;
+}
+
+.rankPos {
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 13px;
+}
+
+/* ── Name Cell ── */
+.nameWallet,
+.nameUsername {
+    font-weight: 700;
+    font-size: 13px;
+    text-transform: uppercase;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.nameWallet {
+    font-family: monospace;
+}
+
+.recruiterName {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.recruiterNameText {
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── Tier Badge ── */
+.tierCell {
+    text-align: center;
+}
+
+.tierBadge {
+    font-size: 8px;
+    font-weight: 900;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.5);
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+/* ── Points Cell ── */
+.pointsCell {
+    text-align: right;
+    font-weight: 900;
+    color: #eab308;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+/* ── Recruiter Count ── */
+.recruitCount {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+.recruitCountNum {
+    color: #eab308;
+    font-weight: 900;
+}
+
+/* ── Loading State ── */
+.loading {
+    padding: 60px 20px;
+    text-align: center;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.4;
+    }
+}
+
+/* ── Elite Recruiters Header ── */
+.recruiterHeader {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.recruiterBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 16px;
+    border-radius: 20px;
+    background: rgba(234, 179, 8, 0.1);
+    border: 1px solid rgba(234, 179, 8, 0.2);
+}
+
+.recruiterBadgeText {
+    font-size: 10px;
+    font-weight: 900;
+    color: #eab308;
+    letter-spacing: 2px;
+}
+
+/* ── Bottom Spacer ── */
+.bottomSpacer {
+    height: 140px;
+}
+
+/* ── Persistent Standing Bar ── */
+.standingBar {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 400px;
+    background: rgba(234, 179, 8, 0.95);
+    /* Semi-transparent */
+    backdrop-filter: blur(8px);
+    /* Backdrop blur for readability */
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 24px;
+    padding: 14px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    z-index: 50;
+}
+
+.standingLeft {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.standingRankBox {
+    background: #000;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 12px;
+    text-align: center;
+}
+
+.standingRankLabel {
+    font-size: 8px;
+    margin: 0;
+    opacity: 0.6;
+}
+
+.standingRankNum {
+    font-size: 16px;
+    font-weight: 900;
+    margin: 0;
+    line-height: 1;
+}
+
+.standingMeta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.standingTag {
+    font-size: 8px;
+    font-weight: 900;
+    color: rgba(0, 0, 0, 0.5);
+    margin: 0;
+    text-transform: uppercase;
+}
+
+.standingRankName {
+    font-size: 14px;
+    font-weight: 900;
+    color: #000;
+    margin: 0;
+}
+
+.standingPointsNum {
+    font-size: 18px;
+    font-weight: 900;
+    color: #000;
+    margin: 0;
+}
+
+.standingPointsUnit {
+    font-size: 10px;
+}
+
+@media (max-width: 480px) {
+    .wrapper {
+        padding: 32px 8px 0;
+        /* Reduced side padding to give table more room */
+    }
+
+    .card {
+        width: 100%;
+        margin-bottom: 24px;
+    }
+
+    /* ── Shifting the Table Left ── */
+    .tableHead,
+    .row,
+    .rowHighlight {
+        /* We shrink Rank to 32px and Seeker name is flexible (1fr) */
+        /* Tier and Points are set to fixed widths to prevent breaking */
+        grid-template-columns: 32px 1fr 55px 75px;
+        padding: 12px 6px;
+        /* Tightened internal padding */
+        gap: 2px;
+        /* Minimal gap between columns */
+    }
+
+    .tierCell,
+    .headTier {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    /* ── Font & Scaling Adjustments ── */
+    .nameWallet,
+    .nameUsername {
+        font-size: 10px;
+        /* Ensures the name truncates with ... instead of pushing the table */
+        max-width: 100%;
+    }
+
+    .tierBadge {
+        font-size: 7px;
+        padding: 2px 3px;
+        min-width: 45px;
+        /* Ensures badge doesn't collapse */
+    }
+
+    .pointsCell {
+        font-size: 11px;
+        text-align: right;
+    }
+
+    .rankNumTop,
+    .rankNum {
+        font-size: 11px;
+    }
+
+    /* Move Standing Bar up to avoid overlapping nav */
+    .standingBar {
+        bottom: 115px;
+        width: 94%;
+        padding: 8px 12px;
+    }
+
+    .standingPointsNum {
+        font-size: 13px;
+    }
+
+    .pageTitle {
+        font-size: 18px;
+    }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+    .wrapper {
+        padding: 20px 20px 0;
+    }
+
+    .tableHead,
+    .row,
+    .rowHighlight {
+        grid-template-columns: 56px 1fr 68px 88px;
+        padding: 13px 18px;
+    }
+
+    .nameWallet,
+    .nameUsername {
+        font-size: 12px;
+    }
+}

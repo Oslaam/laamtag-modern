@@ -169,7 +169,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 await prisma.activity.create({
                     data: {
                         userId: walletAddress,
-                        type: 'PLINKO_WIN',
+                        type: 'PLINK_WIN',
                         amount: winAmount,
                         asset: 'SKR'
                     }

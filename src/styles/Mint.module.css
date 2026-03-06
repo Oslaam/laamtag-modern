@@ -1,0 +1,143 @@
+.imageContainer {
+  margin-bottom: 2rem;
+  position: relative;
+}
+
+.imageOuter {
+  background: rgba(234, 179, 8, 0.1);
+  border-radius: 32px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nftGif {
+  width: 100%;
+  border-radius: 24px;
+  aspect-ratio: 1/1;
+  object-fit: cover;
+}
+
+.textSection {
+  margin-bottom: 2rem;
+}
+
+.title {
+  color: #eab308;
+  margin-bottom: 0.5rem;
+}
+
+.userRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  /* Helps on very small screens */
+}
+
+.usernameDisplay {
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  text-transform: uppercase;
+}
+
+.balanceText {
+  font-size: 12px;
+  font-weight: 900;
+  margin-top: 8px;
+}
+
+.progressHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.progressLabel {
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+
+.progressValue {
+  font-size: 14px;
+  font-weight: 900;
+  color: #eab308;
+}
+
+.progressBarTrack {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.progressBarFill {
+  height: 100%;
+  background: #eab308;
+  box-shadow: 0 0 10px #eab308;
+  transition: width 0.3s ease;
+}
+
+.controlRow {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.counterBox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  background: #000;
+  padding: 10px;
+  border-radius: 12px;
+}
+
+.counterBtn {
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.amountDisplay {
+  font-size: 24px;
+  font-weight: 900;
+  min-width: 40px;
+  text-align: center;
+}
+
+.statusText {
+  font-size: 10px;
+  font-weight: 900;
+  text-align: center;
+  margin-top: 10px;
+}
+
+/* --- Responsive Adjustments --- */
+@media (max-width: 640px) {
+  .imageOuter {
+    border-radius: 20px;
+    padding: 4px;
+  }
+
+  .nftGif {
+    border-radius: 16px;
+  }
+
+  .amountDisplay {
+    font-size: 20px;
+  }
+
+  .progressValue {
+    font-size: 12px;
+  }
+}

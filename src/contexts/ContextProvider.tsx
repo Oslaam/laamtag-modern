@@ -3,7 +3,7 @@
 import { WalletAdapterNetwork, WalletError } from '@solana/wallet-adapter-base';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
-import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
+import { SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
 import {
     SolanaMobileWalletAdapter,
     createDefaultAddressSelector,
@@ -42,8 +42,7 @@ export const ContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
                 onWalletNotFound: async () => {
                     console.warn('Mobile wallet not found');
                 },
-            }), // Added comma here
-            new PhantomWalletAdapter(),
+            }),
             new SolflareWalletAdapter(),
         ];
     }, [mounted, network]);

@@ -9,15 +9,8 @@ export const verifyCandyMachine = async () => {
 
     try {
         const candyMachine = await fetchCandyMachine(umi, candyMachineId);
-        console.log("--- CANDY MACHINE CHECKUP ---");
-        console.log("Items Available:", candyMachine.itemsRedeemed.toString(), "/", candyMachine.data.itemsAvailable.toString());
-        console.log("Mint Authority:", candyMachine.mintAuthority.toString());
-        console.log("Collection Mint:", candyMachine.collectionMint.toString());
-
-        // If this logs successfully, the machine is healthy on-chain.
         return "Candy Machine is HEALTHY";
     } catch (e) {
-        console.error("CANDY MACHINE ERROR:", e);
         return "Candy Machine NOT FOUND or BROKEN";
     }
 };

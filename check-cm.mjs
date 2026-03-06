@@ -12,21 +12,12 @@ async function check() {
   try {
     const cm = await fetchCandyMachine(umi, publicKey(CANDY_MACHINE_ID));
 
-    console.log("-----------------------------------------");
-    console.log("1. ON-CHAIN AUTHORITY:", cm.authority.toString());
-    console.log("2. COLLECTION MINT:", cm.collectionMint.toString());
-    console.log("3. ITEMS REDEEMED:", cm.itemsRedeemed.toString(), "/", cm.data.itemsAvailable.toString());
-
-    // Check Guard Settings
-    console.log("-----------------------------------------");
-    console.log("4. CHECKING GUARDS...");
     // This will print the raw guard data so we can see the start date
     console.log(JSON.stringify(cm.mintAuthority, (key, value) =>
       typeof value === 'bigint' ? value.toString() : value
       , 2));
 
   } catch (e) {
-    console.error("Error fetching:", e);
   }
 }
 

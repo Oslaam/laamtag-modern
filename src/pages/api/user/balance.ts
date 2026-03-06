@@ -1,45 +1,62 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { getAccount, getAssociatedTokenAddress } from '@solana/spl-token';
+import { PrismaClient } from '@prisma/client';
 
-// Simple in-memory cache to store decimals for different mint addresses
+const prisma = new PrismaClient();
+
 const decimalCache: Record<string, number> = {
-    "SKRbvo6Gf7Gondit3BbTfuRDPqLWei4j2Qy2NPGZhW3": 6 // Pre-set SKR based on your screenshot
+    "SKRbvo6Gf7Gondit3BbTfuRDPqLWei4j2Qy2NPGZhW3": 6
 };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { address, mint } = req.query;
 
-    if (!address || !mint) return res.status(400).json({ balance: 0 });
+    if (!address) return res.status(400).json({ balance: 0, warCredits: 0 });
 
     try {
-        const rpcEndpoint = process.env.RPC_URL || "https://api.mainnet-beta.solana.com";
-        const connection = new Connection(rpcEndpoint);
+        // 1. FETCH DATABASE DATA (War Credits)
+        const user = await prisma.user.findUnique({
+            where: { walletAddress: address as string },
+            select: { warCredits: true }
+        });
 
-        const userPubKey = new PublicKey(address as string);
-        const mintPubKey = new PublicKey(mint as string);
-        const mintAddressStr = mintPubKey.toBase58();
+        const warCredits = user?.warCredits || 0;
 
-        // 1. Get/Check decimals from cache or RPC
-        let decimals: number;
-        if (decimalCache[mintAddressStr] !== undefined) {
-            decimals = decimalCache[mintAddressStr];
-        } else {
-            const mintInfo = await connection.getTokenSupply(mintPubKey);
-            decimals = mintInfo.value.decimals;
-            decimalCache[mintAddressStr] = decimals; // Store for future requests
+        // 2. FETCH ON-CHAIN DATA (Only if mint is provided)
+        let tokenBalance = 0;
+        if (mint) {
+            try {
+                const rpcEndpoint = process.env.RPC_URL || "https://api.mainnet-beta.solana.com";
+                const connection = new Connection(rpcEndpoint);
+                const userPubKey = new PublicKey(address as string);
+                const mintPubKey = new PublicKey(mint as string);
+                const mintAddressStr = mintPubKey.toBase58();
+
+                let decimals: number;
+                if (decimalCache[mintAddressStr] !== undefined) {
+                    decimals = decimalCache[mintAddressStr];
+                } else {
+                    const mintInfo = await connection.getTokenSupply(mintPubKey);
+                    decimals = mintInfo.value.decimals;
+                    decimalCache[mintAddressStr] = decimals;
+                }
+
+                const ata = await getAssociatedTokenAddress(mintPubKey, userPubKey);
+                const account = await getAccount(connection, ata);
+                tokenBalance = Number(account.amount) / Math.pow(10, decimals);
+            } catch (e) {
+                tokenBalance = 0; // Account doesn't exist on-chain yet
+            }
         }
 
-        // 2. Find the ATA and fetch account info
-        const ata = await getAssociatedTokenAddress(mintPubKey, userPubKey);
-        const account = await getAccount(connection, ata);
+        return res.status(200).json({
+            balance: tokenBalance, // This is the $SKR from Solana
+            warCredits: warCredits  // This is the credits from your DB
+        });
 
-        // 3. Calculate balance using the correct decimals (6 for SKR)
-        const balance = Number(account.amount) / Math.pow(10, decimals);
-
-        return res.status(200).json({ balance });
-    } catch (e) {
-        // If account doesn't exist, return 0
-        return res.status(200).json({ balance: 0 });
+    } catch (error) {
+        console.error("API_ERROR:", error);
+        return res.status(500).json({ balance: 0, warCredits: 0 });
     }
 }

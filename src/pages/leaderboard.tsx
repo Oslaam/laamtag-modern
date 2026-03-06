@@ -4,6 +4,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { Trophy, Medal, Crown, UserPlus, Users, Fingerprint } from 'lucide-react';
 import SeekerGuard from '../components/SeekerGuard';
 import { getRank } from '../utils/ranks';
+import styles from '../styles/Leaderboard.module.css';
 
 interface LeaderboardUser {
   walletAddress: string;
@@ -34,21 +35,17 @@ export default function LeaderboardPage() {
         const res = await fetch(url);
         const data = await res.json();
 
-        setLeaders(data.topUsers || []);
+        setLeaders((data.topUsers || []).slice(0, 10));
         setMyStats(data.userRank || null);
 
-        // 1. Filter: Only users with at least 1 recruit
-        // 2. Sort: Highest referral count first
-        // 3. Slice: Top 5 recruiters
         const recruiterData = [...(data.topUsers || [])]
           .filter(user => (user.referralCount || 0) > 0)
           .sort((a, b) => (b.referralCount || 0) - (a.referralCount || 0))
           .slice(0, 5);
 
         setEliteRecruiters(recruiterData);
-
       } catch (err) {
-        console.error("Leaderboard fetch error", err);
+        console.error('Leaderboard fetch error', err);
       } finally {
         setLoading(false);
       }
@@ -61,83 +58,81 @@ export default function LeaderboardPage() {
       <div className="main-content">
         <Head><title>LAAMTAG | Leaderboard</title></Head>
 
-        <div className="content-wrapper">
-          {/* HEADER */}
-          <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-            <h1 className="page-title" style={{ color: '#eab308' }}>
-              Hall of Seekers
-            </h1>
-            <p className="terminal-desc" style={{ fontSize: '10px' }}>
-              TOP CONTRIBUTORS IN THE UNIVERSE
-            </p>
+        <div className={`content-wrapper ${styles.wrapper}`}>
+
+          {/* ── HEADER ── */}
+          <div className={styles.header}>
+            <h1 className={`page-title ${styles.pageTitle}`}>Hall of Seekers</h1>
+            <p className={`terminal-desc ${styles.subtitle}`}>TOP CONTRIBUTORS IN THE UNIVERSE</p>
           </div>
 
-          {/* MAIN LEADERBOARD TABLE */}
-          <div className="terminal-card" style={{ padding: '0', overflow: 'hidden', marginBottom: '48px' }}>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '60px 1fr 80px 100px',
-              padding: '16px 20px',
-              borderBottom: '1px solid rgba(255,255,255,0.1)',
-              background: 'rgba(255,255,255,0.02)'
-            }}>
-              <span style={{ fontSize: '9px', fontWeight: 900, color: 'rgba(255,255,255,0.3)' }}>RANK</span>
-              <span style={{ fontSize: '9px', fontWeight: 900, color: 'rgba(255,255,255,0.3)' }}>SEEKER</span>
-              <span style={{ fontSize: '9px', fontWeight: 900, color: 'rgba(255,255,255,0.3)', textAlign: 'center' }}>TIER</span>
-              <span style={{ fontSize: '9px', fontWeight: 900, color: 'rgba(255,255,255,0.3)', textAlign: 'right' }}>POINTS</span>
+          {/* ── MAIN LEADERBOARD TABLE ── */}
+          <div className={styles.card}>
+
+            {/* Column headers */}
+            <div className={styles.tableHead}>
+              <span className={styles.headCell}>RANK</span>
+              <span className={styles.headCell}>SEEKER</span>
+              <span className={`${styles.headCell} ${styles.headCenter} ${styles.headTier}`}>TIER</span>
+              <span className={`${styles.headCell} ${styles.headRight}`}>POINTS</span>
             </div>
 
             {loading ? (
-              <div style={{ padding: '60px', textAlign: 'center' }}>
-                <p className="terminal-desc" style={{ animation: 'pulse 1.5s infinite' }}>SYNCING LEDGER...</p>
+              <div className={styles.loading}>
+                <p className="terminal-desc">SYNCING LEDGER...</p>
               </div>
             ) : (
-              <div style={{ maxHeight: '40vh', overflowY: 'auto' }}>
+              <div className={styles.tableBody}>
                 {leaders.map((leader, index) => {
                   const isUser = leader.walletAddress === publicKey?.toString();
                   const rank = index + 1;
 
-                  // 1. Better Display Logic: Check DB username first, then fallback to wallet
-                  const displayName = leader.username ||
+                  const displayName =
+                    leader.username ||
                     `${leader.walletAddress.slice(0, 4)}...${leader.walletAddress.slice(-4)}`;
 
-                  // 2. Dynamic Coloring based on the name type
                   const nameColor = leader.username?.includes('.laam')
                     ? '#eab308'
                     : leader.username?.includes('.skr')
                       ? '#22d3ee'
-                      : (isUser ? '#eab308' : '#fff');
+                      : isUser
+                        ? '#eab308'
+                        : '#fff';
 
                   return (
-                    <div key={leader.walletAddress} style={{
-                      display: 'grid',
-                      gridTemplateColumns: '60px 1fr 80px 100px',
-                      padding: '16px 20px',
-                      alignItems: 'center',
-                      background: isUser ? 'rgba(234, 179, 8, 0.1)' : 'transparent',
-                      borderBottom: '1px solid rgba(255,255,255,0.03)'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        {rank === 1 ? <Crown size={14} color="#eab308" /> :
-                          rank <= 3 ? <Medal size={14} color={rank === 2 ? '#94a3b8' : '#cd7f32'} /> : null}
-                        <span style={{ fontWeight: 900, color: rank <= 3 ? '#eab308' : 'rgba(255,255,255,0.4)', fontSize: rank <= 3 ? '16px' : '12px' }}>#{rank}</span>
+                    <div
+                      key={leader.walletAddress}
+                      className={isUser ? styles.rowHighlight : styles.row}
+                    >
+                      {/* Rank */}
+                      <div className={styles.rankCell}>
+                        {rank === 1 ? (
+                          <Crown size={14} color="#eab308" />
+                        ) : rank <= 3 ? (
+                          <Medal size={14} color={rank === 2 ? '#94a3b8' : '#cd7f32'} />
+                        ) : null}
+                        <span className={rank <= 3 ? styles.rankNumTop : styles.rankNum}>
+                          #{rank}
+                        </span>
                       </div>
 
-                      {/* Updated Display Name with the new coloring */}
-                      <span style={{
-                        fontWeight: 700,
-                        color: nameColor,
-                        fontSize: '13px',
-                        textTransform: 'uppercase',
-                        fontFamily: leader.username ? 'inherit' : 'monospace'
-                      }}>
+                      {/* Name */}
+                      <span
+                        className={leader.username ? styles.nameUsername : styles.nameWallet}
+                        style={{ color: nameColor }}
+                      >
                         {displayName}
                       </span>
 
-                      <div style={{ textAlign: 'center' }}>
-                        <span style={{ fontSize: '8px', fontWeight: 900, padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }}>{leader.tier}</span>
+                      {/* Tier */}
+                      <div className={`${styles.tierCell} ${styles.headTier}`}>
+                        <span className={styles.tierBadge}>{leader.tier}</span>
                       </div>
-                      <div style={{ textAlign: 'right', fontWeight: 900, color: '#eab308', fontSize: '14px' }}>{leader.laamPoints.toLocaleString()}</div>
+
+                      {/* Points */}
+                      <div className={styles.pointsCell}>
+                        {Math.floor(leader.laamPoints).toLocaleString()}
+                      </div>
                     </div>
                   );
                 })}
@@ -145,55 +140,41 @@ export default function LeaderboardPage() {
             )}
           </div>
 
-          {/* ELITE RECRUITERS SECTION - Only visible if there are active recruiters */}
+          {/* ── ELITE RECRUITERS ── */}
           {eliteRecruiters.length > 0 && (
             <>
-              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                <div style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '4px 16px',
-                  borderRadius: '20px',
-                  background: 'rgba(234,179,8,0.1)',
-                  border: '1px solid rgba(234,179,8,0.2)',
-                  marginBottom: '12px'
-                }}>
+              <div className={styles.recruiterHeader}>
+                <div className={styles.recruiterBadge}>
                   <UserPlus size={14} color="#eab308" />
-                  <span style={{ fontSize: '10px', fontWeight: 900, color: '#eab308', letterSpacing: '2px' }}>ELITE RECRUITERS</span>
+                  <span className={styles.recruiterBadgeText}>ELITE RECRUITERS</span>
                 </div>
               </div>
 
-              <div className="terminal-card" style={{ padding: '0', overflow: 'hidden', border: '1px solid rgba(234,179,8,0.2)' }}>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: '60px 1fr 120px',
-                  padding: '12px 20px',
-                  background: 'rgba(234,179,8,0.05)',
-                  borderBottom: '1px solid rgba(234,179,8,0.1)'
-                }}>
-                  <span style={{ fontSize: '8px', fontWeight: 900, color: 'rgba(234,179,8,0.6)' }}>POS</span>
-                  <span style={{ fontSize: '8px', fontWeight: 900, color: 'rgba(234,179,8,0.6)' }}>RECRUITER</span>
-                  <span style={{ fontSize: '8px', fontWeight: 900, color: 'rgba(234,179,8,0.6)', textAlign: 'right' }}>TOTAL RECRUITS</span>
+              <div className={styles.cardRecruiter}>
+
+                {/* Column headers */}
+                <div className={styles.tableHeadRecruiter}>
+                  <span className={styles.headCellGold}>POS</span>
+                  <span className={styles.headCellGold}>RECRUITER</span>
+                  <span className={`${styles.headCellGold} ${styles.headRight}`}>
+                    TOTAL RECRUITS
+                  </span>
                 </div>
 
                 {eliteRecruiters.map((recruiter, index) => (
-                  <div key={`rec-${recruiter.walletAddress}`} style={{
-                    display: 'grid',
-                    gridTemplateColumns: '60px 1fr 120px',
-                    padding: '14px 20px',
-                    alignItems: 'center',
-                    borderBottom: '1px solid rgba(255,255,255,0.03)'
-                  }}>
-                    <span style={{ fontWeight: 900, color: '#fff', opacity: 0.5 }}>{index + 1}</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div key={`rec-${recruiter.walletAddress}`} className={styles.recruiterRow}>
+                    <span className={styles.rankPos}>{index + 1}</span>
+
+                    <div className={styles.recruiterName}>
                       <Fingerprint size={12} color="#eab308" />
-                      <span style={{ fontSize: '12px', fontWeight: 700, color: '#fff' }}>
-                        {recruiter.username || `${recruiter.walletAddress.slice(0, 4)}...${recruiter.walletAddress.slice(-4)}`}
+                      <span className={styles.recruiterNameText}>
+                        {recruiter.username ||
+                          `${recruiter.walletAddress.slice(0, 4)}...${recruiter.walletAddress.slice(-4)}`}
                       </span>
                     </div>
-                    <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
-                      <span style={{ color: '#eab308', fontWeight: 900 }}>{recruiter.referralCount}</span>
+
+                    <div className={styles.recruitCount}>
+                      <span className={styles.recruitCountNum}>{recruiter.referralCount}</span>
                       <Users size={12} color="rgba(255,255,255,0.3)" />
                     </div>
                   </div>
@@ -202,43 +183,30 @@ export default function LeaderboardPage() {
             </>
           )}
 
-          <div style={{ height: '140px' }}></div>
+          <div className={styles.bottomSpacer} />
         </div>
 
-        {/* PERSISTENT USER STANDING */}
+        {/* ── PERSISTENT STANDING BAR ── */}
         {publicKey && myStats && (
-          <div style={{
-            position: 'fixed',
-            bottom: '100px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '90%',
-            maxWidth: '400px',
-            background: '#eab308',
-            borderRadius: '24px',
-            padding: '16px 20px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
-            zIndex: 50
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ background: '#000', color: '#fff', padding: '8px 12px', borderRadius: '12px', textAlign: 'center' }}>
-                <p style={{ fontSize: '8px', margin: 0, opacity: 0.6 }}>RANK</p>
+          <div className={styles.standingBar}>
+            <div className={styles.standingLeft}>
+              <div className={styles.standingRankBox}>
+                <p className={styles.standingRankLabel}>RANK</p>
               </div>
-              <div>
-                <p style={{ fontSize: '8px', fontWeight: 900, color: 'rgba(0,0,0,0.5)', margin: 0 }}>
-                  {myStats.username || "TAG STATUS"}
+              <div className={styles.standingMeta}>
+                <p className={styles.standingTag}>
+                  {myStats.username || 'TAG STATUS'}
                 </p>
-                <p style={{ fontSize: '14px', fontWeight: 900, color: '#000', margin: 0 }}>
+                <p className={styles.standingRankName}>
                   {getRank(myStats.laamPoints).name}
                 </p>
               </div>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <p style={{ fontSize: '18px', fontWeight: 900, color: '#000', margin: 0 }}>
-                {myStats.laamPoints?.toLocaleString()} <span style={{ fontSize: '10px' }}>LAAM</span>
+
+            <div className={styles.standingPoints}>
+              <p className={styles.standingPointsNum}>
+                {Math.floor(myStats.laamPoints || 0).toLocaleString()}{' '}
+                <span className={styles.standingPointsUnit}>LAAM</span>
               </p>
             </div>
           </div>

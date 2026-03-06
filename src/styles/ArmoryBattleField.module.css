@@ -1,0 +1,83 @@
+.armoryContainer {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+.armoryHeader {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 30px;
+}
+
+.creditDisplay {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid #f59e0b;
+    padding: 10px 20px;
+    color: #f59e0b;
+    font-weight: 900;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.itemGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.itemCard {
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    padding: 25px;
+    text-align: center;
+    transition: transform 0.2s;
+}
+
+.itemCard:hover {
+    border-color: #ef4444;
+    transform: translateY(-5px);
+}
+
+.itemIcon {
+    color: #ef4444;
+    margin-bottom: 15px;
+    display: flex;
+    justify-content: center;
+}
+
+.itemCard h3 {
+    font-size: 16px;
+    margin-bottom: 10px;
+    letter-spacing: 1px;
+}
+
+.itemCard p {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-bottom: 20px;
+    height: 30px;
+}
+
+.buyBtn {
+    width: 100%;
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 12px;
+    font-family: inherit;
+    font-weight: 900;
+    cursor: pointer;
+    clip-path: polygon(10% 0, 100% 0, 90% 100%, 0% 100%);
+}
+
+.buyBtn:hover {
+    background: #dc2626;
+}
+
+.buyBtn:disabled {
+    background: #450a0a;
+    cursor: not-allowed;
+}

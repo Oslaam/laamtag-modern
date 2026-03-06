@@ -6,6 +6,7 @@ import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import axios from "axios";
 import { Minus, Plus, Crown } from "lucide-react";
 import SeekerGuard from "../components/SeekerGuard";
+import styles from "../styles/Mint.module.css"; // CSS Module Import
 
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-adapters";
@@ -38,7 +39,7 @@ const Mint: NextPage = () => {
 
   const [isClient, setIsClient] = useState(false);
   const [stats, setStats] = useState({ global: 0, personal: 0, soldOut: false });
-  const [username, setUsername] = useState<string | null>(null); // New state for domain
+  const [username, setUsername] = useState<string | null>(null);
   const [balance, setBalance] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [amount, setAmount] = useState(1);
@@ -46,10 +47,8 @@ const Mint: NextPage = () => {
 
   useEffect(() => {
     setIsClient(true);
-
     const checkHealth = async () => {
       try {
-        // This calls your hardcoded utility
         const status = await verifyCandyMachine();
         setCmStatus(status);
       } catch (err) {
@@ -57,32 +56,23 @@ const Mint: NextPage = () => {
         setCmStatus("CONNECTION ERROR");
       }
     };
-
-    if (isClient) {
-      checkHealth();
-    }
+    if (isClient) checkHealth();
   }, [isClient]);
 
   const fetchStatus = async () => {
     try {
       if (!publicKey) return;
-
       const res = await axios.get(`/api/user/${publicKey.toBase58()}`);
       const umi = createUmi(RPC_URL).use(mplCandyMachine());
       const candyMachine = await fetchCandyMachine(umi, umiPublicKey(MY_CANDY_ID.trim()));
-
       const redeemed = Number(candyMachine.itemsRedeemed);
       const total = Number(candyMachine.data.itemsAvailable);
-
       setStats({
         global: redeemed,
         personal: res.data.personalMinted || 0,
         soldOut: redeemed >= total
       });
-
-      // Set the username from database
       setUsername(res.data.username || null);
-
     } catch (e) {
       console.warn("Status Sync Error:", e);
     }
@@ -107,29 +97,19 @@ const Mint: NextPage = () => {
   const handleMint = async () => {
     if (!publicKey || !wallet) return;
     setLoading(true);
-
     try {
-      const umi = createUmi(RPC_URL)
-        .use(walletAdapterIdentity(wallet))
-        .use(mplCandyMachine())
-        .use(mplToolbox());
-
+      const umi = createUmi(RPC_URL).use(walletAdapterIdentity(wallet)).use(mplCandyMachine()).use(mplToolbox());
       const candyMachine = await fetchCandyMachine(umi, umiPublicKey(MY_CANDY_ID.trim()));
       const itemsAvailable = Number(candyMachine.data?.itemsAvailable ?? 0);
       if (itemsAvailable <= 0) throw new Error("Candy Machine is SOLD OUT");
 
-      // Limit the mint amount for mobile stability
       const maxMintable = Math.min(amount, 10 - stats.personal, itemsAvailable);
       const treasuryPubkey = umiPublicKey(MY_TREASURY_ADDR.trim());
 
-      // 1. Start the builder
       let builder = transactionBuilder()
         .add(setComputeUnitLimit(umi, { units: 800_000 }))
-        // 2. INCREASE FEE: 100,000 microLamports is the "sweet spot" for mobile simulation
         .add(setComputeUnitPrice(umi, { microLamports: 100_000 }));
 
-      // 3. Add the Mint instruction MULTIPLE times based on the 'amount'
-      // This bundles everything into ONE wallet signature request
       for (let i = 0; i < amount; i++) {
         const nftMint = generateSigner(umi);
         builder = builder.add(
@@ -148,11 +128,7 @@ const Mint: NextPage = () => {
         );
       }
 
-      // 4. Send and Confirm (The MWA Handshake - User signs ONCE for all NFTs)
       await builder.sendAndConfirm(umi);
-
-      // --- AFTER SUCCESS ---
-      // Use the 'amount' variable here so the database matches the UI
       await axios.post('/api/user/update-mints', {
         walletAddress: publicKey.toBase58(),
         actualCount: stats.personal + amount,
@@ -161,12 +137,11 @@ const Mint: NextPage = () => {
 
       const rewardRes = await axios.post('/api/user/reward-nft', {
         address: publicKey.toBase58(),
-        mintCount: amount // Updated to use the actual amount minted
+        mintCount: amount
       });
 
       alert(`🎉 SUCCESS! Minted ${amount} NFT(s) and earned ${rewardRes.data.earned} LAAM!`);
       fetchStatus();
-
     } catch (err: any) {
       console.error("MINT_ERROR:", err);
       alert(err.message || "Simulation failed. Ensure you have enough SOL for price + fees.");
@@ -185,81 +160,69 @@ const Mint: NextPage = () => {
 
         <div className="content-wrapper">
           {/* IMAGE SECTION */}
-          <div style={{ marginBottom: '2rem', position: 'relative' }}>
-            <div style={{
-              background: 'rgba(234, 179, 8, 0.1)',
-              borderRadius: '32px',
-              padding: '8px',
-              border: '1px solid rgba(255, 255, 255, 0.1)'
-            }}>
+          <div className={styles.imageContainer}>
+            <div className={styles.imageOuter}>
               <img
                 src="/assets/images/nft.gif"
                 alt="Laamtag NFT"
-                style={{
-                  width: '100%',
-                  borderRadius: '24px',
-                  aspectRatio: '1/1',
-                  objectFit: 'cover'
-                }}
+                className={styles.nftGif}
               />
             </div>
           </div>
 
           {/* TEXT SECTION */}
-          <div style={{ marginBottom: '2rem' }}>
-            <h1 className="page-title" style={{ color: '#eab308', marginBottom: '0.5rem' }}>Laamtag Genesis</h1>
+          <div className={styles.textSection}>
+            <h1 className={`page-title ${styles.title}`}>Laamtag Genesis</h1>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className={styles.userRow}>
               <p className="terminal-desc" style={{ margin: 0 }}>
                 Claim your position,
               </p>
-              <span style={{
-                color: username ? '#eab308' : '#fff',
-                fontWeight: 'bold',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                textTransform: 'uppercase'
-              }}>
+              <span
+                className={styles.usernameDisplay}
+                style={{ color: username ? '#eab308' : '#fff' }}
+              >
                 {username && <Crown size={12} />}
                 {username || (publicKey ? `${publicKey.toBase58().slice(0, 4)}...${publicKey.toBase58().slice(-4)}` : 'SEEKER')}
               </span>
             </div>
 
-            <p style={{ fontSize: '12px', fontWeight: 900, color: balance < totalDisplay ? '#ef4444' : '#eab308', marginTop: '8px' }}>
+            <p
+              className={styles.balanceText}
+              style={{ color: balance < totalDisplay ? '#ef4444' : '#eab308' }}
+            >
               BALANCE: {balance.toFixed(3)} SOL
             </p>
           </div>
 
-          {/* ... (Rest of the UI: Progress bar and Mint controls remain the same) */}
+          {/* PROGRESS SECTION */}
           <div className="terminal-card" style={{ marginBottom: '2rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <span style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', opacity: 0.5 }}>Global Progress</span>
-              <span style={{ fontSize: '14px', fontWeight: 900, color: '#eab308' }}>
+            <div className={styles.progressHeader}>
+              <span className={styles.progressLabel}>Global Progress</span>
+              <span className={styles.progressValue}>
                 {stats.global} <span style={{ opacity: 0.3, fontSize: '10px' }}>/ {MAX_SUPPLY}</span>
               </span>
             </div>
-            <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', overflow: 'hidden' }}>
-              <div style={{
-                width: `${(stats.global / MAX_SUPPLY) * 100}%`,
-                height: '100%',
-                background: '#eab308',
-                boxShadow: '0 0 10px #eab308'
-              }} />
+            <div className={styles.progressBarTrack}>
+              <div
+                className={styles.progressBarFill}
+                style={{ width: `${(stats.global / MAX_SUPPLY) * 100}%` }}
+              />
             </div>
           </div>
 
+          {/* MINT CONTROLS */}
           <div className="terminal-card">
             {stats.personal >= 10 ? (
               <div style={{ textAlign: 'center', padding: '1rem', color: '#eab308', fontWeight: 900 }}>
                 ALL POSITIONS CLAIMED
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '20px', background: '#000', padding: '10px', borderRadius: '12px' }}>
-                  <button onClick={handleDecrement} style={{ background: 'none', border: 'none', color: '#fff' }}><Minus /></button>
-                  <span style={{ fontSize: '24px', fontWeight: 900, minWidth: '40px', textAlign: 'center' }}>{amount}</span>
-                  <button onClick={handleIncrement} style={{ background: 'none', border: 'none', color: '#fff' }}><Plus /></button>
+              <div className={styles.controlRow}>
+                <div className={styles.counterBox}>
+                  <button onClick={handleDecrement} className={styles.counterBtn}><Minus /></button>
+                  <span className={styles.amountDisplay}>{amount}</span>
+                  <button onClick={handleIncrement} className={styles.counterBtn}><Plus /></button>
                 </div>
 
                 <button
@@ -277,7 +240,7 @@ const Mint: NextPage = () => {
                 </button>
 
                 {cmStatus !== "Candy Machine is HEALTHY" && (
-                  <p style={{ color: '#ef4444', fontSize: '10px', fontWeight: 900, textAlign: 'center' }}>
+                  <p className={styles.statusText} style={{ color: '#ef4444' }}>
                     NETWORK SYNCING... PLEASE WAIT
                   </p>
                 )}

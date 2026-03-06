@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import SeekerGuard from '../components/SeekerGuard';
 import { ChevronDown, ChevronUp, Clock, XCircle, CheckCircle2, Lock } from 'lucide-react';
+import styles from '../styles/Quests.module.css';
 
 const isAlreadyClaimedToday = (lastCheckInDate: string | Date | null) => {
   if (!lastCheckInDate) return false;
@@ -24,6 +25,7 @@ export default function QuestsPage() {
   const [clickedQuests, setClickedQuests] = useState<Record<string, boolean>>({});
   const [proofLinks, setProofLinks] = useState<Record<string, string>>({});
   const [showAllArchived, setShowAllArchived] = useState(false);
+  const [streakCount, setStreakCount] = useState<number>(0);
 
   const fetchQuests = useCallback(async () => {
     try {
@@ -43,6 +45,7 @@ export default function QuestsPage() {
         const userRes = await fetch(`/api/user/get-profile?address=${publicKey.toString()}`);
         if (userRes.ok) {
           const userData = await userRes.json();
+          setStreakCount(userData.streakCount || 0); // Directly set streak from Prisma
           setUserCheckins({
             laam: userData.lastLaamCheckIn,
             tag: userData.lastTagCheckIn
@@ -184,11 +187,42 @@ export default function QuestsPage() {
   const isLaamClaimed = isAlreadyClaimedToday(userCheckins.laam);
   const isTagClaimed = isAlreadyClaimedToday(userCheckins.tag);
 
+  // Logic for milestone effects
+  const isMilestone = streakCount > 0 && streakCount % 10 === 0;
+
   return (
     <SeekerGuard>
       <div className="main-content">
         <Toaster />
         <div className="content-wrapper">
+
+          {/* --- STREAK ODOMETER SECTION --- */}
+          <div className={styles.odometerContainer}>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: '9px', color: '#666', fontWeight: 900, letterSpacing: '2px' }}>ACTIVE LOG STREAK</span>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '10px', marginTop: '4px' }}>
+                <div style={{ display: 'flex', gap: '3px' }}>
+                  {String(streakCount).padStart(3, '0').split('').map((digit, i) => (
+                    <div
+                      key={i}
+                      className={`${styles.digitBox} ${isMilestone ? styles.milestoneGlow : ''}`}
+                    >
+                      <div className={styles.digitGlow}></div>
+                      {digit}
+                    </div>
+                  ))}
+                </div>
+                <span style={{ fontSize: '12px', fontWeight: 900, color: '#eab308', paddingBottom: '4px' }}>DAYS</span>
+              </div>
+            </div>
+
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '8px', color: '#444' }}>SYSTEM STATUS</div>
+              <div style={{ fontSize: '12px', color: streakCount > 0 ? '#22c55e' : '#ef4444', fontWeight: 900 }}>
+                {streakCount > 0 ? '● STREAK ACTIVE' : '○ NO DATA'}
+              </div>
+            </div>
+          </div>
 
           {/* SECTION: DAILY */}
           <h2 style={headerStyle}>
