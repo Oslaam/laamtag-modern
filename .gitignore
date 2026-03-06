@@ -38,3 +38,8 @@ devnet-keypair.json
 
 script-*.js
 script
+
+
+.anchor/
+target/
+test-ledger/
