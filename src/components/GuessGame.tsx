@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { useRouter } from 'next/navigation'; // Updated for Next.js 13+ App Router if applicable, else 'next/router'
-import { Target, AlertCircle, Radio, XCircle, Ticket, CheckCircle2, Coins, Loader2, Zap } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { CheckCircle2, XCircle, Ticket } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import styles from '../styles/GuessGame.module.css';
 
 const LEVELS = {
   easy: { range: 20, rewards: [1000, 500, 200] },
@@ -132,7 +133,7 @@ export default function GuessGameComponent() {
 
       if (data.win) {
         setIsSuccess(true);
-        setRevealedNumber(data.revealedNumber); // Store the number on win
+        setRevealedNumber(data.revealedNumber);
         confetti({
           particleCount: 150,
           spread: 70,
@@ -140,7 +141,6 @@ export default function GuessGameComponent() {
           colors: ['#EAB308', '#FFFFFF', '#000000']
         });
         setPendingPoints(data.pendingPoints);
-        // Wait 3 seconds so they can see the success screen before resetting
         setTimeout(() => {
           setIsSuccess(false);
           setLevel(null);
@@ -152,7 +152,7 @@ export default function GuessGameComponent() {
         if (data.isLocked) {
           setIsLocked(true);
           setLastAttemptTimestamp(Date.now());
-          setRevealedNumber(data.revealedNumber); // Store the number on 3rd fail
+          setRevealedNumber(data.revealedNumber);
         }
       }
       setGuess('');
@@ -164,17 +164,14 @@ export default function GuessGameComponent() {
   if (!mounted || !publicKey) return null;
 
   return (
-    <div style={{ position: 'relative', width: '100%', maxWidth: '600px', margin: '0 auto' }}>
+    <div className={styles.container}>
 
       {/* SUCCESS OVERLAY */}
       {isSuccess && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(10px)'
-        }}>
-          <div style={{ textAlign: 'center' }}>
+        <div className={styles.overlay}>
+          <div>
             <CheckCircle2 size={80} style={{ color: '#eab308', margin: '0 auto' }} />
-            <h2 style={{ fontSize: '40px', fontWeight: 900, color: '#fff', fontStyle: 'italic', textTransform: 'uppercase' }}>Signal Locked</h2>
+            <h2 className={styles.successTitle}>Signal Locked</h2>
             <p style={{ color: '#eab308', fontWeight: 900, fontSize: '20px' }}>+{pendingPoints} LAAM SECURED</p>
           </div>
         </div>
@@ -182,24 +179,24 @@ export default function GuessGameComponent() {
 
       {/* REWARD PROGRESS BAR */}
       {!level && pendingPoints > 0 && (
-        <div className="terminal-card" style={{ marginBottom: '24px', padding: '20px' }}>
+        <div className={styles.rewardCard}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '12px' }}>
             <div>
-              <p style={{ fontSize: '8px', color: '#eab308', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px' }}>Pending Extraction</p>
+              <p style={{ fontSize: '8px', color: '#eab308', fontWeight: 900, textTransform: 'uppercase' }}>Pending Extraction</p>
               <p style={{ fontSize: '24px', fontWeight: 900, color: '#fff', margin: 0 }}>{pendingPoints} <span style={{ fontSize: '10px' }}>LAAM</span></p>
             </div>
             <p style={{ fontSize: '10px', fontWeight: 900, color: 'rgba(255,255,255,0.3)' }}>{pendingPoints} / {CLAIM_THRESHOLD}</p>
           </div>
-          <div style={{ height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden', marginBottom: '16px' }}>
-            <div style={{
-              height: '100%', background: '#eab308', width: `${Math.min((pendingPoints / CLAIM_THRESHOLD) * 100, 100)}%`,
-              transition: 'width 1s ease'
-            }} />
+          <div className={styles.progressBar}>
+            <div
+              className={styles.progressFill}
+              style={{ width: `${Math.min((pendingPoints / CLAIM_THRESHOLD) * 100, 100)}%` }}
+            />
           </div>
           <button
             onClick={handleClaim}
             disabled={pendingPoints < CLAIM_THRESHOLD || isClaiming}
-            className="terminal-button"
+            className={styles.terminalButton}
             style={{
               width: '100%',
               background: pendingPoints >= CLAIM_THRESHOLD ? '#eab308' : 'rgba(255,255,255,0.05)',
@@ -212,30 +209,27 @@ export default function GuessGameComponent() {
       )}
 
       {/* MAIN GAME INTERFACE */}
-      <div className="terminal-card" style={{ padding: '32px' }}>
+      <div className={styles.terminalCard}>
         {level ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <div style={{ background: '#000', padding: '12px', borderRadius: '8px', border: '1px solid rgba(234,179,8,0.2)', textAlign: 'center' }}>
-              <p style={{ color: '#eab308', fontFamily: 'monospace', fontSize: '11px', margin: 0 }}>{message}</p>
+            <div className={styles.messageBox}>
+              <p className={styles.messageText}>{message}</p>
             </div>
 
-            <div style={{ display: 'flex', gap: '12px' }}>
+            <div className={styles.inputGroup}>
               <input
                 type="number"
                 value={guess}
                 disabled={isLocked || isSuccess}
                 onChange={(e) => setGuess(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleGuess()}
-                style={{
-                  flex: 1, background: '#000', border: '1px solid rgba(255,255,255,0.1)',
-                  padding: '12px', borderRadius: '12px', color: '#eab308', fontWeight: 900, fontSize: '18px'
-                }}
+                className={styles.guessInput}
                 placeholder="000"
               />
               <button
                 onClick={userTickets <= 0 ? () => router.push('/shop') : handleGuess}
                 disabled={isSuccess || isLocked}
-                className="terminal-button"
+                className={styles.terminalButton}
                 style={{ background: '#eab308', color: '#000', padding: '0 24px' }}
               >
                 {userTickets <= 0 ? "GET TICKET" : "SEND"}
@@ -257,16 +251,9 @@ export default function GuessGameComponent() {
             </div>
           </div>
         ) : !isLocked ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+          <div className={styles.levelGrid}>
             {(['easy', 'normal', 'difficult'] as const).map(l => (
-              <button
-                key={l}
-                onClick={() => startLevel(l)}
-                style={{
-                  background: '#000', border: '1px solid rgba(255,255,255,0.05)', padding: '20px 10px',
-                  borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center'
-                }}
-              >
+              <button key={l} onClick={() => startLevel(l)} className={styles.levelButton}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px' }}>
                   <Ticket size={10} style={{ color: '#eab308' }} />
                   <span style={{ fontSize: '8px', fontWeight: 900, color: '#eab308' }}>-1</span>
