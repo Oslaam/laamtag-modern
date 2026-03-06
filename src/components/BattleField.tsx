@@ -85,22 +85,36 @@ const BattleField = () => {
             const mint = new PublicKey(nft.mint);
             const userAta = await getAssociatedTokenAddress(mint, publicKey);
             const treasuryAta = await getAssociatedTokenAddress(mint, TREASURY_WALLET);
-            const tx = new Transaction();
 
-            tx.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50_000 }));
+            const tx = new Transaction();
+            tx.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100_000 }));
 
             const treasuryAccountInfo = await connection.getAccountInfo(treasuryAta);
             if (!treasuryAccountInfo) {
-                tx.add(createAssociatedTokenAccountInstruction(publicKey, treasuryAta, TREASURY_WALLET, mint));
+                tx.add(createAssociatedTokenAccountInstruction(
+                    publicKey, treasuryAta, TREASURY_WALLET, mint
+                ));
             }
 
-            tx.add(createTransferCheckedInstruction(userAta, mint, treasuryAta, publicKey, 1, 0));
-            const { blockhash } = await connection.getLatestBlockhash('confirmed');
+            tx.add(createTransferCheckedInstruction(
+                userAta, mint, treasuryAta, publicKey, 1, 0
+            ));
+
+            // ✅ Fetch blockhash LAST — right before sending
+            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
             tx.recentBlockhash = blockhash;
             tx.feePayer = publicKey;
 
-            const signature = await sendTransaction(tx, connection);
-            await connection.confirmTransaction(signature, 'confirmed');
+            const signature = await sendTransaction(tx, connection, {
+                skipPreflight: true,          // ✅ required for mobile
+                preflightCommitment: 'confirmed'
+            });
+
+            // ✅ Use structured confirmation (doesn't timeout)
+            await connection.confirmTransaction(
+                { signature, blockhash, lastValidBlockHeight },
+                'confirmed'
+            );
 
             const res = await fetch('/api/warriors/register', {
                 method: 'POST',
@@ -109,7 +123,7 @@ const BattleField = () => {
                     mintAddress: nft.mint,
                     walletAddress: publicKey.toBase58(),
                     rarity: nft.rarity || "Common",
-                    signature: signature,
+                    signature,
                     image: nft.image
                 })
             });
@@ -118,8 +132,14 @@ const BattleField = () => {
                 alert("UNIT REGISTERED: Moved to Barracks.");
                 fetchBarracks();
             }
-        } catch (err) { alert("Deposit failed."); }
-        finally { setLoading(false); }
+
+        } catch (err: any) {
+            // ✅ Log real error so you can actually diagnose it
+            console.error("Deposit error:", err?.message, err?.logs);
+            alert(`Deposit failed: ${err?.message}`);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleDeploy = async (sector: 'NORMAL' | 'VIP') => {
@@ -132,7 +152,7 @@ const BattleField = () => {
                 const treasuryAta = await getAssociatedTokenAddress(SKR_MINT, TREASURY_WALLET);
                 const tx = new Transaction();
 
-                tx.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50_000 }));
+                tx.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100_000 })); // ✅ bumped
 
                 const treasuryAccountInfo = await connection.getAccountInfo(treasuryAta);
                 if (!treasuryAccountInfo) {
@@ -141,12 +161,20 @@ const BattleField = () => {
 
                 tx.add(createTransferCheckedInstruction(userAta, SKR_MINT, treasuryAta, publicKey, OMEGA_FEE * 1_000_000, 6));
 
-                const { blockhash } = await connection.getLatestBlockhash('confirmed');
+                // ✅ blockhash LAST
+                const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
                 tx.recentBlockhash = blockhash;
                 tx.feePayer = publicKey;
 
-                signature = await sendTransaction(tx, connection);
-                await connection.confirmTransaction(signature, 'confirmed');
+                signature = await sendTransaction(tx, connection, {
+                    skipPreflight: true,           // ✅
+                    preflightCommitment: 'confirmed'
+                });
+
+                await connection.confirmTransaction(
+                    { signature, blockhash, lastValidBlockHeight }, // ✅
+                    'confirmed'
+                );
             }
 
             const res = await fetch('/api/warriors/mission', {
@@ -165,8 +193,12 @@ const BattleField = () => {
                 fetchBarracks();
                 alert("MISSION START: Unit deployed to Battlefield.");
             }
-        } catch (err) { alert("Deployment failed."); }
-        finally { setLoading(false); }
+        } catch (err: any) {
+            console.error("Deploy error:", err?.message, err?.logs); // ✅ real error logging
+            alert(`Deployment failed: ${err?.message}`);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleClaim = async (mintAddress: string) => {
