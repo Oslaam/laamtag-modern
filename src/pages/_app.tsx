@@ -69,7 +69,7 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
     });
     const [pendingCount, setPendingCount] = useState(0);
 
-    const isGamePage = router.pathname.includes('/games/shooter');
+    const isGamePage = router.pathname === '/games/shooter';
     const isAdmin = publicKey && ADMIN_WALLETS.includes(publicKey.toString());
 
     useEffect(() => {

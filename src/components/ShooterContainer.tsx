@@ -19,7 +19,7 @@ export default function ShooterContainer() {
     const [isLoading, setIsLoading] = useState(false);
     const [gameStarted, setGameStarted] = useState(false);
     const [isPaused, setIsPaused] = useState(false);
-    const [isLandscape, setIsLandscape] = useState(true);
+    const [isLandscape, setIsLandscape] = useState<boolean | null>(null);
     const [isMounted, setIsMounted] = useState(false);
     const [isGameOver, setIsGameOver] = useState(false);
     const [isVictory, setIsVictory] = useState(false);
@@ -73,6 +73,7 @@ export default function ShooterContainer() {
     useEffect(() => {
         setIsMounted(true);
         const checkOri = () => setIsLandscape(window.innerWidth > window.innerHeight);
+        checkOri(); //
         window.addEventListener('resize', checkOri);
 
         const handleSceneReady = () => {
@@ -343,7 +344,7 @@ export default function ShooterContainer() {
 
     if (!isMounted) return null;
 
-    if (!isLandscape) {
+    if (isLandscape === false) {
         return (
             <div style={{ position: 'fixed', inset: 0, backgroundColor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
                 <h2 style={{ color: '#fff', fontWeight: 900, fontStyle: 'italic', fontSize: '20px', textTransform: 'uppercase' }}>ROTATE FOR BATTLE</h2>
