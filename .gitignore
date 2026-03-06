@@ -22,8 +22,17 @@ yarn-error.log*
 /src/generated/prisma
 
 authority.json
-
 *.json
+
+# Now, "force" Git to see only the essential project files
+!package.json
+!package-lock.json
+!tsconfig.json
+!next.config.json
+!project.json
+
+**/*-keypair.json
+
 
 script-*.js
 script
