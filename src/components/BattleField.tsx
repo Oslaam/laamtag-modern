@@ -7,6 +7,13 @@ import {
     getAssociatedTokenAddress,
     createAssociatedTokenAccountInstruction
 } from '@solana/spl-token';
+import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
+import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-adapters";
+import { publicKey as umiPublicKey } from "@metaplex-foundation/umi";
+import { base58 } from "@metaplex-foundation/umi/serializers";
+import { mplToolbox, transferTokens, findAssociatedTokenPda, setComputeUnitPrice, transferSol } from "@metaplex-foundation/mpl-toolbox";
+
+const RPC_URL = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
 import axios from 'axios';
 import WarriorTimer from './BattleFieldWarriorTimer';
 import styles from '../styles/BattleField.module.css';
@@ -17,7 +24,7 @@ const SKR_MINT = new PublicKey("SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3");
 const OMEGA_FEE = 300;
 
 const BattleField = () => {
-    const { publicKey, sendTransaction } = useWallet();
+    const { publicKey, sendTransaction, wallet } = useWallet();
     const { connection } = useConnection();
 
     // States
@@ -79,42 +86,33 @@ const BattleField = () => {
     };
 
     const handleDepositNFT = async (nft: any) => {
-        if (!publicKey || !sendTransaction) return;
+        if (!publicKey || !wallet) return alert("Connect Wallet First");
         setLoading(true);
+
         try {
-            const mint = new PublicKey(nft.mint);
-            const userAta = await getAssociatedTokenAddress(mint, publicKey);
-            const treasuryAta = await getAssociatedTokenAddress(mint, TREASURY_WALLET);
+            const umi = createUmi(RPC_URL)
+                .use(walletAdapterIdentity(wallet.adapter as any))
+                .use(mplToolbox());
 
-            const tx = new Transaction();
-            tx.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100_000 }));
+            const mint = umiPublicKey(nft.mint);
+            const userOwner = umiPublicKey(publicKey.toBase58());
+            const treasuryOwner = umiPublicKey(TREASURY_WALLET.toBase58());
 
-            const treasuryAccountInfo = await connection.getAccountInfo(treasuryAta);
-            if (!treasuryAccountInfo) {
-                tx.add(createAssociatedTokenAccountInstruction(
-                    publicKey, treasuryAta, TREASURY_WALLET, mint
-                ));
-            }
+            // Find ATAs
+            const source = findAssociatedTokenPda(umi, { mint, owner: userOwner })[0];
+            const destination = findAssociatedTokenPda(umi, { mint, owner: treasuryOwner })[0];
 
-            tx.add(createTransferCheckedInstruction(
-                userAta, mint, treasuryAta, publicKey, 1, 0
-            ));
+            // Build and Send
+            const result = await setComputeUnitPrice(umi, { microLamports: 100_000 })
+                .add(transferTokens(umi, {
+                    source,
+                    destination,
+                    authority: umi.identity,
+                    amount: 1, // NFTs always 1
+                }))
+                .sendAndConfirm(umi, { confirm: { commitment: 'confirmed' } });
 
-            // ✅ Fetch blockhash LAST — right before sending
-            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
-            tx.recentBlockhash = blockhash;
-            tx.feePayer = publicKey;
-
-            const signature = await sendTransaction(tx, connection, {
-                skipPreflight: true,          // ✅ required for mobile
-                preflightCommitment: 'confirmed'
-            });
-
-            // ✅ Use structured confirmation (doesn't timeout)
-            await connection.confirmTransaction(
-                { signature, blockhash, lastValidBlockHeight },
-                'confirmed'
-            );
+            const signature = base58.deserialize(result.signature)[0];
 
             const res = await fetch('/api/warriors/register', {
                 method: 'POST',
@@ -132,49 +130,43 @@ const BattleField = () => {
                 alert("UNIT REGISTERED: Moved to Barracks.");
                 fetchBarracks();
             }
-
         } catch (err: any) {
-            // ✅ Log real error so you can actually diagnose it
-            console.error("Deposit error:", err?.message, err?.logs);
-            alert(`Deposit failed: ${err?.message}`);
+            console.error("Deposit error:", err);
+            alert(`Deposit failed: ${err.message}`);
         } finally {
             setLoading(false);
         }
     };
 
     const handleDeploy = async (sector: 'NORMAL' | 'VIP') => {
-        if (!selectedWarrior || !publicKey || !sendTransaction) return;
+        if (!selectedWarrior || !publicKey || !wallet) return;
         setLoading(true);
+
         try {
             let signature = null;
+
             if (sector === 'VIP') {
-                const userAta = await getAssociatedTokenAddress(SKR_MINT, publicKey);
-                const treasuryAta = await getAssociatedTokenAddress(SKR_MINT, TREASURY_WALLET);
-                const tx = new Transaction();
+                const umi = createUmi(RPC_URL)
+                    .use(walletAdapterIdentity(wallet.adapter as any))
+                    .use(mplToolbox());
 
-                tx.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100_000 })); // ✅ bumped
+                const SKR_MINT_UMI = umiPublicKey(SKR_MINT.toBase58());
+                const userOwner = umiPublicKey(publicKey.toBase58());
+                const treasuryOwner = umiPublicKey(TREASURY_WALLET.toBase58());
 
-                const treasuryAccountInfo = await connection.getAccountInfo(treasuryAta);
-                if (!treasuryAccountInfo) {
-                    tx.add(createAssociatedTokenAccountInstruction(publicKey, treasuryAta, TREASURY_WALLET, SKR_MINT));
-                }
+                const source = findAssociatedTokenPda(umi, { mint: SKR_MINT_UMI, owner: userOwner })[0];
+                const destination = findAssociatedTokenPda(umi, { mint: SKR_MINT_UMI, owner: treasuryOwner })[0];
 
-                tx.add(createTransferCheckedInstruction(userAta, SKR_MINT, treasuryAta, publicKey, OMEGA_FEE * 1_000_000, 6));
+                const result = await setComputeUnitPrice(umi, { microLamports: 100_000 })
+                    .add(transferTokens(umi, {
+                        source,
+                        destination,
+                        authority: umi.identity,
+                        amount: BigInt(OMEGA_FEE * 1_000_000), // 6 decimals
+                    }))
+                    .sendAndConfirm(umi, { confirm: { commitment: 'confirmed' } });
 
-                // ✅ blockhash LAST
-                const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
-                tx.recentBlockhash = blockhash;
-                tx.feePayer = publicKey;
-
-                signature = await sendTransaction(tx, connection, {
-                    skipPreflight: true,           // ✅
-                    preflightCommitment: 'confirmed'
-                });
-
-                await connection.confirmTransaction(
-                    { signature, blockhash, lastValidBlockHeight }, // ✅
-                    'confirmed'
-                );
+                signature = base58.deserialize(result.signature)[0];
             }
 
             const res = await fetch('/api/warriors/mission', {
@@ -194,8 +186,8 @@ const BattleField = () => {
                 alert("MISSION START: Unit deployed to Battlefield.");
             }
         } catch (err: any) {
-            console.error("Deploy error:", err?.message, err?.logs); // ✅ real error logging
-            alert(`Deployment failed: ${err?.message}`);
+            console.error("Deploy error:", err);
+            alert(`Deployment failed: ${err.message}`);
         } finally {
             setLoading(false);
         }
@@ -228,23 +220,58 @@ const BattleField = () => {
     };
 
     const handleWithdraw = async (mintAddress: string) => {
+        if (!publicKey || !wallet) return alert("Please connect your wallet.");
         if (!confirm("Withdraw NFT back to your wallet?")) return;
+
         setLoading(true);
         try {
+            // 1. Initialize Umi
+            const umi = createUmi(RPC_URL)
+                .use(walletAdapterIdentity(wallet.adapter as any))
+                .use(mplToolbox());
+
+            const mint = umiPublicKey(mintAddress);
+            const userOwner = umiPublicKey(publicKey.toBase58());
+            const treasuryOwner = umiPublicKey(TREASURY_WALLET.toBase58());
+
+            // 2. Find Associated Token Accounts (ATAs)
+            // We transfer FROM the Treasury BACK TO the User
+            const source = findAssociatedTokenPda(umi, { mint, owner: treasuryOwner })[0];
+            const destination = findAssociatedTokenPda(umi, { mint, owner: userOwner })[0];
+
+            // 3. Execute the Transfer
+            const result = await setComputeUnitPrice(umi, { microLamports: 100_000 })
+                .add(transferTokens(umi, {
+                    source,
+                    destination,
+                    authority: umi.identity,
+                    amount: 1,
+                }))
+                .sendAndConfirm(umi, { confirm: { commitment: 'confirmed' } });
+
+            const signature = base58.deserialize(result.signature)[0];
+
+            // 4. Notify Backend of Success
             const res = await fetch('/api/warriors/withdraw', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mintAddress, walletAddress: publicKey?.toBase58() })
+                body: JSON.stringify({
+                    mintAddress,
+                    walletAddress: publicKey.toBase58(),
+                    signature // Pass the signature for backend verification
+                })
             });
+
             if (res.ok) {
                 alert("SUCCESS: NFT returned to your wallet.");
                 fetchBarracks();
             } else {
                 const err = await res.json();
-                alert(`Failed: ${err.error}`);
+                alert(`Blockchain success, but database update failed: ${err.error}`);
             }
-        } catch (e) {
-            alert("Communications error during withdrawal.");
+        } catch (err: any) {
+            console.error("Withdrawal error:", err);
+            alert(`Withdrawal failed: ${err.message}`);
         } finally {
             setLoading(false);
         }
