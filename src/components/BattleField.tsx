@@ -1,17 +1,12 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Shield, Zap, Target, Loader2, Lock, Coins, RefreshCw, Box, Sword } from 'lucide-react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
-import { Transaction, PublicKey, ComputeBudgetProgram } from '@solana/web3.js';
-import {
-    createTransferCheckedInstruction,
-    getAssociatedTokenAddress,
-    createAssociatedTokenAccountInstruction
-} from '@solana/spl-token';
+import { PublicKey } from '@solana/web3.js';
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-adapters";
 import { publicKey as umiPublicKey } from "@metaplex-foundation/umi";
 import { base58 } from "@metaplex-foundation/umi/serializers";
-import { mplToolbox, transferTokens, findAssociatedTokenPda, setComputeUnitPrice, transferSol } from "@metaplex-foundation/mpl-toolbox";
+import { mplToolbox, transferTokens, findAssociatedTokenPda, setComputeUnitPrice, createAssociatedToken } from "@metaplex-foundation/mpl-toolbox";
 
 const RPC_URL = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
 import axios from 'axios';
@@ -24,10 +19,10 @@ const SKR_MINT = new PublicKey("SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3");
 const OMEGA_FEE = 300;
 
 const BattleField = () => {
-    const { publicKey, sendTransaction, wallet } = useWallet();
+    const wallet = useWallet();                        // ✅ full object
+    const { publicKey, sendTransaction } = wallet;
     const { connection } = useConnection();
 
-    // States
     const [allDeployed, setAllDeployed] = useState<any[]>([]);
     const [walletNfts, setWalletNfts] = useState<any[]>([]);
     const [warCredits, setWarCredits] = useState(0);
@@ -36,11 +31,9 @@ const BattleField = () => {
     const [selectedWarrior, setSelectedWarrior] = useState<string | null>(null);
     const [isClaiming, setIsClaiming] = useState<string | null>(null);
 
-    // Filtered Groups
     const barracksUnits = useMemo(() => allDeployed.filter(w => w.status === 'IDLE'), [allDeployed]);
     const battlefieldUnits = useMemo(() => allDeployed.filter(w => w.status === 'DEPLOYED'), [allDeployed]);
 
-    // Stable fetch functions using useCallback
     const fetchBarracks = useCallback(async () => {
         if (!publicKey) return;
         try {
@@ -86,32 +79,31 @@ const BattleField = () => {
     };
 
     const handleDepositNFT = async (nft: any) => {
-        if (!publicKey || !wallet) return alert("Connect Wallet First");
+        if (!publicKey || !wallet.connected) return alert("Connect Wallet First");
         setLoading(true);
-
         try {
             const umi = createUmi(RPC_URL)
-                .use(walletAdapterIdentity(wallet.adapter as any))
+                .use(walletAdapterIdentity(wallet))   // ✅ full wallet
                 .use(mplToolbox());
 
             const mint = umiPublicKey(nft.mint);
             const userOwner = umiPublicKey(publicKey.toBase58());
             const treasuryOwner = umiPublicKey(TREASURY_WALLET.toBase58());
 
-            // Find ATAs
             const source = findAssociatedTokenPda(umi, { mint, owner: userOwner })[0];
             const destination = findAssociatedTokenPda(umi, { mint, owner: treasuryOwner })[0];
 
-            // Build and Send
-            const result = await setComputeUnitPrice(umi, { microLamports: 100_000 })
-                .add(transferTokens(umi, {
-                    source,
-                    destination,
-                    authority: umi.identity,
-                    amount: 1, // NFTs always 1
-                }))
-                .sendAndConfirm(umi, { confirm: { commitment: 'confirmed' } });
+            // ✅ Create treasury ATA if it doesn't exist for this NFT mint
+            const destAccount = await umi.rpc.getAccount(destination);
+            let builder = setComputeUnitPrice(umi, { microLamports: 100_000 });
+            if (!destAccount.exists) {
+                builder = builder.add(createAssociatedToken(umi, { mint, owner: treasuryOwner }));
+            }
+            builder = builder.add(transferTokens(umi, {
+                source, destination, authority: umi.identity, amount: 1,
+            }));
 
+            const result = await builder.sendAndConfirm(umi, { confirm: { commitment: 'confirmed' } });
             const signature = base58.deserialize(result.signature)[0];
 
             const res = await fetch('/api/warriors/register', {
@@ -132,22 +124,21 @@ const BattleField = () => {
             }
         } catch (err: any) {
             console.error("Deposit error:", err);
-            alert(`Deposit failed: ${err.message}`);
+            alert(`Deposit failed: ${err?.message || JSON.stringify(err)}`);
         } finally {
             setLoading(false);
         }
     };
 
     const handleDeploy = async (sector: 'NORMAL' | 'VIP') => {
-        if (!selectedWarrior || !publicKey || !wallet) return;
+        if (!selectedWarrior || !publicKey || !wallet.connected) return;
         setLoading(true);
-
         try {
             let signature = null;
 
             if (sector === 'VIP') {
                 const umi = createUmi(RPC_URL)
-                    .use(walletAdapterIdentity(wallet.adapter as any))
+                    .use(walletAdapterIdentity(wallet))   // ✅ full wallet
                     .use(mplToolbox());
 
                 const SKR_MINT_UMI = umiPublicKey(SKR_MINT.toBase58());
@@ -157,15 +148,18 @@ const BattleField = () => {
                 const source = findAssociatedTokenPda(umi, { mint: SKR_MINT_UMI, owner: userOwner })[0];
                 const destination = findAssociatedTokenPda(umi, { mint: SKR_MINT_UMI, owner: treasuryOwner })[0];
 
-                const result = await setComputeUnitPrice(umi, { microLamports: 100_000 })
-                    .add(transferTokens(umi, {
-                        source,
-                        destination,
-                        authority: umi.identity,
-                        amount: BigInt(OMEGA_FEE * 1_000_000), // 6 decimals
-                    }))
-                    .sendAndConfirm(umi, { confirm: { commitment: 'confirmed' } });
+                // ✅ Create treasury SKR ATA if it doesn't exist
+                const destAccount = await umi.rpc.getAccount(destination);
+                let builder = setComputeUnitPrice(umi, { microLamports: 100_000 });
+                if (!destAccount.exists) {
+                    builder = builder.add(createAssociatedToken(umi, { mint: SKR_MINT_UMI, owner: treasuryOwner }));
+                }
+                builder = builder.add(transferTokens(umi, {
+                    source, destination, authority: umi.identity,
+                    amount: BigInt(OMEGA_FEE * 1_000_000),
+                }));
 
+                const result = await builder.sendAndConfirm(umi, { confirm: { commitment: 'confirmed' } });
                 signature = base58.deserialize(result.signature)[0];
             }
 
@@ -187,7 +181,7 @@ const BattleField = () => {
             }
         } catch (err: any) {
             console.error("Deploy error:", err);
-            alert(`Deployment failed: ${err.message}`);
+            alert(`Deployment failed: ${err?.message || JSON.stringify(err)}`);
         } finally {
             setLoading(false);
         }
@@ -220,46 +214,38 @@ const BattleField = () => {
     };
 
     const handleWithdraw = async (mintAddress: string) => {
-        if (!publicKey || !wallet) return alert("Please connect your wallet.");
+        if (!publicKey || !wallet.connected) return alert("Please connect your wallet.");
         if (!confirm("Withdraw NFT back to your wallet?")) return;
-
         setLoading(true);
         try {
-            // 1. Initialize Umi
             const umi = createUmi(RPC_URL)
-                .use(walletAdapterIdentity(wallet.adapter as any))
+                .use(walletAdapterIdentity(wallet))   // ✅ full wallet
                 .use(mplToolbox());
 
             const mint = umiPublicKey(mintAddress);
             const userOwner = umiPublicKey(publicKey.toBase58());
             const treasuryOwner = umiPublicKey(TREASURY_WALLET.toBase58());
 
-            // 2. Find Associated Token Accounts (ATAs)
-            // We transfer FROM the Treasury BACK TO the User
             const source = findAssociatedTokenPda(umi, { mint, owner: treasuryOwner })[0];
             const destination = findAssociatedTokenPda(umi, { mint, owner: userOwner })[0];
 
-            // 3. Execute the Transfer
-            const result = await setComputeUnitPrice(umi, { microLamports: 100_000 })
-                .add(transferTokens(umi, {
-                    source,
-                    destination,
-                    authority: umi.identity,
-                    amount: 1,
-                }))
-                .sendAndConfirm(umi, { confirm: { commitment: 'confirmed' } });
+            // ✅ Create user ATA if it doesn't exist
+            const destAccount = await umi.rpc.getAccount(destination);
+            let builder = setComputeUnitPrice(umi, { microLamports: 100_000 });
+            if (!destAccount.exists) {
+                builder = builder.add(createAssociatedToken(umi, { mint, owner: userOwner }));
+            }
+            builder = builder.add(transferTokens(umi, {
+                source, destination, authority: umi.identity, amount: 1,
+            }));
 
+            const result = await builder.sendAndConfirm(umi, { confirm: { commitment: 'confirmed' } });
             const signature = base58.deserialize(result.signature)[0];
 
-            // 4. Notify Backend of Success
             const res = await fetch('/api/warriors/withdraw', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    mintAddress,
-                    walletAddress: publicKey.toBase58(),
-                    signature // Pass the signature for backend verification
-                })
+                body: JSON.stringify({ mintAddress, walletAddress: publicKey.toBase58(), signature })
             });
 
             if (res.ok) {
@@ -271,7 +257,7 @@ const BattleField = () => {
             }
         } catch (err: any) {
             console.error("Withdrawal error:", err);
-            alert(`Withdrawal failed: ${err.message}`);
+            alert(`Withdrawal failed: ${err?.message || JSON.stringify(err)}`);
         } finally {
             setLoading(false);
         }
