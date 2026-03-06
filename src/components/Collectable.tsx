@@ -6,7 +6,6 @@ import {
     mplCandyMachine,
     fetchCandyMachine,
     mintV2,
-    fetchCandyGuard,
 } from '@metaplex-foundation/mpl-candy-machine';
 import { generateSigner, transactionBuilder, publicKey, some } from '@metaplex-foundation/umi';
 import {
@@ -25,7 +24,6 @@ export default function Collectable() {
     // --- 1. CONFIG & HYDRATION ---
     const [isMounted, setIsMounted] = useState(false);
 
-    // Move IDs inside so they are only accessed in the browser
     const CM_ID_STR = "CWikmfwwgHSYjXuXtBiXEE23M7sCpnGjBSjXxQuGizJm";
     const COLL_MINT_STR = "5LoQty88d9q9GhBcwVLYZPjaPNKMmBkK765PWah5msgJ";
     const SKR_MINT_STR = "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3";
@@ -41,10 +39,10 @@ export default function Collectable() {
     const [countdown, setCountdown] = useState("");
     const [hasMintedWarriorThisBatch, setHasMintedWarriorThisBatch] = useState(false);
     const [optimisticCount, setOptimisticCount] = useState<number | null>(null);
+    const [isShaking, setIsShaking] = useState(false);
 
     const currentBatchLimit = Math.floor((optimisticCount ?? totalMinted) / 20) * 20 + 20;
 
-    // Set mounted on first load
     useEffect(() => {
         setIsMounted(true);
     }, []);
@@ -52,15 +50,11 @@ export default function Collectable() {
     // --- 3. DATA FETCHING ---
     useEffect(() => {
         const fetchData = async () => {
-            // Guard: Stop if no wallet or if we aren't mounted yet
             if (!wallet.publicKey || !isMounted) return;
 
             try {
                 const CM_PUBKEY = publicKey(CM_ID_STR);
-
-                // USE HARDCODED RPC TO MATCH MINT.TSX
-                const umi = createUmi("https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3")
-                    .use(mplCandyMachine());
+                const umi = createUmi(RPC_ENDPOINT).use(mplCandyMachine());
 
                 const candyMachine = await fetchCandyMachine(umi, CM_PUBKEY);
                 const redeemed = Number(candyMachine.itemsRedeemed);
@@ -70,7 +64,6 @@ export default function Collectable() {
 
                 const currentBatchNumber = Math.floor(redeemed / 20);
 
-                // Fetching your custom API
                 const res = await fetch(`/api/collectable/check-status?walletAddress=${wallet.publicKey.toBase58()}`);
 
                 if (res.ok) {
@@ -80,18 +73,16 @@ export default function Collectable() {
                 }
 
             } catch (e) {
-                // Log less aggressively to keep console clean
                 console.warn("Collectable Syncing...");
             }
         };
 
         if (isMounted && wallet.publicKey) {
             fetchData();
-            // CHANGE TO 30 SECONDS (30000)
             const interval = setInterval(fetchData, 30000);
             return () => clearInterval(interval);
         }
-    }, [wallet.publicKey, isMounted]); // Removed connection.rpcEndpoint from deps to prevent clashing
+    }, [wallet.publicKey, isMounted]);
 
     // --- 4. LOCK TIMER ---
     useEffect(() => {
@@ -114,13 +105,36 @@ export default function Collectable() {
     const handleMint = async (mode: 'allow' | 'public') => {
         if (!isMounted || !wallet.publicKey || !wallet.connected) return;
 
-        // 1. RULE CHECK (Handled by your Database/API logic)
+        // 1. RULE CHECK
         if (isLocked) {
             toast.error("BATCH_LOCKED: Wait for the next window.");
             return;
         }
         if (mode === 'allow' && hasMintedWarriorThisBatch) {
             toast.error("WARRIOR_LIMIT: 1 per batch allowed.");
+            return;
+        }
+
+        // 2. GAS FEE CHECK (Pre-flight local check)
+        const balance = await connection.getBalance(wallet.publicKey);
+        const minSOL = 20000000; // 0.02 SOL
+
+        if (balance < minSOL) {
+            setIsShaking(true);
+            setTimeout(() => setIsShaking(false), 500);
+
+            toast.error("GAS_ALERT: 0.02 SOL REQUIRED", {
+                style: {
+                    border: '1px solid #ff4444',
+                    padding: '16px',
+                    color: '#ff4444',
+                    background: '#000',
+                    boxShadow: '0 0 20px rgba(255, 68, 68, 0.3)',
+                    textTransform: 'uppercase',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                },
+            });
             return;
         }
 
@@ -137,7 +151,7 @@ export default function Collectable() {
             const candyMachine = await fetchCandyMachine(umi, CM_PUBKEY);
             const nftMint = generateSigner(umi);
 
-            // 2. BUILD THE TRANSACTION
+            // 3. BUILD THE TRANSACTION
             let builder = transactionBuilder()
                 .add(setComputeUnitLimit(umi, { units: 800_000 }))
                 .add(setComputeUnitPrice(umi, { microLamports: 150_000 }))
@@ -153,13 +167,11 @@ export default function Collectable() {
                             mint: publicKey(SKR_MINT_STR),
                             destinationAta: publicKey(T_ATA_STR)
                         }),
-                        // WE REMOVED mintLimit here because it's not in your config.json
                     },
                 }));
 
-            // 3. FIX ACCOUNT INJECTION (The "Instruction 4" fix)
+            // 4. FIX ACCOUNT INJECTION
             builder = builder.mapInstructions((wrapped) => {
-                // This ID is the standard Candy Machine program ID
                 if (wrapped.instruction.programId.toString() === "CndyV3L7kwLE9Vq89U9B9KdeE77VBaK5DEn3Yf2KNoR") {
                     return {
                         ...wrapped,
@@ -175,7 +187,7 @@ export default function Collectable() {
                 return wrapped;
             });
 
-            // 4. SIGN AND SEND
+            // 5. SIGN AND SEND
             const { signature } = await builder.sendAndConfirm(umi, {
                 send: {
                     skipPreflight: true,
@@ -186,33 +198,32 @@ export default function Collectable() {
                 }
             });
 
-            // 5. UPDATE DATABASE (This locks the user for the batch)
+            // 6. UPDATE DATABASE
             await fetch('/api/collectable/verify-mint', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    // Convert the Umi signature to a Base58 string properly
                     signature: typeof signature === 'string' ? signature : base58.deserialize(signature)[0],
                     walletAddress: wallet.publicKey.toBase58(),
                     mode: mode
                 })
             });
+
             toast.success("MINT SUCCESSFUL!", { id: loadId });
             setTimeout(() => window.location.reload(), 2000);
 
         } catch (err: any) {
             console.error("MINT_ERROR:", err);
-            toast.error("Transaction Failed. Check your $SKR balance.", { id: loadId });
+            toast.error("Transaction Failed. Check your balance.", { id: loadId });
         } finally {
             setStatus('idle');
         }
     };
 
-    // Prevent SSR errors by returning null until mounted
     if (!isMounted) return null;
 
     return (
-        <div className={`${styles.container} ${isLocked ? styles.systemLocked : ''}`}>
+        <div className={`${styles.container} ${isLocked ? styles.systemLocked : ''} ${isShaking ? styles.shake : ''}`}>
             <div className={styles.headerRow}>
                 <div className={styles.counterBox}>
                     <span className={styles.label}>EXTRACTED:</span>
