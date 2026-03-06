@@ -4,9 +4,10 @@
     min-height: 100dvh;
     background-color: #000;
     color: #fff;
+    overflow-y: auto;
+    height: 100dvh;
 }
 
-/* 1. Sticky Ticker - Highest Priority */
 .stickyTickerWrapper {
     position: sticky;
     top: 0;
@@ -16,6 +17,7 @@
     background-color: #000;
     width: 100%;
     border-bottom: 1px solid rgba(234, 179, 8, 0.2);
+    flex-shrink: 0;
 }
 
 /* 2. Elite Header */
