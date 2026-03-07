@@ -9,7 +9,6 @@
     justify-content: center;
 }
 
-/* Background scanning effect during loading */
 .portalContainer::after {
     content: '';
     position: absolute;
@@ -50,7 +49,6 @@
     justify-content: flex-start;
 }
 
-/* Subtle glow to the edge of the doors */
 .doorLeft::after,
 .doorRight::after {
     content: '';
@@ -74,9 +72,7 @@
     z-index: 10;
     max-width: 400px;
     width: 90%;
-    /* Mobile breathing room */
     padding: 1.5rem;
-    /* Optimized for small screens */
     text-align: center;
     transition: opacity 0.5s ease, transform 0.5s ease;
 }
@@ -128,9 +124,7 @@
     background: rgba(0, 0, 0, 0.8);
     border: 1px solid rgba(234, 179, 8, 0.3);
     padding: 1.2rem;
-    /* Larger tap target */
     font-size: 16px;
-    /* Prevents auto-zoom on iOS */
     border-radius: 0.75rem;
     color: #eab308;
     text-align: center;
@@ -156,13 +150,11 @@
 .unlockButton {
     width: 100%;
     padding: 1.2rem;
-    /* Larger tap target */
     background: #eab308;
     color: #000;
     font-weight: 900;
     border-radius: 0.75rem;
     font-size: 14px;
-    /* More readable */
     text-transform: uppercase;
     border: none;
     cursor: pointer;
@@ -184,7 +176,6 @@
     cursor: not-allowed;
 }
 
-/* Mobile Specific Refinements */
 @media (max-width: 480px) {
     .portalTitle {
         font-size: 1.1rem;
@@ -193,7 +184,6 @@
 
     .keyIcon {
         width: 48px;
-        /* Save vertical space */
     }
 
     .lockInterface {
@@ -201,7 +191,6 @@
     }
 }
 
-/* Animations */
 @keyframes scan {
     0% {
         top: -100%;

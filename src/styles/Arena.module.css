@@ -18,7 +18,6 @@
     gap: 1rem;
 }
 
-/* Mobile Tweak */
 @media (max-width: 600px) {
     .grid {
         grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));

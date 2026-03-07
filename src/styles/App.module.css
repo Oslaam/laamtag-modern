@@ -101,7 +101,6 @@
     padding-right: 0;
 }
 
-/* Stat Label Container - Handles text and icons */
 .statLabelContainer {
     font-size: 8px;
     font-weight: 900;
@@ -116,7 +115,6 @@
 .statValue {
     font-size: 11px;
     font-weight: 900;
-    /* Made extra bold */
     margin: 0;
     line-height: 1.2;
 }

@@ -19,7 +19,7 @@ const SKR_MINT = new PublicKey("SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3");
 const OMEGA_FEE = 300;
 
 const BattleField = () => {
-    const wallet = useWallet();                        // ✅ full object
+    const wallet = useWallet();
     const { publicKey, sendTransaction } = wallet;
     const { connection } = useConnection();
 
@@ -83,7 +83,7 @@ const BattleField = () => {
         setLoading(true);
         try {
             const umi = createUmi(RPC_URL)
-                .use(walletAdapterIdentity(wallet))   // ✅ full wallet
+                .use(walletAdapterIdentity(wallet))
                 .use(mplToolbox());
 
             const mint = umiPublicKey(nft.mint);
@@ -93,7 +93,6 @@ const BattleField = () => {
             const source = findAssociatedTokenPda(umi, { mint, owner: userOwner })[0];
             const destination = findAssociatedTokenPda(umi, { mint, owner: treasuryOwner })[0];
 
-            // ✅ Create treasury ATA if it doesn't exist for this NFT mint
             const destAccount = await umi.rpc.getAccount(destination);
             let builder = setComputeUnitPrice(umi, { microLamports: 100_000 });
             if (!destAccount.exists) {
@@ -138,7 +137,7 @@ const BattleField = () => {
 
             if (sector === 'VIP') {
                 const umi = createUmi(RPC_URL)
-                    .use(walletAdapterIdentity(wallet))   // ✅ full wallet
+                    .use(walletAdapterIdentity(wallet))
                     .use(mplToolbox());
 
                 const SKR_MINT_UMI = umiPublicKey(SKR_MINT.toBase58());
@@ -148,7 +147,6 @@ const BattleField = () => {
                 const source = findAssociatedTokenPda(umi, { mint: SKR_MINT_UMI, owner: userOwner })[0];
                 const destination = findAssociatedTokenPda(umi, { mint: SKR_MINT_UMI, owner: treasuryOwner })[0];
 
-                // ✅ Create treasury SKR ATA if it doesn't exist
                 const destAccount = await umi.rpc.getAccount(destination);
                 let builder = setComputeUnitPrice(umi, { microLamports: 100_000 });
                 if (!destAccount.exists) {
@@ -177,7 +175,14 @@ const BattleField = () => {
             if (res.ok) {
                 setSelectedWarrior(null);
                 fetchBarracks();
-                alert("MISSION START: Unit deployed to Battlefield.");
+                // Update the message so it's accurate
+                const msg = sector === 'NORMAL'
+                    ? "MISSION START: 100 TAG consumed. Unit deployed to Alpha."
+                    : "MISSION START: Unit deployed to Omega.";
+                alert(msg);
+            } else {
+                const errorData = await res.json();
+                alert(`Deployment failed: ${errorData.error}`);
             }
         } catch (err: any) {
             console.error("Deploy error:", err);
@@ -219,7 +224,7 @@ const BattleField = () => {
         setLoading(true);
         try {
             const umi = createUmi(RPC_URL)
-                .use(walletAdapterIdentity(wallet))   // ✅ full wallet
+                .use(walletAdapterIdentity(wallet))
                 .use(mplToolbox());
 
             const mint = umiPublicKey(mintAddress);
@@ -229,7 +234,6 @@ const BattleField = () => {
             const source = findAssociatedTokenPda(umi, { mint, owner: treasuryOwner })[0];
             const destination = findAssociatedTokenPda(umi, { mint, owner: userOwner })[0];
 
-            // ✅ Create user ATA if it doesn't exist
             const destAccount = await umi.rpc.getAccount(destination);
             let builder = setComputeUnitPrice(umi, { microLamports: 100_000 });
             if (!destAccount.exists) {
@@ -282,7 +286,7 @@ const BattleField = () => {
                 <div className={styles.sectorContainer}>
                     <div className={`${styles.sector} ${styles.normalZone}`}>
                         <div className={styles.sectorHeader}><Shield /> SECTOR ALPHA</div>
-                        <p>Stake: 100 TAG | 1.0x</p>
+                        <p>Stake: 100 TAG | 1.0x</p> {/* This matches your requirement */}
                         <button
                             disabled={!selectedWarrior}
                             onClick={() => handleDeploy('NORMAL')}

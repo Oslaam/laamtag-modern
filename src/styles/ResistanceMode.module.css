@@ -47,7 +47,6 @@
     padding: 10px 10px;
 }
 
-/* --- D-PAD DESIGN --- */
 .dPad {
     position: relative;
     width: 130px;
@@ -126,7 +125,6 @@
     content: '▶';
 }
 
-/* --- ACTION BUTTON --- */
 .circleBtn {
     width: 75px;
     height: 75px;
@@ -149,7 +147,6 @@
     box-shadow: 0 2px 0 #008f25;
 }
 
-/* --- OVERLAYS & PANELS --- */
 .infoPanel {
     background: #1a1a1a;
     border: 2px solid #333;
@@ -195,7 +192,6 @@
     overflow: hidden;
 }
 
-/* --- LEADERBOARD HEADER & STATS --- */
 .boardHeader {
     display: flex;
     justify-content: space-between;
@@ -263,7 +259,6 @@
     font-size: 0.9rem;
 }
 
-/* --- NEW: PERSONAL BEST & HIGHLIGHTS --- */
 .personalBestRow {
     display: flex;
     justify-content: space-between;
@@ -313,7 +308,6 @@
     text-shadow: 0 0 8px #eab308;
 }
 
-/* --- STANDARD LIST DEFAULTS --- */
 .rank {
     color: #00ff41;
     width: 45px;
@@ -368,7 +362,6 @@
     box-shadow: 0 2px 0 #856404;
 }
 
-/* --- MOBILE RESPONSIVENESS --- */
 @media (max-width: 450px) {
     .consoleShell {
         max-width: 100%;
