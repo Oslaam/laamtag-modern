@@ -18,6 +18,7 @@ import {
     FileText, User, BarChart3, Mail, History, Coins, ScrollText, Plus, X,
     DoorClosed, Crown, Repeat, Swords
 } from 'lucide-react';
+import Image from 'next/image';
 
 import styles from '../styles/App.module.css';
 import '@solana/wallet-adapter-react-ui/styles.css';
@@ -62,6 +63,7 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
         laam: 0,
         tag: 0,
         sol: 0,
+        skr: 0,
         tier: 'BRONZE',
         username: '',
         currentStage: 1,
@@ -72,19 +74,9 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
     const isGamePage = router.pathname === '/games/shooter';
     const isAdmin = publicKey && ADMIN_WALLETS.includes(publicKey.toString());
 
-    useEffect(() => {
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(reg => console.log('SW Registered:', reg.scope))
-                    .catch(err => console.error('SW Registration failed:', err));
-            });
-        }
-    }, []);
-
     const fetchStats = useCallback(async () => {
         if (!publicKey || !connection) {
-            setStats({ laam: 0, tag: 0, sol: 0, tier: 'BRONZE', username: '', currentStage: 1, weaponLevel: 1 });
+            setStats({ laam: 0, tag: 0, sol: 0, skr: 0, tier: 'BRONZE', username: '', currentStage: 1, weaponLevel: 1 });
             return;
         };
 
@@ -103,6 +95,10 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
             const solBalance = await connection.getBalance(publicKey);
             const res = await fetch(`/api/user/${publicKey.toString()}`);
 
+            const SKR_MINT = "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3";
+            const skrRes = await fetch(`/api/user/balance?address=${publicKey.toString()}&mint=${SKR_MINT}`);
+            const skrData = await skrRes.json();
+
             if (res.ok) {
                 const data = await res.json();
                 const currentPoints = data.laamPoints || 0;
@@ -112,6 +108,7 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
                     laam: currentPoints,
                     tag: data.tagTickets || 0,
                     sol: solBalance / LAMPORTS_PER_SOL,
+                    skr: skrData.balance || 0,
                     tier: rankData.name.toUpperCase(),
                     username: data.username || '',
                     currentStage: data.currentStage || 1,
@@ -128,7 +125,6 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
         const handleBalanceUpdate = () => fetchStats();
         window.addEventListener('balanceUpdate', handleBalanceUpdate);
         const intervalId = setInterval(fetchStats, 30000);
-
         return () => {
             window.removeEventListener('balanceUpdate', handleBalanceUpdate);
             clearInterval(intervalId);
@@ -175,8 +171,6 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
 
     return (
         <div className={`${styles.appContainer} ${isGamePage ? styles.gameMode : ''}`}>
-
-            {/* 1. STICKY TICKER: Locked to top */}
             {!isGamePage && (
                 <div className={styles.stickyTickerWrapper}>
                     <ActivityTicker />
@@ -202,7 +196,6 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
                             </div>
                         </div>
 
-                        {/* Stats Bar will now scroll away with the header */}
                         <div className={styles.statsBar}>
                             <div className={styles.operatorBox}>
                                 <p className={styles.statLabel}>OPERATOR</p>
@@ -216,10 +209,23 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
                                     </p>
                                 </div>
                             </div>
+
                             <div className={styles.statsGrid}>
                                 <StatBox label="LAAM" value={Math.floor(stats.laam).toLocaleString()} color="#eab308" />
                                 <StatBox label="TAG" value={Math.floor(stats.tag).toLocaleString()} color="#fff" />
-                                <StatBox label="SOL" value={stats.sol.toFixed(2)} color="#22d3ee" />
+
+                                <StatBox
+                                    label={<Image src="/assets/images/skr.png" alt="SKR" width={14} height={14} className={styles.tokenIcon} />}
+                                    value={Math.floor(stats.skr).toLocaleString()}
+                                    color="#a855f7"
+                                />
+
+                                <StatBox
+                                    label={<Image src="/assets/images/sol.png" alt="SOL" width={14} height={14} className={styles.tokenIcon} />}
+                                    value={stats.sol.toFixed(2)}
+                                    color="#22d3ee"
+                                />
+
                                 <StatBox label="TIER" value={stats.tier} color="#c084fc" />
                             </div>
                         </div>
@@ -268,7 +274,9 @@ const InnerLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
 
 const StatBox = ({ label, value, color }: any) => (
     <div className={styles.statBox}>
-        <p className={styles.statLabel} style={{ color }}>{label}</p>
+        <div className={styles.statLabelContainer} style={{ color }}>
+            {label}
+        </div>
         <p className={styles.statValue}>{value}</p>
     </div>
 );

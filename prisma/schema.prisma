@@ -31,6 +31,7 @@ model User {
   shooterLevel   Int      @default(1)
   shooterStage   Int      @default(1)
   skrBalance       Float   @default(0)
+  warriorItems   WarriorInventory[]
   weaponLevel        Int              @default(1)
   shieldLevel        Int              @default(0)
   shoeLevel          Int              @default(1)
@@ -309,4 +310,13 @@ model DeployedWarrior {
   location     String?  // "NORMAL" or "VIP"
   missionEnd   DateTime? // deployedAt + 24 hours
   user          User     @relation(fields: [ownerAddress], references: [walletAddress])
+}
+
+model WarriorInventory {
+  id            String   @id @default(cuid())
+  walletAddress String
+  itemId        String   // Matches the ID in armory.json (e.g., "wpn-001")
+  category      String   // WEAPON, PET, GARMENT
+  acquiredAt    DateTime @default(now())
+  user          User     @relation(fields: [walletAddress], references: [walletAddress])
 }

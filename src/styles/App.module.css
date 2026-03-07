@@ -20,7 +20,6 @@
     flex-shrink: 0;
 }
 
-/* 2. Elite Header */
 .mainHeader {
     position: relative;
     z-index: 100;
@@ -63,7 +62,6 @@
     animation: pulse 2s infinite;
 }
 
-/* 3. Elite Stats Bar */
 .statsBar {
     display: flex;
     justify-content: space-between;
@@ -93,6 +91,9 @@
     text-align: right;
     border-right: 1px solid rgba(255, 255, 255, 0.1);
     padding-right: 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
 }
 
 .statBox:last-child {
@@ -100,22 +101,30 @@
     padding-right: 0;
 }
 
-.statLabel {
-    font-size: 7px;
+/* Stat Label Container - Handles text and icons */
+.statLabelContainer {
+    font-size: 8px;
     font-weight: 900;
     margin: 0;
-    opacity: 0.5;
     text-transform: uppercase;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
 }
 
 .statValue {
     font-size: 11px;
-    font-weight: 800;
+    font-weight: 900;
+    /* Made extra bold */
     margin: 0;
     line-height: 1.2;
 }
 
-/* Username Rank Colors */
+.tokenIcon {
+    object-fit: contain;
+}
+
 .nameLaam {
     color: #eab308;
     text-shadow: 0 0 8px rgba(234, 179, 8, 0.4);
@@ -130,7 +139,6 @@
     color: #fff;
 }
 
-/* 4. Content Area */
 .mainContent {
     flex: 1;
     width: 100%;
@@ -143,10 +151,8 @@
     margin: 0 auto;
     width: 100%;
     padding: 20px 16px 120px 16px;
-    /* High bottom padding for fixed footer */
 }
 
-/* 5. Elite Footer - Fixed 5-Column Grid */
 .mainFooter {
     position: fixed;
     bottom: 0;
@@ -156,7 +162,6 @@
     backdrop-filter: blur(20px);
     border-top: 1px solid rgba(234, 179, 8, 0.3);
     padding: 12px 8px 24px 8px;
-    /* Extra bottom padding for iOS home bar */
     z-index: 1000;
 }
 
@@ -199,7 +204,6 @@
     border: 1px solid transparent;
 }
 
-/* Footer States */
 .active .iconContainer {
     background: rgba(234, 179, 8, 0.15);
     border-color: rgba(234, 179, 8, 0.5);
@@ -219,7 +223,6 @@
     color: #eab308;
 }
 
-/* Game Mode Override */
 .gameMode {
     overflow: hidden;
     height: 100vh;
@@ -230,7 +233,6 @@
     position: relative;
 }
 
-/* Mobile Responsive Adjustments */
 @media (max-width: 400px) {
     .logo {
         font-size: 1rem;

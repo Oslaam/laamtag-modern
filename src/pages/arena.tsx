@@ -38,7 +38,7 @@ export default function ArenaPage() {
                     }}>
                         <button onClick={() => setView('ARENA')} style={buttonStyle(view === 'ARENA')}>PVP ARENA</button>
                         <button onClick={() => setView('BATTLEFIELD')} style={buttonStyle(view === 'BATTLEFIELD')}>BATTLEFIELD</button>
-                        <button onClick={() => setView('ARMORY')} style={buttonStyle(view === 'ARMORY')}>ARMORY</button>
+                        <button onClick={() => setView('ARMORY')} style={buttonStyle(view === 'ARMORY')}>ARMORY SHOP</button>
                     </div>
                 </div>
 

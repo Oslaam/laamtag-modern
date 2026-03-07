@@ -1,83 +1,266 @@
-.armoryContainer {
-    max-width: 1000px;
-    margin: 0 auto;
-    padding: 20px;
-    font-family: 'Courier New', Courier, monospace;
+.armoryWrapper {
+    position: relative;
+    min-height: 80vh;
+    color: #e2e8f0;
 }
 
+.armoryContainer {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 20px;
+    font-family: 'Inter', sans-serif;
+}
+
+/* Header & Tabs */
 .armoryHeader {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 30px;
+    background: rgba(15, 23, 42, 0.6);
+    padding: 10px;
+    border-radius: 12px;
+    border: 1px solid #1e293b;
+    backdrop-filter: blur(10px);
+}
+
+.tabs {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+}
+
+.tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.tabs button {
+    background: transparent;
+    border: 1px solid transparent;
+    color: #94a3b8;
+    padding: 10px 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.2s;
+    border-radius: 8px;
+    white-space: nowrap;
+}
+
+.tabs button.activeTab {
+    background: #ef4444;
+    color: white;
 }
 
 .creditDisplay {
-    background: rgba(245, 158, 11, 0.1);
-    border: 1px solid #f59e0b;
-    padding: 10px 20px;
-    color: #f59e0b;
-    font-weight: 900;
+    background: #f59e0b;
+    color: #000;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 800;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+    font-size: 14px;
 }
 
+/* Item Grid */
 .itemGrid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
 }
 
 .itemCard {
     background: #0f172a;
     border: 1px solid #1e293b;
-    padding: 25px;
-    text-align: center;
-    transition: transform 0.2s;
+    border-radius: 16px;
+    overflow: hidden;
+    transition: all 0.3s ease;
 }
 
 .itemCard:hover {
     border-color: #ef4444;
-    transform: translateY(-5px);
+    transform: translateY(-4px);
+    box-shadow: 0 10px 20px -10px rgba(239, 68, 68, 0.3);
 }
 
-.itemIcon {
-    color: #ef4444;
-    margin-bottom: 15px;
+/* Image Wrapper and Overlay */
+.imageWrapper {
+    position: relative;
+    background: #020617;
+    height: 160px;
     display: flex;
+    align-items: center;
     justify-content: center;
+    padding: 20px;
+    overflow: hidden;
 }
 
-.itemCard h3 {
-    font-size: 16px;
-    margin-bottom: 10px;
-    letter-spacing: 1px;
+.imageWrapper img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    transition: opacity 0.3s ease;
 }
 
-.itemCard p {
+.descriptionOverlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(15, 23, 42, 0.95);
+    padding: 12px;
+    border-top: 1px solid #ef4444;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 2;
+    backdrop-filter: blur(4px);
+}
+
+.descriptionOverlay p {
     font-size: 11px;
     color: #94a3b8;
-    margin-bottom: 20px;
-    height: 30px;
+    line-height: 1.4;
+    margin: 0;
+    text-align: center;
+    font-weight: 500;
+}
+
+/* Hover Triggers */
+.itemCard:hover .descriptionOverlay {
+    transform: translateY(0);
+}
+
+.itemCard:hover .imageWrapper img {
+    opacity: 0.3;
+}
+
+.itemInfo {
+    padding: 15px;
+    text-align: center;
+}
+
+.itemInfo h3 {
+    font-size: 14px;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 .buyBtn {
     width: 100%;
-    background: #ef4444;
-    color: white;
-    border: none;
-    padding: 12px;
-    font-family: inherit;
-    font-weight: 900;
+    background: #1e293b;
+    color: #ef4444;
+    border: 1px solid #ef4444;
+    padding: 10px;
+    font-weight: 700;
     cursor: pointer;
-    clip-path: polygon(10% 0, 100% 0, 90% 100%, 0% 100%);
+    border-radius: 8px;
+    transition: all 0.2s;
 }
 
-.buyBtn:hover {
-    background: #dc2626;
+.buyBtn:hover:not(:disabled) {
+    background: #ef4444;
+    color: #fff;
+}
+
+/* Wardrobe */
+.warriorLocker {
+    margin-top: 50px;
+    background: rgba(15, 23, 42, 0.4);
+    border-radius: 20px;
+    padding: 25px;
+    border: 1px solid #1e293b;
+}
+
+.lockerTitle {
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    color: #ef4444;
+}
+
+.lockerGrid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.lockerImageWrap {
+    position: relative;
+    background: #0f172a;
+    border: 1px solid #334155;
+    padding: 8px;
+    border-radius: 12px;
+}
+
+.lockerThumb {
+    width: 50px;
+    height: 50px;
+    object-fit: contain;
+}
+
+.quantityBadge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #ef4444;
+    color: white;
+    font-size: 10px;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 2px solid #0f172a;
+}
+
+.lockerItemName {
+    font-size: 9px;
+    margin-top: 6px;
+    text-align: center;
+    color: #64748b;
+}
+
+/* Utils */
+.spinIcon {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .buyBtn:disabled {
-    background: #450a0a;
+    opacity: 0.5;
     cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .armoryHeader {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .tabs {
+        width: 100%;
+    }
+
+    .itemGrid {
+        grid-template-columns: 1fr 1fr;
+    }
 }
