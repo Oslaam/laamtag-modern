@@ -11,6 +11,7 @@ model User {
   walletAddress      String           @id @unique
   username      String?
   laamPoints         Float              @default(0)
+  tagTickets         Float              @default(0)
   warCredits             Float              @default(0)
   rank               String           @default("Bronze")
   claimedBadges UserBadge[]
@@ -21,7 +22,6 @@ model User {
   deployedWarriors DeployedWarrior[]
   lastWarriorMint    DateTime?
   lastWarriorMintBatch Int   @default(-1)
-  tagTickets         Float              @default(0)
   totalTagPurchased  Int              @default(0)
   isAdmin            Boolean          @default(false)
   quests             UserQuest[]
