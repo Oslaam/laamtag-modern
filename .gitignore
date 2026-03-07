@@ -30,6 +30,7 @@ authority.json
 !tsconfig.json
 !next.config.json
 !project.json
+!/src/lib/armory.json
 
 **/*-keypair.json
 
