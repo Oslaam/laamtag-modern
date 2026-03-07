@@ -1,0 +1,23 @@
+{
+  "WEAPON": [
+    { "id": "wpn-001", "name": "Plasma Katana", "cost": 1000, "description": "High-frequency melee blade.", "image": "/assets/images/katana.png" },
+    { "id": "wpn-002", "name": "Pulse Rifle", "cost": 3000, "description": "Standard long-range energy rifle.", "image": "/assets/images/pulse-rifle.png" },
+    { "id": "w_03", "name": "HEAVY BOLTER", "cost": 5000, "description": "Mass-reactive explosive rounds.", "image": "/assets/images/bolter.png" }
+  ],
+  "PET": [
+    { "id": "pet-001", "name": "Cyber Hawk", "cost": 500, "description": "Scouts the battlefield for credits.", "image": "/assets/images/hawk.png" },
+    { "id": "p_01", "name": "CYBER-HOUND", "cost": 800, "description": "Loyal, metallic, and deadly.", "image": "/assets/images/dog.png" }
+  ],
+  "GARMENT": [
+    { "id": "cos-001", "name": "Phantom Mask", "cost": 3000, "description": "Face shroud for stealth operations.", "image": "/assets/images/phantom-mask.png" },
+    { "id": "g_02", "name": "TITAN PLATE", "cost": 250, "description": "Heavy-duty ballistic protection.", "image": "/assets/images/titan.png" }
+  ],
+  "DRONE": [
+    { "id": "d_01", "name": "RECON BUG", "cost": 500, "description": "Small, silent, perfect for scouting.", "image": "/assets/images/bug.png" },
+    { "id": "d_02", "name": "MED-BOT", "cost": 750, "description": "Automated battlefield first-aid.", "image": "/assets/images/medbot.png" }
+  ],
+  "CYBERNETIC": [
+    { "id": "c_01", "name": "NEURAL LINK", "cost": 700, "description": "Direct interface with battle-net.", "image": "/assets/images/link.png" },
+    { "id": "c_02", "name": "BIONIC EYE", "cost": 500, "description": "Thermal and night-vision overlay.", "image": "/assets/images/eye.png" }
+  ]
+}
