@@ -5,7 +5,6 @@ import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
 import { mplCandyMachine, fetchCandyMachine } from '@metaplex-foundation/mpl-candy-machine';
 import { publicKey } from '@metaplex-foundation/umi';
 
-// Prevent multiple Prisma instances in development
 const prisma = global.prisma || new PrismaClient();
 if (process.env.NODE_ENV !== 'production') global.prisma = prisma;
 
@@ -14,7 +13,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { signature, walletAddress, mode } = req.body;
 
-    // 1. Validate Config & Input
     const RPC = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
     const CM_ID_RAW = process.env.NEXT_PUBLIC_WARRIOR_CANDY_MACHINE_ID;
 
@@ -26,13 +24,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const connection = new Connection(RPC);
         const CANDY_MACHINE_ID = publicKey(CM_ID_RAW);
 
-        // 2. Double-spend prevention
+        // 1. Double-spend prevention
         const existingTx = await prisma.activity.findFirst({ where: { signature } });
         if (existingTx) return res.status(400).json({ error: "Transaction already processed" });
 
-        // 3. Verification on chain
-        // Note: signature from frontend is base64, getTransaction expects base58 usually
-        // If your frontend sends base64, keep the Buffer conversion.
+        // 2. Fetch transaction from chain
         const tx = await connection.getTransaction(signature, {
             commitment: 'confirmed',
             maxSupportedTransactionVersion: 0
@@ -40,12 +36,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         if (!tx) return res.status(404).json({ error: "Transaction not found on chain" });
 
-        // 4. Determine Batch (Critical for the lock logic)
+        // 3. KEY FIX: Verify the transaction actually succeeded on-chain.
+        // tx.meta.err is null for successful transactions, non-null for failed ones.
+        // Without this check, a failed transaction still writes to the database.
+        if (tx.meta?.err) {
+            console.error("Transaction failed on-chain:", tx.meta.err);
+            return res.status(400).json({ error: "Transaction failed on-chain. No assets were debited." });
+        }
+
+        // 4. Determine batch
         const umi = createUmi(RPC).use(mplCandyMachine());
         const candyMachine = await fetchCandyMachine(umi, CANDY_MACHINE_ID);
         const currentBatch = Math.floor(Number(candyMachine.itemsRedeemed) / 20);
 
-        // 5. Update DB
+        // 5. Update DB — only reached if tx succeeded on-chain
         const updateData: any = {
             warriorMinted: { increment: 1 },
         };
@@ -76,5 +80,4 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.error("VERIFY_ERROR", error);
         return res.status(500).json({ error: "Internal Server Error" });
     }
-    // Removed $disconnect to keep connection pool alive for next request
 }

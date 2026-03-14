@@ -26,9 +26,9 @@ const RPC = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8ed
       collectionDetails: some({ __kind: "V1", size: BigInt(5000) }),
     }).sendAndConfirm(umi);
 
-    console.log("✅ NEW COLLECTION MINT ADDRESS:");
+    console.log("NEW COLLECTION MINT ADDRESS:");
     console.log(collectionMint.publicKey.toString());
   } catch (e) {
-    console.error("❌ Error:", e);
+    console.error("Error:", e);
   }
 })();

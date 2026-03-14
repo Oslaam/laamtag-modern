@@ -4,7 +4,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("🚀 Starting seed...");
+  console.log(" Starting seed...");
 
   // 1. Define your Quests
   // TIP: Ensure every quest has a unique 'id' string so upsert can find it easily.
@@ -64,12 +64,12 @@ async function main() {
     });
   }
 
-  console.log("✅ Database synced successfully without deleting user progress!");
+  console.log("Database synced successfully without deleting user progress!");
 }
 
 main()
   .catch((e) => {
-    console.error("❌ Seed Error:", e);
+    console.error("Seed Error:", e);
     process.exit(1);
   })
   .finally(async () => {

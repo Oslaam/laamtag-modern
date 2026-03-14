@@ -4,8 +4,8 @@
     background: #000;
     position: relative;
     overflow-x: hidden;
-    /* Use Inter or a monospace font for that terminal feel */
     font-family: 'Courier New', Courier, monospace;
+    color: #fff;
 }
 
 /* CRT SCANLINE OVERLAY */
@@ -17,13 +17,11 @@
     left: 0;
     bottom: 0;
     right: 0;
-    /* Combined scanlines and slight RGB shift */
     background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
         linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
     z-index: 9999;
     background-size: 100% 4px, 3px 100%;
     pointer-events: none;
-    /* CRITICAL: Allows clicking through the overlay */
     animation: crtFlicker 0.15s infinite;
 }
 
@@ -56,24 +54,24 @@
 }
 
 .contentWrapper {
-    max-width: 600px;
+    max-width: 800px;
     margin: 0 auto;
     position: relative;
     z-index: 10;
 }
 
-/* Header */
+/* --- HEADER & NAVIGATION --- */
 .header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 40px;
+    margin-bottom: 30px;
 }
 
 .backButton {
     background: rgba(255, 255, 255, 0.05);
-    padding: 12px;
-    border-radius: 12px;
+    padding: 10px;
+    border-radius: 8px;
     color: #fff;
     border: 1px solid rgba(255, 255, 255, 0.1);
     transition: 0.3s;
@@ -82,49 +80,50 @@
 .backButton:hover {
     background: rgba(234, 179, 8, 0.1);
     border-color: #eab308;
+    color: #eab308;
 }
 
 .pageTitle {
     color: #eab308;
     margin: 0;
-    font-size: 1.5rem;
+    font-size: 1.8rem;
     font-weight: 900;
     text-shadow: 0 0 10px rgba(234, 179, 8, 0.5);
     text-transform: uppercase;
 }
 
 .terminalDescSmall {
-    font-size: 9px;
+    font-size: 10px;
     margin: 0;
     letter-spacing: 2px;
     color: rgba(255, 255, 255, 0.4);
 }
 
-/* Tabs */
+/* --- TABS --- */
 .tabSelector {
     display: flex;
     gap: 8px;
     background: rgba(255, 255, 255, 0.03);
     padding: 6px;
-    border-radius: 16px;
+    border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.05);
-    margin-bottom: 32px;
+    margin-bottom: 24px;
 }
 
 .tabButton {
     flex: 1;
     background: transparent;
-    color: #666;
+    color: #888;
     border: none;
-    padding: 12px;
-    border-radius: 12px;
-    font-size: 10px;
+    padding: 12px 5px;
+    border-radius: 8px;
+    font-size: 11px;
     font-weight: 900;
     text-transform: uppercase;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 6px;
     transition: 0.3s all;
     cursor: pointer;
 }
@@ -132,96 +131,103 @@
 .activeTab {
     background: #eab308;
     color: #000;
-    box-shadow: 0 0 20px rgba(234, 179, 8, 0.2);
+    box-shadow: 0 0 15px rgba(234, 179, 8, 0.3);
 }
 
-/* Cards & Forms */
+/* --- COMMON CARDS --- */
 .terminalCard,
 .terminalCardLarge {
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(20, 20, 20, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 16px;
     padding: 24px;
-    backdrop-filter: blur(4px);
+    backdrop-filter: blur(10px);
 }
 
-.formStack {
+/* --- LIVE CHAT CONTAINER --- */
+.liveChatContainer {
     display: flex;
     flex-direction: column;
-    gap: 20px;
 }
 
-.inputField {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.inputField label {
-    font-size: 10px;
-    font-weight: 900;
-    color: rgba(234, 179, 8, 0.7);
-    letter-spacing: 1px;
-}
-
-.inputField input,
-.inputField select,
-.inputField textarea {
-    background: rgba(0, 0, 0, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 14px;
-    border-radius: 8px;
-    color: #fff;
-    outline: none;
-    width: 100%;
-    transition: 0.2s;
-}
-
-.inputField input:focus,
-.inputField textarea:focus {
-    border-color: #eab308;
-    box-shadow: 0 0 10px rgba(234, 179, 8, 0.1);
-}
-
-.inputGrid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-}
-
-.primaryBtn {
-    background: #eab308;
-    color: #000;
-    border: none;
-    padding: 16px;
+.chatHeaderStatus {
+    background: rgba(0, 0, 0, 0.4);
+    padding: 10px 15px;
     border-radius: 12px;
-    font-weight: 900;
-    cursor: pointer;
-    transition: 0.3s;
-    text-transform: uppercase;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.statusBadge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    font-weight: bold;
+    color: #fff;
     letter-spacing: 1px;
 }
 
-.primaryBtn:hover:not(:disabled) {
-    background: #facc15;
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(234, 179, 8, 0.3);
+.statusDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #444;
 }
 
-.primaryBtn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+.statusDotLive {
+    background: #22c55e;
+    box-shadow: 0 0 10px #22c55e;
+    animation: pulse 2s infinite;
 }
 
-/* Chat Styles */
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.4;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+/* --- INITIALIZING STATE --- */
+.initializingBox {
+    height: 400px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 10, 10, 0.5);
+    border: 1px solid rgba(234, 179, 8, 0.2);
+    border-radius: 16px;
+}
+
+.botIcon {
+    color: #eab308;
+    margin-bottom: 20px;
+    filter: drop-shadow(0 0 10px rgba(234, 179, 8, 0.4));
+}
+
+.typingText {
+    font-size: 14px;
+    color: #eab308;
+    letter-spacing: 3px;
+}
+
+/* --- CHAT BOX UI --- */
 .chatBox {
     display: flex;
     flex-direction: column;
-    height: 500px;
-    background: rgba(10, 10, 10, 0.8);
-    border: 1px solid rgba(234, 179, 8, 0.2);
-    border-radius: 12px;
+    height: 550px;
+    background: rgba(10, 10, 10, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
     overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
 .chatMessages {
@@ -230,10 +236,11 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 16px;
+    background-image: radial-gradient(rgba(234, 179, 8, 0.03) 1px, transparent 1px);
+    background-size: 20px 20px;
 }
 
-/* Custom Scrollbar for Terminal */
 .chatMessages::-webkit-scrollbar {
     width: 4px;
 }
@@ -245,13 +252,14 @@
 
 .aiMessage {
     align-self: flex-start;
-    background: rgba(40, 40, 40, 0.5);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-left: 3px solid #eab308;
-    color: #ddd;
+    color: #e0e0e0;
     padding: 12px 16px;
-    border-radius: 4px 14px 14px 4px;
-    max-width: 85%;
-    font-size: 0.85rem;
+    border-radius: 4px 16px 16px 4px;
+    max-width: 80%;
+    font-size: 0.9rem;
     line-height: 1.5;
 }
 
@@ -260,71 +268,35 @@
     background: #eab308;
     color: #000;
     padding: 12px 16px;
-    border-radius: 14px 14px 4px 14px;
-    max-width: 85%;
-    font-size: 0.85rem;
+    border-radius: 16px 16px 4px 16px;
+    max-width: 80%;
+    font-size: 0.9rem;
     font-weight: 600;
-}
-
-/* AI Typing Indicator */
-.aiTypingIndicator {
-    align-self: flex-start;
-    background: rgba(26, 26, 26, 0.8);
-    padding: 10px 16px;
-    border-radius: 12px;
-    display: flex;
-    gap: 5px;
-    border: 1px solid rgba(234, 179, 8, 0.2);
-    margin-top: 5px;
-}
-
-.typingDot {
-    width: 6px;
-    height: 6px;
-    background: #eab308;
-    border-radius: 50%;
-    animation: typingBounce 1.4s infinite ease-in-out both;
-}
-
-.typingDot:nth-child(2) {
-    animation-delay: 0.2s;
-}
-
-.typingDot:nth-child(3) {
-    animation-delay: 0.4s;
-}
-
-@keyframes typingBounce {
-
-    0%,
-    80%,
-    100% {
-        transform: scale(0.6);
-        opacity: 0.3;
-    }
-
-    40% {
-        transform: scale(1.2);
-        opacity: 1;
-    }
+    box-shadow: 0 4px 15px rgba(234, 179, 8, 0.2);
 }
 
 /* Quick Actions */
 .quickActions {
     display: flex;
     gap: 8px;
-    padding: 10px 20px;
-    flex-wrap: wrap;
+    padding: 12px 20px;
     background: rgba(255, 255, 255, 0.02);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    overflow-x: auto;
+    white-space: nowrap;
+}
+
+.quickActions::-webkit-scrollbar {
+    display: none;
 }
 
 .actionBadge {
     background: rgba(234, 179, 8, 0.1);
     border: 1px solid rgba(234, 179, 8, 0.3);
     color: #eab308;
-    padding: 6px 12px;
+    padding: 6px 14px;
     border-radius: 20px;
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 900;
     cursor: pointer;
     transition: 0.2s;
@@ -335,89 +307,122 @@
     color: #000;
 }
 
-/* Chat Input Area */
+/* Input Area */
 .chatInputArea {
     display: flex;
-    padding: 15px;
-    gap: 10px;
-    background: #000;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 15px 20px;
+    gap: 12px;
+    background: #0a0a0a;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .chatInput {
     flex: 1;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    padding: 10px 15px;
+    border-radius: 12px;
+    padding: 12px 18px;
     color: #fff;
     outline: none;
+    font-size: 14px;
+}
+
+.chatInput:focus {
+    border-color: #eab308;
 }
 
 .chatSendBtn {
     background: #eab308;
     border: none;
-    border-radius: 8px;
-    padding: 0 15px;
+    border-radius: 12px;
+    width: 48px;
+    height: 48px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: 0.2s;
 }
 
-/* Ticket ID & Modals */
-.overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.85);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 20000;
-    backdrop-filter: blur(8px);
+.chatSendBtn:hover:not(:disabled) {
+    transform: scale(1.05);
+    background: #facc15;
 }
 
-.terminalModal {
-    background: #0a0a0a;
-    border: 1px solid #eab308;
-    padding: 40px;
-    border-radius: 20px;
-    text-align: center;
-    width: 400px;
-    box-shadow: 0 0 30px rgba(234, 179, 8, 0.2);
+/* --- TICKET FORM --- */
+.inputGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
 }
 
-.idContainer {
-    background: rgba(234, 179, 8, 0.05);
-    border: 1px dashed rgba(234, 179, 8, 0.3);
-    padding: 15px;
-    margin: 20px 0;
-    border-radius: 8px;
-}
-
-.idCode {
+.inputField label {
+    font-size: 10px;
+    font-weight: 900;
     color: #eab308;
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 1.1rem;
-    font-weight: 900;
+    margin-bottom: 6px;
+    text-transform: uppercase;
 }
 
-.footerText {
-    margin-top: 48px;
-    text-align: center;
-    font-size: 8px;
-    color: rgba(255, 255, 255, 0.2);
-    font-weight: 900;
-    letter-spacing: 0.3em;
+.inputField input,
+.inputField select,
+.inputField textarea {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 12px;
+    border-radius: 8px;
+    color: #fff;
+    font-family: inherit;
 }
 
-/* MOBILE RESPONSIVE */
+/* --- HISTORY --- */
+.historyStack {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.cardHeader {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.typeBadge {
+    background: rgba(234, 179, 8, 0.2);
+    color: #eab308;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: bold;
+}
+
+.statusText {
+    margin-top: 15px;
+    font-size: 10px;
+    font-weight: bold;
+}
+
+.statusPending {
+    color: #eab308;
+}
+
+.statusSuccess {
+    color: #22c55e;
+}
+
+/* --- RESPONSIVE ADJUSTMENTS --- */
 @media (max-width: 768px) {
     .contentWrapper {
-        padding: 0 15px;
+        padding: 0 10px;
+    }
+
+    .pageTitle {
+        font-size: 1.4rem;
+    }
+
+    .tabButton {
+        font-size: 9px;
     }
 
     .inputGrid {
@@ -425,14 +430,31 @@
     }
 
     .chatBox {
-        height: 65vh;
+        height: calc(100vh - 280px);
+        /* Fill most of the screen on mobile */
+        border-radius: 12px;
     }
 
-    .pageTitle {
-        font-size: 1.2rem;
+    .aiMessage,
+    .userMessage {
+        max-width: 90%;
+        font-size: 0.85rem;
     }
 
-    .terminalModal {
-        width: 90%;
+    .chatInputArea {
+        padding: 10px;
     }
+
+    .chatSendBtn {
+        width: 42px;
+        height: 42px;
+    }
+}
+
+.footerText {
+    margin-top: 40px;
+    text-align: center;
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.2);
+    letter-spacing: 4px;
 }

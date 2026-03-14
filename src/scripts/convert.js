@@ -16,7 +16,7 @@ async function convert() {
     const keyArray = Array.from(keypair.secretKey);
     fs.writeFileSync('scripts/authority.json', JSON.stringify(keyArray));
     
-    console.log("✅ Conversion Complete!");
+    console.log("Conversion Complete!");
     console.log("Public Address:", keypair.publicKey.toBase58());
     console.log("Check if this matches your Admin Wallet!");
 }

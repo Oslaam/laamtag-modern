@@ -10,7 +10,7 @@ const COLLECTION_MINT = publicKey("3e1pfV6fucUZScyed1sfBdFwyeVCXvXud1UkZMq1iy7L"
     const umi = createUmi(RPC);
     const metadataPda = findMetadataPda(umi, { mint: COLLECTION_MINT });
     const metadata = await fetchMetadata(umi, metadataPda);
-    console.log("✅ YOUR REAL UPDATE AUTHORITY IS:", metadata.updateAuthority.toString());
+    console.log(" YOUR REAL UPDATE AUTHORITY IS:", metadata.updateAuthority.toString());
   } catch (e) {
     console.error("Error fetching authority:", e);
   }

@@ -185,6 +185,9 @@ model SupportTicket {
   title         String
   description   String   @db.Text
   status        String   @default("Pending") // Pending, Resolved
+  isAIGenerated   Boolean  @default(false)
+  aiSummary       String?  @db.Text
+  suggestedAction String?
   createdAt     DateTime @default(now())
 
   @@index([walletAddress])

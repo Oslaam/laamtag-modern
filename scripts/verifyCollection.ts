@@ -30,9 +30,9 @@ const RPC = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8ed
       authority: umi.identity,
     }).sendAndConfirm(umi);
 
-    console.log("✅ SUCCESS: Collection verified!");
+    console.log("SUCCESS: Collection verified!");
   } catch (e: any) {
-    console.error("❌ Verification failed:", e);
+    console.error("Verification failed:", e);
     if (e.logs) console.log("Logs:", e.logs);
   }
 })();

@@ -13,7 +13,7 @@ import io from 'socket.io-client';
 import styles from '../../styles/AdminDashboard.module.css';
 import {
   CheckCircle2, MessageSquare, ExternalLink, ShieldAlert,
-  Clock, XCircle, ChevronLeft, Terminal, Bell, Zap, Send, Gift, Coins, Activity, Users, Trash2, Megaphone, Database
+  Clock, XCircle, ChevronLeft, Terminal, Bell, Zap, Send, Gift, Coins, Activity, Users, Trash2, Megaphone, Database, UserCheck
 } from 'lucide-react';
 
 const MotionDiv = motion.div as any;
@@ -38,6 +38,7 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<'QUESTS' | 'SUPPORT' | 'HISTORY' | 'RAFFLES' | 'ALERTS' | 'CHAT' | 'BROADCAST'>('QUESTS');
 
   const [chatLog, setChatLog] = useState<any[]>([]);
+  const [activeChatUser, setActiveChatUser] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [activeUserCount, setActiveUserCount] = useState(0);
 
@@ -80,34 +81,89 @@ export default function AdminDashboard() {
 
     socket.on('connect', () => {
       console.log('Admin connected to socket node');
+      socket.emit('agent-join-room', 'admin-room');
     });
 
     socket.on('user-count-update', (count: number) => {
       setActiveUserCount(count);
     });
 
-    socket.on('receive-message', (data: any) => {
-      setChatLog((prev) => [...prev, data]);
-      if (activeTab !== 'CHAT') {
+    // 1. New Ticket/AI Summary Notification
+    socket.on('new-ticket-notification', (data: any) => {
+      toast(`SIGNAL DETECTED: ${data.walletAddress?.slice(0, 6)}`, {
+        icon: '📡',
+        style: { background: '#111', color: '#a855f7', border: '1px solid #a855f7' }
+      });
+
+      // Automatically add the user's description to the chat log if we are looking at them
+      if (activeChatUser === data.walletAddress) {
+        setChatLog(prev => [...prev, {
+          sender: data.walletAddress,
+          text: data.description || data.text,
+          isAdmin: false,
+          timestamp: new Date().toISOString()
+        }]);
+      }
+      fetchData();
+    });
+
+    // 2. The "Live Drop" - Listening for the same event the User sends
+    socket.on('agent-send-message', (data: any) => {
+      // If the message is from a user (not an admin) and we are in their chat
+      if (activeChatUser === data.walletAddress && data.sender !== 'OPERATOR') {
+        setChatLog((prev) => [...prev, {
+          ...data,
+          isAdmin: false,
+          timestamp: data.timestamp || new Date().toISOString()
+        }]);
+      } else if (data.sender !== 'OPERATOR') {
+        // If we aren't looking at that chat, just show a notification
         setUnreadCount(prev => prev + 1);
-        toast("Inbound Signal Detected", {
-          icon: '📡',
-          style: { background: '#111', color: '#eab308', border: '1px solid #eab308' }
-        });
+        toast.success(`New Message: ${data.walletAddress?.slice(0, 6)}`);
       }
     });
   };
 
+  const joinUserChat = (walletAddress: string, initialMessage?: string) => {
+    setActiveChatUser(walletAddress);
+
+    // If there's an initial message (the user's issue), put it in the log immediately
+    if (initialMessage) {
+      setChatLog([{
+        sender: walletAddress,
+        text: initialMessage,
+        isAdmin: false,
+        timestamp: new Date().toISOString()
+      }]);
+    } else {
+      setChatLog([]);
+    }
+
+    socket.emit('agent-join-room', walletAddress);
+    toast.success(`BRIDGE_ESTABLISHED: ${walletAddress.slice(0, 8)}`);
+  };
+
   const sendAdminMessage = (text: string) => {
-    if (!socket || !text.trim()) return;
+    if (!socket || !text.trim() || !activeChatUser) return;
+
     const adminMsg = {
+      walletAddress: activeChatUser,
       sender: 'OPERATOR',
       text: text,
       isAdmin: true,
       timestamp: new Date().toISOString()
     };
-    socket.emit('send-message', adminMsg);
+
+    socket.emit('agent-send-message', adminMsg);
     setChatLog((prev) => [...prev, adminMsg]);
+  };
+
+  const closeActiveTicket = () => {
+    if (!activeChatUser) return;
+    socket.emit('close-ticket', activeChatUser);
+    toast.error("TICKET_CLOSED_SIGNAL_SENT");
+    setActiveChatUser(null);
+    setChatLog([]);
   };
 
   const clearChatLog = () => {
@@ -329,7 +385,7 @@ export default function AdminDashboard() {
         ) : (
           <div className="grid gap-4">
 
-            {/* BROADCAST TAB - UPDATED WITH BULK LOGIC */}
+            {/* BROADCAST TAB */}
             {activeTab === 'BROADCAST' && (
               <MotionDiv className={`${styles.glassCard} p-8`}>
                 <div className="flex flex-col lg:flex-row gap-10">
@@ -425,12 +481,20 @@ export default function AdminDashboard() {
               </MotionDiv>
             ))}
 
-            {/* SUPPORT TAB */}
+            {/* SUPPORT TAB - AI TICKETS */}
             {activeTab === 'SUPPORT' && tickets.map((t: any) => (
-              <MotionDiv layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={t.id} className="p-6 border border-zinc-800 rounded-[32px] bg-zinc-900/40 flex flex-col gap-4 hover:border-yellow-500/30 transition-all">
+              <MotionDiv layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={t.id}
+                className={`p-6 border rounded-[32px] bg-zinc-900/40 flex flex-col gap-4 transition-all ${t.isAIGenerated ? 'border-purple-500/30 shadow-[0_0_20px_rgba(168,85,247,0.05)]' : 'border-zinc-800 hover:border-yellow-500/30'}`}>
+
                 <div className="flex justify-between items-start">
                   <div>
                     <div className="flex items-center gap-3 mb-1">
+                      {/* AI Badge */}
+                      {t.isAIGenerated && (
+                        <span className="bg-purple-500 text-white text-[8px] font-black px-2 py-0.5 rounded-md flex items-center gap-1 animate-pulse">
+                          <Zap size={8} /> AI_PREPARED
+                        </span>
+                      )}
                       <span className={`text-[8px] font-black px-2 py-0.5 rounded-md ${t.status === 'Pending' ? 'bg-yellow-500 text-black' : 'bg-green-500 text-white'}`}>
                         {t.status?.toUpperCase() || 'UNKNOWN'}
                       </span>
@@ -440,94 +504,143 @@ export default function AdminDashboard() {
                       TICKET_ID: {t.id?.slice(-8)} • USER: {(t.walletAddress || t.userWallet || "Unknown")?.slice(0, 8)}...
                     </p>
                   </div>
-                  {t.status === 'Pending' && (
+
+                  <div className="flex gap-2">
                     <button
-                      onClick={() => updateTicketStatus(t.id, 'Resolved')}
-                      className="bg-white text-black px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-green-500 transition-all"
-                    >
-                      Mark Resolved
+                      onClick={() => {
+                        setActiveTab('CHAT');
+                        // Pass the message/description so it shows up in the chat right away
+                        joinUserChat(t.walletAddress || t.userWallet, t.message || t.description);
+                      }}
+                      className="bg-yellow-500 text-black px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-white transition-all flex items-center gap-2">
+                      <MessageSquare size={12} /> Live Chat
                     </button>
-                  )}
+                    {t.status === 'Pending' && (
+                      <button
+                        onClick={() => updateTicketStatus(t.id, 'Resolved')}
+                        className="bg-white text-black px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-green-500 transition-all"
+                      >
+                        Mark Resolved
+                      </button>
+                    )}
+                  </div>
                 </div>
+
+                {/* AI Summary Section */}
+                {t.isAIGenerated && t.aiSummary && (
+                  <div className="bg-purple-500/5 border border-purple-500/20 p-4 rounded-2xl">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Database size={12} className="text-purple-400" />
+                      <span className="text-[9px] font-black text-purple-400 uppercase tracking-widest">Neural_Analysis_Summary</span>
+                    </div>
+                    <p className="text-zinc-300 text-xs italic leading-relaxed border-l-2 border-purple-500/50 pl-3">
+                      {t.aiSummary}
+                    </p>
+                    {t.suggestedAction && (
+                      <div className="mt-3 flex items-center gap-2">
+                        <span className="text-[8px] font-bold text-zinc-500 uppercase">Suggested Action:</span>
+                        <code className="text-[10px] text-purple-300 bg-purple-500/10 px-2 py-1 rounded-md">{t.suggestedAction}</code>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="bg-black/40 p-4 rounded-2xl border border-white/5">
                   <p className="text-zinc-300 text-sm leading-relaxed">{t.message}</p>
-                </div>
-                <div className="flex justify-between items-center">
-                  <p className="text-[9px] text-zinc-600 font-black uppercase italic tracking-widest">
-                    Logged: {new Date(t.createdAt).toLocaleString()}
-                  </p>
-                  {t.email && (
-                    <a href={`mailto:${t.email}`} className="text-yellow-500 text-[10px] font-black uppercase hover:underline flex items-center gap-1">
-                      <Send size={10} /> Reply to {t.email}
-                    </a>
-                  )}
                 </div>
               </MotionDiv>
             ))}
 
-            {/* CHAT TAB */}
+            {/* CHAT TAB - UPDATED FOR PRIVATE ROOMS */}
             {activeTab === 'CHAT' && (
-              <div className="grid grid-cols-1 gap-6">
-                <MotionDiv initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-6 border border-yellow-500/20 rounded-[32px] bg-zinc-900/40">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-black italic uppercase text-white flex items-center gap-2">
-                      <Activity className="text-yellow-500" size={20} /> Live Intercept
-                    </h2>
-                    <div className="flex items-center gap-4">
-                      <button onClick={clearChatLog} className="flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 px-3 py-1 rounded-full text-red-500 hover:bg-red-500 hover:text-white transition-all group">
-                        <Trash2 size={12} className="group-hover:scale-110 transition-transform" />
-                        <span className="text-[10px] font-black uppercase tracking-tighter">Wipe_Log</span>
-                      </button>
-                      <div className="flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/20 px-3 py-1 rounded-full">
-                        <Users size={12} className="text-yellow-500" />
-                        <span className="text-[10px] text-yellow-500 font-black uppercase tracking-tighter">{activeUserCount} Nodes Active</span>
-                      </div>
-                    </div>
-                  </div>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* User List Sidebar */}
+                <div className="lg:col-span-1 space-y-4">
+                  <h2 className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.3em] mb-4">Active Channels</h2>
+                  {tickets.filter(t => t.status === 'Pending').map((t: any) => (
+                    <button
+                      key={t.id}
+                      onClick={() => joinUserChat(t.walletAddress || t.userWallet)}
+                      className={`w-full p-4 rounded-2xl border text-left transition-all ${activeChatUser === (t.walletAddress || t.userWallet) ? 'bg-yellow-500/10 border-yellow-500' : 'bg-zinc-900/40 border-white/5 hover:border-white/20'}`}
+                    >
+                      <p className="text-white font-black text-xs uppercase italic">{(t.walletAddress || t.userWallet)?.slice(0, 12)}...</p>
+                      <p className="text-[9px] text-zinc-500 mt-1 truncate">{t.subject}</p>
+                    </button>
+                  ))}
+                </div>
 
-                  <div className={`h-[450px] overflow-y-auto bg-black/50 rounded-2xl p-6 mb-4 border border-white/5 font-mono text-[12px] ${styles.chatLogScroll}`}>
-                    {chatLog.length === 0 && (
-                      <div className="flex flex-col items-center justify-center h-full opacity-20">
-                        <MessageSquare size={40} className="mb-4" />
-                        <p className="italic uppercase tracking-widest text-[10px]">Waiting for incoming signals...</p>
-                      </div>
-                    )}
-                    {chatLog.map((msg, i) => (
-                      <div key={i} className={`mb-3 flex flex-col ${msg.isAdmin ? 'items-end' : 'items-start'}`}>
-                        <div className={`${styles.messageBubble} p-3 rounded-2xl border ${msg.isAdmin ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-500' : 'bg-white/5 border-white/10 text-white'}`}>
-                          <p className="text-[10px] opacity-50 mb-1 font-black uppercase tracking-tighter">
-                            {msg.sender} • {new Date(msg.timestamp).toLocaleTimeString()}
-                          </p>
-                          <p className="text-sm">{msg.text}</p>
+                {/* Main Chat Area */}
+                <div className="lg:col-span-2">
+                  <MotionDiv initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-6 border border-yellow-500/20 rounded-[32px] bg-zinc-900/40">
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-xl font-black italic uppercase text-white flex items-center gap-2">
+                        <Activity className="text-yellow-500" size={20} /> Live Intercept
+                      </h2>
+                      <div className="flex items-center gap-4">
+                        {activeChatUser && (
+                          <button onClick={closeActiveTicket} className="flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 px-3 py-1 rounded-full text-red-500 hover:bg-red-500 hover:text-white transition-all">
+                            <XCircle size={12} />
+                            <span className="text-[10px] font-black uppercase tracking-tighter">Close_Signal</span>
+                          </button>
+                        )}
+                        <div className="flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/20 px-3 py-1 rounded-full">
+                          <Users size={12} className="text-yellow-500" />
+                          <span className="text-[10px] text-yellow-500 font-black uppercase tracking-tighter">{activeUserCount} Nodes Active</span>
                         </div>
                       </div>
-                    ))}
-                  </div>
+                    </div>
 
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Enter transmission to all active nodes..."
-                      className="flex-1 bg-black border border-white/10 rounded-xl px-4 py-4 text-sm outline-none focus:border-yellow-500/50 text-white font-mono"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          sendAdminMessage(e.currentTarget.value);
-                          e.currentTarget.value = '';
-                        }
-                      }}
-                    />
-                    <button
-                      onClick={(e) => {
-                        const input = (e.currentTarget.previousSibling as HTMLInputElement);
-                        sendAdminMessage(input.value);
-                        input.value = '';
-                      }}
-                      className="bg-yellow-500 text-black px-6 rounded-xl font-black uppercase text-[10px] hover:bg-white transition-all"
-                    >
-                      Transmit
-                    </button>
-                  </div>
-                </MotionDiv>
+                    <div className={`h-[450px] overflow-y-auto bg-black/50 rounded-2xl p-6 mb-4 border border-white/5 font-mono text-[12px] ${styles.chatLogScroll}`}>
+                      {!activeChatUser ? (
+                        <div className="flex flex-col items-center justify-center h-full opacity-20">
+                          <UserCheck size={40} className="mb-4" />
+                          <p className="italic uppercase tracking-widest text-[10px]">Select a node to begin interception...</p>
+                        </div>
+                      ) : chatLog.length === 0 && (
+                        <div className="flex flex-col items-center justify-center h-full opacity-20">
+                          <MessageSquare size={40} className="mb-4" />
+                          <p className="italic uppercase tracking-widest text-[10px]">Connected to {activeChatUser.slice(0, 8)}... Waiting for signals</p>
+                        </div>
+                      )}
+                      {chatLog.map((msg, i) => (
+                        <div key={i} className={`mb-3 flex flex-col ${msg.isAdmin ? 'items-end' : 'items-start'}`}>
+                          <div className={`${styles.messageBubble} p-3 rounded-2xl border ${msg.isAdmin ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-500' : 'bg-white/5 border-white/10 text-white'}`}>
+                            <p className="text-[10px] opacity-50 mb-1 font-black uppercase tracking-tighter">
+                              {msg.sender?.slice(0, 8)} • {new Date(msg.timestamp).toLocaleTimeString()}
+                            </p>
+                            <p className="text-sm">{msg.text}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <input
+                        disabled={!activeChatUser}
+                        type="text"
+                        placeholder={activeChatUser ? `Message ${activeChatUser.slice(0, 8)}...` : "Select a channel first..."}
+                        className="flex-1 bg-black border border-white/10 rounded-xl px-4 py-4 text-sm outline-none focus:border-yellow-500/50 text-white font-mono disabled:opacity-50"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            sendAdminMessage(e.currentTarget.value);
+                            e.currentTarget.value = '';
+                          }
+                        }}
+                      />
+                      <button
+                        disabled={!activeChatUser}
+                        onClick={(e) => {
+                          const input = (e.currentTarget.previousSibling as HTMLInputElement);
+                          sendAdminMessage(input.value);
+                          input.value = '';
+                        }}
+                        className="bg-yellow-500 text-black px-6 rounded-xl font-black uppercase text-[10px] hover:bg-white transition-all disabled:opacity-50"
+                      >
+                        Transmit
+                      </button>
+                    </div>
+                  </MotionDiv>
+                </div>
               </div>
             )}
 

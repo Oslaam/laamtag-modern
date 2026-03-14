@@ -44,4 +44,4 @@ for (let i = 0; i < SUPPLY; i++) {
     fs.writeFileSync(destJson, JSON.stringify(data, null, 2));
 }
 
-console.log(`✅ Success! 5000 items created in the 'assets' folder.`);
+console.log(`Success! 5000 items created in the 'assets' folder.`);

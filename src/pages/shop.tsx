@@ -81,13 +81,13 @@ export default function ShopPage() {
             const data = await res.json();
 
             if (res.ok) {
-                toast.success(`✅ Success! Acquired ${pack.amount} Tickets`, { id: loadId });
+                toast.success(`Success! Acquired ${pack.amount} Tickets`, { id: loadId });
                 window.dispatchEvent(new Event('balanceUpdate'));
             } else {
                 throw new Error(data.message || "Database sync failed");
             }
         } catch (err: any) {
-            console.error("❌ Shop Error:", err);
+            console.error("Shop Error:", err);
             toast.error(err.message || "Transaction Failed", { id: loadId });
         } finally {
             setIsProcessing(false);

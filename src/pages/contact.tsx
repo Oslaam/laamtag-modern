@@ -3,7 +3,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { io, Socket } from 'socket.io-client';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { Send, Clock, MessageSquare, CheckCircle, XCircle, ArrowLeft, Bot, Copy, Check } from 'lucide-react';
+import { Send, Clock, MessageSquare, CheckCircle, XCircle, ArrowLeft, Bot, Copy, Check, ShieldCheck } from 'lucide-react';
 import axios from 'axios';
 import styles from '../styles/Contact.module.css';
 
@@ -22,8 +22,8 @@ export default function ContactPage() {
     const [chatLog, setChatLog] = useState<{ sender: string, text: string }[]>([]);
     const chatEndRef = useRef<HTMLDivElement>(null);
     const [isAiTyping, setIsAiTyping] = useState(false);
+    const [isAgentConnected, setIsAgentConnected] = useState(false);
 
-    // --- EXISTING TICKET STATES ---
     // Updated to store success/error and the generated ID
     const [showModal, setShowModal] = useState<{ type: 'success' | 'error', id?: string } | null>(null);
     const [history, setHistory] = useState<any[]>([]);
@@ -34,37 +34,53 @@ export default function ContactPage() {
     // 1. SOCKET & HANDSHAKE INITIALIZATION
     useEffect(() => {
         const socketInitializer = async () => {
-            // 1. Ping the API to ensure the server-side SocketHandler has executed
             await fetch('/api/socket');
 
-            // 2. Initialize with the correct path and transport
             socket = io({
                 path: '/api/socket',
                 addTrailingSlash: false,
-                transports: ['websocket', 'polling'] // Ensures compatibility
+                transports: ['websocket', 'polling']
             });
 
             socket.on('connect', () => {
-                console.log('CONNECTED TO VAULT');
+                console.log('CONNECTED TO SECURE BRIDGE');
+                if (publicKey) {
+                    const walletAddr = publicKey.toBase58();
+                    socket?.emit('join-private-room', walletAddr);
+                    console.log('Joined private room:', walletAddr);
+                }
             });
 
-            socket.on('receive-message', (data: any) => {
-                setChatLog((prev) => [...prev, data]);
+            socket.on('agent-joined', () => {
+                setIsAgentConnected(true);
+                setChatLog(prev => [...prev, { sender: 'SYSTEM', text: 'An authorized agent has joined the channel.' }]);
+            });
+
+            socket.on('agent-send-message', (data: any) => {
+                setChatLog((prev) => [...prev, { sender: 'SUPPORT', text: data.text }]);
+            });
+
+            socket.on('ticket-closed', () => {
+                alert("This session has been closed by support. Transmission cleared.");
+                setChatLog([]);
+                setIsAgentConnected(false);
+                setView('form');
             });
 
             socket.on('connect_error', (err) => {
                 console.error("Connection Error:", err.message);
             });
         };
+
         if (view === 'live') {
             socketInitializer();
-            const timer = setTimeout(() => setIsChatReady(true), 3500);
+            const timer = setTimeout(() => setIsChatReady(true), 2000);
             return () => {
                 clearTimeout(timer);
                 if (socket) socket.disconnect();
             };
         }
-    }, [view]);
+    }, [view, publicKey]);
 
     // Auto-scroll chat to bottom
     useEffect(() => {
@@ -119,45 +135,24 @@ export default function ContactPage() {
         if (e) e.preventDefault();
 
         const finalMessage = customMsg || message;
-        if (!finalMessage.trim() || !socket) return;
+        if (!finalMessage.trim() || !socket || !publicKey) return;
 
         const userMsgData = {
-            sender: publicKey ? publicKey.toBase58().substring(0, 6) : 'OPERATOR',
+            sender: 'USER', // Simpler for log check
+            walletAddress: publicKey.toBase58(),
             text: finalMessage
         };
 
-        // --- CRITICAL ADDITION ---
-        // Add the message to your own UI immediately
         setChatLog((prev) => [...prev, userMsgData]);
 
-        socket.emit('send-message', userMsgData);
+        // TRIGGER "TYPING" FEELING
+        if (!isAgentConnected) {
+            setIsAiTyping(true);
+            setTimeout(() => setIsAiTyping(false), 2500);
+        }
+
+        socket.emit('user-send-message', userMsgData);
         setMessage('');
-
-        // ... (rest of your AI logic)
-    };
-
-    const AI_RESPONSES: Record<string, string[]> = {
-        staking: [
-            "Vault access granted. Current LAAM APY is locked at 12.5%. Proceed to the VAULT tab for staking.",
-            "Staking protocols are active. Remember: staking LAAM increases your influence in the ecosystem.",
-            "Searching 'Staking'... Data found: 12.5% APY available. Use the VAULT interface to begin."
-        ],
-        tag: [
-            "TAG balance check required. Warning: Long-pressing the spin button deducts 5 TAG per cycle.",
-            "TAG protocols: If your TAG reserve hits zero during auto-spin, the sequence will terminate immediately.",
-            "Daily Spin active. Be advised: auto-spin requires a positive TAG balance. Running dry halts the mission."
-        ],
-        ticket: [
-            "Analyzing ticket logs... Check the HISTORY tab to track your previous transmissions.",
-            "Support tickets are stored in the secure ledger. View your status in the HISTORY section.",
-            "Mission history synchronized. All open transmissions are visible in the HISTORY module."
-        ],
-        default: [
-            "Signal received. Data is being processed through the LAAMTAG gateway...",
-            "Transmission acknowledged. Searching the databanks for relevant Intel...",
-            "Connection stable. Please specify your query (STAKING, TAG, or TICKETS) for faster processing.",
-            "Your transmission has been logged. Our agents are monitoring this channel."
-        ]
     };
 
     return (
@@ -224,29 +219,43 @@ export default function ContactPage() {
 
                 {view === 'live' && (
                     <div className={styles.liveChatContainer}>
+
+                        {/* --- STATUS BAR INDICATOR --- */}
+                        <div className={styles.chatHeaderStatus} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <div className={styles.statusBadge}>
+                                <span className={`${styles.statusDot} ${isAgentConnected ? styles.statusDotLive : ''}`}></span>
+                                <span>{isAgentConnected ? 'AGENT CONNECTED' : 'SIGNAL BROADCASTING...'}</span>
+                            </div>
+                            {isAgentConnected && <ShieldCheck size={16} color="#22c55e" />}
+                        </div>
+
                         {!isChatReady ? (
+                            /* INITIALIZING STATE */
                             <div className={styles.initializingBox}>
                                 <Bot size={48} className={styles.botIcon} />
                                 <div className={styles.typingWrapper}>
-                                    <h3 className={styles.typingText}>INITIALIZING AI HANDSHAKE...</h3>
+                                    <h3 className={styles.typingText}>SECURE HANDSHAKE...</h3>
                                 </div>
-                                <p className={styles.terminalDesc}>LaamTag (AI) is coming online shortly.</p>
                                 <div className={styles.pulseBar}></div>
                             </div>
                         ) : (
+                            /* ACTIVE CHAT INTERFACE */
                             <div className={styles.chatBox}>
                                 <div className={styles.chatMessages}>
                                     <div className={styles.aiMessage}>
-                                        <span style={{ color: '#eab308', fontWeight: 'bold' }}>LAAMTAG (AI):</span>
-                                        Greetings, Seeker. I am the terminal interface. How can I assist with your mission today?
+                                        <span style={{ color: '#eab308', fontWeight: 'bold' }}>SYSTEM:</span>
+                                        {isAgentConnected
+                                            ? " Encryption active. Agent is online."
+                                            : " Signal broadcasted. Waiting for an available agent..."
+                                        }
                                     </div>
 
                                     {chatLog.map((msg, i) => (
                                         <div
                                             key={i}
-                                            className={msg.sender === (publicKey ? publicKey.toBase58().substring(0, 6) : 'OPERATOR')
-                                                ? styles.userMessage
-                                                : styles.aiMessage
+                                            className={msg.sender === 'SUPPORT' || msg.sender === 'SYSTEM'
+                                                ? styles.aiMessage
+                                                : styles.userMessage
                                             }
                                         >
                                             {msg.text}
@@ -265,7 +274,7 @@ export default function ContactPage() {
                                 </div>
 
                                 <div className={styles.quickActions}>
-                                    {['STAKING HELP', 'TICKET STATUS', 'REWARDS'].map((label) => (
+                                    {['STAKING', 'REWARDS', 'I NEED HELP'].map((label) => (
                                         <button
                                             key={label}
                                             onClick={() => sendChatMessage(undefined, label)}
@@ -279,13 +288,19 @@ export default function ContactPage() {
                                 <form onSubmit={sendChatMessage} className={styles.chatInputArea}>
                                     <input
                                         type="text"
-                                        placeholder="Enter transmission..."
+                                        placeholder={isChatReady ? "Enter transmission..." : "Connecting..."}
                                         value={message}
                                         onChange={(e) => setMessage(e.target.value)}
                                         className={styles.chatInput}
-                                        disabled
+                                        disabled={!isChatReady}
                                     />
-                                    <button type="submit" className={styles.chatSendBtn} disabled><Send size={18} /></button>
+                                    <button
+                                        type="submit"
+                                        className={styles.chatSendBtn}
+                                        disabled={!isChatReady}
+                                    >
+                                        <Send size={18} />
+                                    </button>
                                 </form>
                             </div>
                         )}

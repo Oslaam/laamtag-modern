@@ -11,7 +11,7 @@ import {
 } from '@solana-mobile/wallet-adapter-mobile';
 import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 
-// ✅ Detect actual mobile device
+//Detect actual mobile device
 const isMobileDevice = () =>
     typeof navigator !== 'undefined' &&
     /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
@@ -33,7 +33,7 @@ export const ContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
         if (!mounted) return [];
 
         return [
-            // ✅ Only add MWA on real mobile devices — prevents localhost WebSocket spam on desktop
+            // Only add MWA on real mobile devices — prevents localhost WebSocket spam on desktop
             ...(isMobileDevice() ? [
                 new SolanaMobileWalletAdapter({
                     addressSelector: createDefaultAddressSelector(),

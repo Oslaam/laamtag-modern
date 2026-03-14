@@ -21,7 +21,6 @@ export default function Collectable() {
     const { connection } = useConnection();
     const wallet = useWallet();
 
-    // --- 1. CONFIG & HYDRATION ---
     const [isMounted, setIsMounted] = useState(false);
 
     const CM_ID_STR = "CWikmfwwgHSYjXuXtBiXEE23M7sCpnGjBSjXxQuGizJm";
@@ -31,7 +30,6 @@ export default function Collectable() {
     const T_WALLET_STR = "4sr6vgbWJ14dBH7SFEBwETapqPb3vrpstyuBmbc1vd4u";
     const RPC_ENDPOINT = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
 
-    // --- 2. STATES ---
     const [status, setStatus] = useState<'idle' | 'allow' | 'public'>('idle');
     const [isWarrior, setIsWarrior] = useState(false);
     const [totalMinted, setTotalMinted] = useState(0);
@@ -47,7 +45,6 @@ export default function Collectable() {
         setIsMounted(true);
     }, []);
 
-    // --- 3. DATA FETCHING ---
     useEffect(() => {
         const fetchData = async () => {
             if (!wallet.publicKey || !isMounted) return;
@@ -84,7 +81,6 @@ export default function Collectable() {
         }
     }, [wallet.publicKey, isMounted]);
 
-    // --- 4. LOCK TIMER ---
     useEffect(() => {
         if (!isLocked) return;
         const timer = setInterval(() => {
@@ -101,11 +97,9 @@ export default function Collectable() {
         return () => clearInterval(timer);
     }, [isLocked]);
 
-    // --- 5. SECURE MINT FUNCTION ---
     const handleMint = async (mode: 'allow' | 'public') => {
         if (!isMounted || !wallet.publicKey || !wallet.connected) return;
 
-        // 1. RULE CHECK
         if (isLocked) {
             toast.error("BATCH_LOCKED: Wait for the next window.");
             return;
@@ -115,14 +109,13 @@ export default function Collectable() {
             return;
         }
 
-        // 2. GAS FEE CHECK (Pre-flight local check)
+        // SOL balance check
         const balance = await connection.getBalance(wallet.publicKey);
         const minSOL = 20000000; // 0.02 SOL
 
         if (balance < minSOL) {
             setIsShaking(true);
             setTimeout(() => setIsShaking(false), 500);
-
             toast.error("GAS_ALERT: 0.02 SOL REQUIRED", {
                 style: {
                     border: '1px solid #ff4444',
@@ -151,7 +144,6 @@ export default function Collectable() {
             const candyMachine = await fetchCandyMachine(umi, CM_PUBKEY);
             const nftMint = generateSigner(umi);
 
-            // 3. BUILD THE TRANSACTION
             let builder = transactionBuilder()
                 .add(setComputeUnitLimit(umi, { units: 800_000 }))
                 .add(setComputeUnitPrice(umi, { microLamports: 150_000 }))
@@ -170,7 +162,6 @@ export default function Collectable() {
                     },
                 }));
 
-            // 4. FIX ACCOUNT INJECTION
             builder = builder.mapInstructions((wrapped) => {
                 if (wrapped.instruction.programId.toString() === "CndyV3L7kwLE9Vq89U9B9KdeE77VBaK5DEn3Yf2KNoR") {
                     return {
@@ -187,10 +178,12 @@ export default function Collectable() {
                 return wrapped;
             });
 
-            // 5. SIGN AND SEND
+            // KEY FIX: skipPreflight removed — preflight simulation catches
+            // insufficient balance and instruction errors BEFORE broadcasting.
+            // Without this, failed transactions still reach verify-mint and
+            // write to the database as if they succeeded.
             const { signature } = await builder.sendAndConfirm(umi, {
                 send: {
-                    skipPreflight: true,
                     maxRetries: 3,
                 },
                 confirm: {
@@ -198,23 +191,38 @@ export default function Collectable() {
                 }
             });
 
-            // 6. UPDATE DATABASE
-            await fetch('/api/collectable/verify-mint', {
+            const sigString = typeof signature === 'string'
+                ? signature
+                : base58.deserialize(signature)[0];
+
+            // Only call verify-mint after confirmed on-chain success
+            const verifyRes = await fetch('/api/collectable/verify-mint', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    signature: typeof signature === 'string' ? signature : base58.deserialize(signature)[0],
+                    signature: sigString,
                     walletAddress: wallet.publicKey.toBase58(),
                     mode: mode
                 })
             });
+
+            if (!verifyRes.ok) {
+                const errData = await verifyRes.json();
+                throw new Error(errData.error || "Database sync failed");
+            }
 
             toast.success("MINT SUCCESSFUL!", { id: loadId });
             setTimeout(() => window.location.reload(), 2000);
 
         } catch (err: any) {
             console.error("MINT_ERROR:", err);
-            toast.error("Transaction Failed. Check your balance.", { id: loadId });
+            // Surface the actual error message — preflight errors are descriptive
+            const msg = err?.message?.includes('custom program error')
+                ? "Insufficient $SKR balance or guard condition not met."
+                : err?.message?.includes('0x1')
+                    ? "Insufficient SOL for transaction fees."
+                    : "Transaction Failed. Check your balance.";
+            toast.error(msg, { id: loadId });
         } finally {
             setStatus('idle');
         }
