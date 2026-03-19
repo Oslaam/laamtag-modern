@@ -1,4 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import { getRank } from '../../../utils/ranks';
 import prisma from '../../../lib/prisma';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -88,6 +89,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     return res.status(200).json({
       ...user,
+      rank: getRank(user.laamPoints || 0).name,
       stakedCount,
       friendsCount,
       hasDomain: !!user.username,

@@ -43,11 +43,9 @@ export default function ContactPage() {
             });
 
             socket.on('connect', () => {
-                console.log('CONNECTED TO SECURE BRIDGE');
                 if (publicKey) {
                     const walletAddr = publicKey.toBase58();
                     socket?.emit('join-private-room', walletAddr);
-                    console.log('Joined private room:', walletAddr);
                 }
             });
 

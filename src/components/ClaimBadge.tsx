@@ -1,318 +1,183 @@
-// import React, { useState, useMemo } from 'react';
-// import { useWallet } from '@solana/wallet-adapter-react';
-// import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
-// import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
-// import { mplCandyMachine, mintV2, fetchCandyMachine } from '@metaplex-foundation/mpl-candy-machine';
-// import { setComputeUnitLimit, setComputeUnitPrice, mplToolbox } from '@metaplex-foundation/mpl-toolbox';
-// import { generateSigner, publicKey, some, transactionBuilder } from '@metaplex-foundation/umi';
-// import { toast } from 'react-hot-toast';
-// import { BADGE_MAP } from '../utils/badge-map';
-// import styles from '../styles/ClaimBadge.module.css';
-
-// const BADGE_LIST = [
-//   { name: "Early Adopter", min: null, img: "/assets/badges/early-adopter.png" },
-//   { name: "Genesis Staker", min: null, img: "/assets/badges/genesis-staker.png" },
-//   { name: "Warrior Claimer", min: null, img: "/assets/badges/warrior-claimer.png" },
-//   { name: "Bronze", min: 0, img: "/assets/badges/bronze.png" },
-//   { name: "Bronze Elite", min: 5000, img: "/assets/badges/bronze-elite.png" },
-//   { name: "Silver", min: 10000, img: "/assets/badges/silver.png" },
-//   { name: "Silver Elite", min: 20000, img: "/assets/badges/silver-elite.png" },
-//   { name: "Gold", min: 50000, img: "/assets/badges/gold.png" },
-//   { name: "Gold Elite", min: 100000, img: "/assets/badges/gold-elite.png" },
-//   { name: "Platinum", min: 200000, img: "/assets/badges/platinum.png" },
-//   { name: "Diamond", min: 300000, img: "/assets/badges/diamond.png" },
-//   { name: "Legend", min: 400000, img: "/assets/badges/legend.png" },
-//   { name: "Mythic", min: 500000, img: "/assets/badges/mythic.png" },
-//   { name: "Eternal", min: 750000, img: "/assets/badges/eternal.png" },
-//   { name: "Ascendant", min: 1000000, img: "/assets/badges/ascendant.png" },
-//   { name: "10-Day Pulse", min: 10, img: "/assets/badges/daily-streak-10.png" },
-//   { name: "30-Day Pulse", min: 30, img: "/assets/badges/daily-streak-30.png" },
-//   { name: "50-Day Pulse", min: 50, img: "/assets/badges/daily-streak-50.png" },
-//   { name: "100-Day Pulse", min: 100, img: "/assets/badges/daily-streak-100.png" },
-//   { name: "30-Quest Master", min: 30, img: "/assets/badges/quest-master-30.png" },
-//   { name: "50-Quest Master", min: 50, img: "/assets/badges/quest-master-50.png" },
-//   { name: "100-Quest Master", min: 100, img: "/assets/badges/quest-master-100.png" },
-//   { name: "20-Social Link", min: 20, img: "/assets/badges/friends-20.png" },
-//   { name: "30-Social Link", min: 30, img: "/assets/badges/friends-30.png" },
-//   { name: "50-Social Link", min: 50, img: "/assets/badges/friends-50.png" },
-//   { name: "100-Social Link", min: 100, img: "/assets/badges/friends-100.png" },
-//   { name: "Booster", min: 10, img: "/assets/badges/booster.png" },
-//   { name: "Game Master", min: null, img: "/assets/badges/game-master.png" },
-// ];
-
-// export default function ClaimBadge({ user, mutate }: { user: any; mutate: () => void }) {
-//   const wallet = useWallet();
-//   const [mintingName, setMintingName] = useState<string | null>(null);
-
-//   const handleClaim = async (badgeName: string) => {
-//     if (!wallet.publicKey) return toast.error("CONNECT_WALLET");
-//     const badgeData = BADGE_MAP[badgeName as keyof typeof BADGE_MAP];
-//     if (!badgeData) return toast.error("CONFIG_NOT_FOUND");
-
-//     setMintingName(badgeName);
-//     const loadId = toast.loading(`UPLINKING ${badgeName.toUpperCase()}...`);
-
-//     try {
-//       const RPC = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
-//       const umi = createUmi(RPC).use(walletAdapterIdentity(wallet)).use(mplToolbox()).use(mplCandyMachine());
-
-//       const authRes = await fetch('/api/badges/generate-signature', {
-//         method: 'POST',
-//         headers: { 'Content-Type': 'application/json' },
-//         body: JSON.stringify({ walletAddress: wallet.publicKey.toBase58(), requestedRank: badgeName })
-//       });
-
-//       const authData = await authRes.json();
-//       if (!authRes.ok) throw new Error(authData.error);
-
-//       const candyMachineAddress = publicKey(badgeData.cmId);
-//       const nftMint = generateSigner(umi);
-//       const candyMachine = await fetchCandyMachine(umi, candyMachineAddress);
-
-//       const { signature } = await transactionBuilder()
-//         .add(setComputeUnitLimit(umi, { units: 600_000 }))
-//         .add(setComputeUnitPrice(umi, { microLamports: 200_000 }))
-//         .add(mintV2(umi, {
-//           candyMachine: candyMachineAddress,
-//           candyGuard: candyMachine.mintAuthority,
-//           collectionMint: publicKey(badgeData.collectionId),
-//           collectionUpdateAuthority: candyMachine.authority,
-//           nftMint,
-//           mintArgs: {
-//             thirdPartySigner: some({ signer: publicKey(authData.signerAddress) }),
-//             mintLimit: some({ id: badgeData.limitId }),
-//             solPayment: some({ destination: publicKey("DFyPyuo78ww81vpp6BT5MGQVLkomrBCQXwcmSpEDJzDN") }),
-//           },
-//         }))
-//         .sendAndConfirm(umi);
-
-//       await fetch('/api/badges/verify-mint', {
-//         method: 'POST',
-//         headers: { 'Content-Type': 'application/json' },
-//         body: JSON.stringify({ walletAddress: wallet.publicKey.toBase58(), signature: signature.toString(), badgeRank: badgeName })
-//       });
-
-//       toast.success("MINT_SUCCESSFUL", { id: loadId });
-//       mutate();
-//     } catch (err: any) {
-//       toast.error(err.message || "MINT_FAILED", { id: loadId });
-//     } finally {
-//       setMintingName(null);
-//     }
-//   };
-
-//   // Logic to sort and calculate stats
-//   const sortedBadges = useMemo(() => {
-//     const list = BADGE_LIST.map(badge => {
-//       const isOwned = user.claimedBadges?.some((cb: any) => cb.badge.name === badge.name);
-//       let isEligible = false;
-
-//       // Eligibility Check Logic
-//       if (badge.name === "Early Adopter") {
-//         isEligible = !!user.username && user.laamPoints >= 10000 && user.tagTickets >= 100 &&
-//           user.hasPaidDiceEntry && user.hasResistanceUnlocked && user.hasPulseHunterUnlocked &&
-//           user.personalMinted > 0 && user.warriorMinted > 0 &&
-//           (user.completedQuestsCount || 0) >= 20 && (user.purchasedBoostsCount || 0) > 0;
-//       } else if (badge.name === "Genesis Staker") {
-//         isEligible = (user.personalMinted || 0) >= 3;
-//       } else if (badge.name === "Warrior Claimer") {
-//         isEligible = (user.warriorMinted || 0) >= 3;
-//       } else if (badge.name === "Booster") {
-//         isEligible = (user.purchasedBoostsCount || 0) >= 10;
-//       } else if (badge.name === "Game Master") {
-//         isEligible = user.hasPaidDiceEntry && user.hasResistanceUnlocked && user.hasPulseHunterUnlocked;
-//       } else if (badge.name.includes("-Day Pulse")) {
-//         isEligible = (user.streakCount || 0) >= (badge.min ?? 0);
-//       } else if (badge.name.includes("-Quest Master")) {
-//         isEligible = (user.completedQuestsCount || 0) >= (badge.min ?? 0);
-//       } else if (badge.name.includes("-Social Link")) {
-//         isEligible = (user.friendsCount || 0) >= (badge.min ?? 0);
-//       } else {
-//         isEligible = (user.laamPoints || 0) >= (badge.min ?? 0);
-//       }
-
-//       return { ...badge, isOwned, isEligible };
-//     });
-
-//     // Sorting: 1st Available (Eligible & Not Owned), 2nd Locked (Not Eligible), 3rd Claimed (Owned)
-//     return list.sort((a, b) => {
-//       if (a.isOwned !== b.isOwned) return a.isOwned ? 1 : -1; // Claimed goes to bottom
-//       if (a.isEligible !== b.isEligible) return a.isEligible ? -1 : 1; // Available goes to top
-//       return 0;
-//     });
-//   }, [user]);
-
-//   const claimedCount = user.claimedBadges?.length || 0;
-//   const totalBadges = BADGE_LIST.length;
-
-//   return (
-//     <div className={styles.badgeLobby}>
-//       <h2 className={styles.lobbyTitle}>
-//         NEURAL BADGE UPLINK: <span style={{ color: '#eab308' }}>{claimedCount}/{totalBadges} COLLECTED</span>
-//       </h2>
-
-//       <div className={styles.badgeGrid}>
-//         {sortedBadges.map((badge) => (
-//           <div key={badge.name} className={`${styles.badgeCard} ${(!badge.isEligible && !badge.isOwned) ? styles.locked : ''}`}>
-//             <img src={badge.img} alt={badge.name} className={styles.badgeImg} />
-//             <h3 className={styles.badgeName}>{badge.name.toUpperCase()}</h3>
-
-//             <button
-//               onClick={() => handleClaim(badge.name)}
-//               disabled={!!mintingName || !badge.isEligible || badge.isOwned}
-//               className={badge.isOwned ? styles.btnOwned : badge.isEligible ? styles.btnClaim : styles.btnLocked}
-//             >
-//               {badge.isOwned ? "CLAIMED" : mintingName === badge.name ? "..." : badge.isEligible ? "CLAIM" : "LOCKED"}
-//             </button>
-//           </div>
-//         ))}
-//       </div>
-//     </div>
-//   );
-// }
-
-
-
 import React, { useState, useMemo } from 'react';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
-import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
-import { mplCandyMachine, mintV2, fetchCandyMachine } from '@metaplex-foundation/mpl-candy-machine';
-import { setComputeUnitLimit, setComputeUnitPrice, mplToolbox } from '@metaplex-foundation/mpl-toolbox';
-import { generateSigner, publicKey, some, transactionBuilder } from '@metaplex-foundation/umi';
+import { useConnection, useWallet } from '@solana/wallet-adapter-react';
+import { PublicKey, Transaction } from '@solana/web3.js';
+import { createTransferCheckedInstruction, getAssociatedTokenAddress } from '@solana/spl-token';
 import { toast } from 'react-hot-toast';
-import { BADGE_MAP } from '../utils/badge-map';
+import { BADGE_LIST } from '../utils/badge-list';
 import styles from '../styles/ClaimBadge.module.css';
 
-const BADGE_LIST = [
-  { name: "Early Adopter", min: null, img: "/assets/badges/early-adopter.png" },
-  { name: "Genesis Staker", min: null, img: "/assets/badges/genesis-staker.png" },
-  { name: "Warrior Claimer", min: null, img: "/assets/badges/warrior-claimer.png" },
-  { name: "Bronze", min: 0, img: "/assets/badges/bronze.png" },
-  { name: "Bronze Elite", min: 5000, img: "/assets/badges/bronze-elite.png" },
-  { name: "Silver", min: 10000, img: "/assets/badges/silver.png" },
-  { name: "Silver Elite", min: 20000, img: "/assets/badges/silver-elite.png" },
-  { name: "Gold", min: 50000, img: "/assets/badges/gold.png" },
-  { name: "Gold Elite", min: 100000, img: "/assets/badges/gold-elite.png" },
-  { name: "Platinum", min: 200000, img: "/assets/badges/platinum.png" },
-  { name: "Diamond", min: 300000, img: "/assets/badges/diamond.png" },
-  { name: "Legend", min: 400000, img: "/assets/badges/legend.png" },
-  { name: "Mythic", min: 500000, img: "/assets/badges/mythic.png" },
-  { name: "Eternal", min: 750000, img: "/assets/badges/eternal.png" },
-  { name: "Ascendant", min: 1000000, img: "/assets/badges/ascendant.png" },
-  { name: "10-Day Pulse", min: 10, img: "/assets/badges/daily-streak-10.png" },
-  { name: "30-Day Pulse", min: 30, img: "/assets/badges/daily-streak-30.png" },
-  { name: "50-Day Pulse", min: 50, img: "/assets/badges/daily-streak-50.png" },
-  { name: "100-Day Pulse", min: 100, img: "/assets/badges/daily-streak-100.png" },
-  { name: "30-Quest Master", min: 30, img: "/assets/badges/quest-master-30.png" },
-  { name: "50-Quest Master", min: 50, img: "/assets/badges/quest-master-50.png" },
-  { name: "100-Quest Master", min: 100, img: "/assets/badges/quest-master-100.png" },
-  { name: "20-Social Link", min: 20, img: "/assets/badges/friends-20.png" },
-  { name: "30-Social Link", min: 30, img: "/assets/badges/friends-30.png" },
-  { name: "50-Social Link", min: 50, img: "/assets/badges/friends-50.png" },
-  { name: "100-Social Link", min: 100, img: "/assets/badges/friends-100.png" },
-  { name: "Booster", min: 10, img: "/assets/badges/booster.png" },
-  { name: "Game Master", min: null, img: "/assets/badges/game-master.png" },
+// Constants
+const SKR_MINT = new PublicKey("SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3");
+const TREASURY_ATA = new PublicKey("Csex5aLu6U6o1mqQrxWKqEmS6cLvitcxunQXMyZoDMEM");
+const CLAIM_FEE = 50;
+
+const RANK_HIERARCHY = [
+  "Bronze", "Bronze Elite", "Silver", "Silver Elite", "Gold", "Gold Elite",
+  "Platinum", "Diamond", "Legend", "Mythic", "Eternal", "Ascendant"
 ];
 
 export default function ClaimBadge({ user, mutate }: { user: any; mutate: () => void }) {
+  const { connection } = useConnection();
   const wallet = useWallet();
-  const [explodingName, setExplodingName] = useState<string | null>(null);
+  const [loadingBadge, setLoadingBadge] = useState<string | null>(null);
 
-  const handleClaimPreview = (badgeName: string) => {
-    if (!wallet.publicKey) return toast.error("CONNECT_WALLET");
+  const handleClaim = async (badgeName: string) => {
+    if (!wallet.publicKey || !wallet.signTransaction) return toast.error("CONNECT_WALLET");
 
-    // Trigger Bomb Effect
-    setExplodingName(badgeName);
+    setLoadingBadge(badgeName);
+    const loadId = toast.loading(`INITIATING ${badgeName.toUpperCase()} UPLINK...`);
 
-    toast("CLAIMING UPLINK OFFLINE", {
-      icon: '💣',
-      style: {
-        border: '1px solid #eab308',
-        padding: '16px',
-        color: '#eab308',
-        background: '#000',
-        fontWeight: 'bold'
-      },
-    });
+    try {
+      // 1. Prepare SPL Token Transfer - SET TO 6 DECIMALS
+      const userAta = await getAssociatedTokenAddress(SKR_MINT, wallet.publicKey);
 
-    setTimeout(() => {
-      toast.success("CLAIMING WILL START SOON - STAY TUNED!", {
-        duration: 4000,
-        icon: '📡'
+      const transferIx = createTransferCheckedInstruction(
+        userAta,
+        SKR_MINT,
+        TREASURY_ATA,
+        wallet.publicKey,
+        CLAIM_FEE * 1e6,
+        6
+      );
+
+      const { blockhash } = await connection.getLatestBlockhash();
+      const tx = new Transaction().add(transferIx);
+      tx.recentBlockhash = blockhash;
+      tx.feePayer = wallet.publicKey;
+
+      // 2. Sign and Send
+      const signed = await wallet.signTransaction(tx);
+      const signature = await connection.sendRawTransaction(signed.serialize());
+
+      toast.loading("CONFIRMING ON-CHAIN...", { id: loadId });
+      await connection.confirmTransaction(signature, 'confirmed');
+
+      // 3. Update Database
+      const res = await fetch('/api/badges/verify-mint', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress: wallet.publicKey.toBase58(),
+          signature: signature,
+          badgeRank: badgeName
+        })
       });
-      setExplodingName(null);
-    }, 800);
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "DATABASE_SYNC_FAILED");
+
+      // 4. IMMEDIATE FRONTEND REFRESH
+      await mutate();
+
+      toast.success(`${badgeName.toUpperCase()} UNLOCKED`, { id: loadId });
+
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "TRANSACTION_FAILED", { id: loadId });
+    } finally {
+      setLoadingBadge(null);
+    }
   };
 
-  // Logic to sort and calculate stats
-  const sortedBadges = useMemo(() => {
-    const list = BADGE_LIST.map(badge => {
-      const isOwned = user.claimedBadges?.some((cb: any) => cb.badge.name === badge.name);
-      let isEligible = false;
 
-      // Eligibility Check Logic
-      if (badge.name === "Early Adopter") {
-        isEligible = !!user.username && user.laamPoints >= 10000 && user.tagTickets >= 100 &&
-          user.hasPaidDiceEntry && user.hasResistanceUnlocked && user.hasPulseHunterUnlocked &&
-          user.personalMinted > 0 && user.warriorMinted > 0 &&
-          (user.completedQuestsCount || 0) >= 20 && (user.purchasedBoostsCount || 0) > 0;
-      } else if (badge.name === "Genesis Staker") {
-        isEligible = (user.personalMinted || 0) >= 3;
-      } else if (badge.name === "Warrior Claimer") {
-        isEligible = (user.warriorMinted || 0) >= 3;
-      } else if (badge.name === "Booster") {
-        isEligible = (user.purchasedBoostsCount || 0) >= 10;
-      } else if (badge.name === "Game Master") {
-        isEligible = user.hasPaidDiceEntry && user.hasResistanceUnlocked && user.hasPulseHunterUnlocked;
-      } else if (badge.name.includes("-Day Pulse")) {
-        isEligible = (user.streakCount || 0) >= (badge.min ?? 0);
-      } else if (badge.name.includes("-Quest Master")) {
-        isEligible = (user.completedQuestsCount || 0) >= (badge.min ?? 0);
-      } else if (badge.name.includes("-Social Link")) {
-        isEligible = (user.friendsCount || 0) >= (badge.min ?? 0);
-      } else {
-        isEligible = (user.laamPoints || 0) >= (badge.min ?? 0);
+  const badgeData = useMemo(() => {
+    const claimed = user?.claimedBadges || [];
+
+    // 1. Map through the list to determine status
+    const mappedBadges = BADGE_LIST.map((badge) => {
+      const isOwned = claimed.some((cb: any) => {
+        const nameFromDb = cb.badge?.name?.toLowerCase().trim();
+        const idFromDb = cb.badgeId?.toLowerCase().trim();
+        const localName = badge.name.toLowerCase().trim();
+        return nameFromDb === localName || idFromDb === localName;
+      });
+
+      let isEligible = false;
+      const completedQuests = user?._count?.quests ?? 0;
+      const activeBoosts = user?._count?.boosts ?? 0;
+
+      switch (badge.name) {
+        case "Early Adopter":
+          isEligible = !!(user?.username && (user?.laamPoints || 0) >= 10000 &&
+            user?.hasPaidDiceEntry && user?.hasResistanceUnlocked &&
+            user?.hasPulseHunterUnlocked && user?.hasPlinkoUnlocked && completedQuests >= 20);
+          break;
+        case "Game Master":
+          isEligible = !!(user?.hasPaidDiceEntry && user?.hasResistanceUnlocked &&
+            user?.hasPulseHunterUnlocked && user?.hasPlinkoUnlocked);
+          break;
+        case "Booster":
+          isEligible = activeBoosts >= 10;
+          break;
+        case "Warrior Claimer":
+          isEligible = (user?.warriorMinted || 0) >= 5;
+          break;
+        case "Genesis Staker":
+          isEligible = (user?.personalMinted || 0) >= 3;
+          break;
+        default:
+          if (badge.category === "Rank") {
+            const userIdx = RANK_HIERARCHY.indexOf(user?.rank || "Bronze");
+            const reqIdx = RANK_HIERARCHY.indexOf(badge.name);
+            isEligible = userIdx >= reqIdx;
+          } else if (badge.category === "Streak") {
+            isEligible = (user?.streakCount || 0) >= (badge.min ?? 0);
+          } else if (badge.category === "Quest") {
+            isEligible = completedQuests >= (badge.min ?? 0);
+          } else if (badge.category === "Social") {
+            const friends = (user?._count?.friendsSent ?? 0) + (user?._count?.friendsReceived ?? 0);
+            isEligible = friends >= (badge.min ?? 0);
+          } else {
+            isEligible = true;
+          }
       }
 
       return { ...badge, isOwned, isEligible };
     });
 
-    // Sorting: 1st Available (Eligible & Not Owned), 2nd Locked (Not Eligible), 3rd Claimed (Owned)
-    return list.sort((a, b) => {
-      if (a.isOwned !== b.isOwned) return a.isOwned ? 1 : -1; // Claimed goes to bottom
-      if (a.isEligible !== b.isEligible) return a.isEligible ? -1 : 1; // Available goes to top
-      return 0;
+    // 2. Sort the badges: Available (0), Locked (1) , Unlocked (2)
+    return mappedBadges.sort((a, b) => {
+      const getPriority = (item: any) => {
+        if (item.isEligible && !item.isOwned) return 0;
+        if (!item.isEligible && !item.isOwned) return 1;
+        return 2;
+      };
+
+      return getPriority(a) - getPriority(b);
     });
   }, [user]);
 
-  const claimedCount = user.claimedBadges?.length || 0;
-  const totalBadges = BADGE_LIST.length;
-
   return (
     <div className={styles.badgeLobby}>
-      <h2 className={styles.lobbyTitle}>
-        NEURAL BADGE UPLINK: <span style={{ color: '#eab308' }}>{claimedCount}/{totalBadges} COLLECTED</span>
-      </h2>
-
+      <h3 className={styles.lobbyTitle}>Neural Badge Repository</h3>
       <div className={styles.badgeGrid}>
-        {sortedBadges.map((badge) => (
-          <div key={badge.name} className={`${styles.badgeCard} ${(!badge.isEligible && !badge.isOwned) ? styles.locked : ''}`}>
-            <img src={badge.img} alt={badge.name} className={styles.badgeImg} />
-            <h3 className={styles.badgeName}>{badge.name.toUpperCase()}</h3>
+        {badgeData.map((badge) => {
+          const isLocked = !badge.isEligible && !badge.isOwned;
+          const canClaim = badge.isEligible && !badge.isOwned;
 
-            <button
-              onClick={() => handleClaimPreview(badge.name)}
-              disabled={!!explodingName || !badge.isEligible || badge.isOwned}
-              className={`
-                ${badge.isOwned ? styles.btnOwned : badge.isEligible ? styles.btnClaim : styles.btnLocked}
-                ${explodingName === badge.name ? styles.bombShake : ''}
-              `}
+          return (
+            <div
+              key={badge.name}
+              className={`${styles.badgeCard} ${isLocked ? styles.locked : ''}`}
             >
-              {badge.isOwned ? "CLAIMED" : explodingName === badge.name ? "BOOM!" : badge.isEligible ? "CLAIM" : "LOCKED"}
-            </button>
-          </div>
-        ))}
+              <img src={badge.img} alt={badge.name} className={styles.badgeImg} />
+              <h4 className={styles.badgeName}>{badge.name}</h4>
+              <button
+                onClick={() => canClaim && handleClaim(badge.name)}
+                disabled={!canClaim || !!loadingBadge}
+                className={
+                  badge.isOwned ? styles.btnOwned :
+                    isLocked ? styles.btnLocked :
+                      styles.btnClaim
+                }
+              >
+                {badge.isOwned ? "UNLOCKED" :
+                  loadingBadge === badge.name ? "WAIT..." :
+                    isLocked ? "LOCKED" : "CLAIM"}
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

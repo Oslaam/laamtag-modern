@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '../../../lib/prisma';
+import { getRank } from '../../../utils/ranks'; // 1. Import your rank utility
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { auth_key } = req.query;
@@ -13,31 +14,41 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             const stakedDate = new Date(stake.stakedAt);
             const lastClaimed = new Date(stake.lastClaimed);
 
-            // 1. Initial 48h Lock: Only drop rewards if staked for > 48 hours
             const hoursSinceStaking = (now.getTime() - stakedDate.getTime()) / (1000 * 60 * 60);
             if (hoursSinceStaking < 48) continue;
 
-            // 2. 24h Interval: Check if it's been 24 hours since the last drop for THIS NFT
             const hoursSinceLastDrop = (now.getTime() - lastClaimed.getTime()) / (1000 * 60 * 60);
 
             if (hoursSinceLastDrop >= 24) {
-                // UPDATED REWARDS: 500 LAAM and 20 TAG per NFT
                 const laamReward = 500;
-                const tagReward = 20; // Updated from 10 to 20
+                const tagReward = 20;
 
-                await prisma.$transaction([
-                    prisma.user.update({
-                        where: { walletAddress: stake.ownerAddress },
-                        data: {
-                            laamPoints: { increment: laamReward },
-                            tagTickets: { increment: tagReward }
-                        }
-                    }),
-                    prisma.stakedNFT.update({
-                        where: { mintAddress: stake.mintAddress },
-                        data: { lastClaimed: now }
-                    })
-                ]);
+                // 2. Fetch the user to see their current points
+                const user = await prisma.user.findUnique({
+                    where: { walletAddress: stake.ownerAddress },
+                    select: { laamPoints: true }
+                });
+
+                if (user) {
+                    // 3. Calculate new total and new rank name
+                    const newTotalPoints = user.laamPoints + laamReward;
+                    const newRankName = getRank(newTotalPoints).name;
+
+                    await prisma.$transaction([
+                        prisma.user.update({
+                            where: { walletAddress: stake.ownerAddress },
+                            data: {
+                                laamPoints: newTotalPoints, // Set the actual total
+                                tagTickets: { increment: tagReward },
+                                rank: newRankName // 4. SAVE the new rank to the DB
+                            }
+                        }),
+                        prisma.stakedNFT.update({
+                            where: { mintAddress: stake.mintAddress },
+                            data: { lastClaimed: now }
+                        })
+                    ]);
+                }
             }
         }
         return res.status(200).json({ success: true, message: "Rewards processed." });

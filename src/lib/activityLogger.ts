@@ -19,7 +19,6 @@ export async function logActivity(
                 asset: asset,
             }
         });
-        console.log(`[Ledger] Recorded ${type} for ${wallet}: ${amount} ${asset}`);
     } catch (error) {
         console.error("CRITICAL: Failed to log activity to database:", error);
     }

@@ -1,8 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import prisma from '../../../lib/prisma'; // Adjust path if your lib is elsewhere
+import prisma from '../../../lib/prisma';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-    // 1. Get the wallet address from the URL (e.g., /api/user/me?address=TOKEN...)
     const { address } = req.query;
 
     if (!address || typeof address !== 'string') {
@@ -10,22 +9,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
-        // 2. Look up the user in your database
         const user = await prisma.user.findUnique({
             where: { walletAddress: address },
             include: {
-                activities: true, // This allows the 'nonce' check to work
+                activities: true,
+
+                claimedBadges: {
+                    select: {
+                        badgeId: true,
+                        badge: {
+                            select: {
+                                name: true
+                            }
+                        }
+                    }
+                },
+                // 2. Fetch counts so the eligibility logic quests/boosts
+                _count: {
+                    select: {
+                        quests: { where: { status: 'COMPLETED' } },
+                        boosts: true,
+                        referrals: true
+                    }
+                }
             }
         });
 
         if (!user) {
-            // If user isn't in DB yet, create them or return error
             return res.status(404).json({ message: "User not found in database" });
         }
 
-        // 3. Send the user data (including hasPaidDiceEntry) back to the frontend
+        // Return the full user object including the new relations
         return res.status(200).json(user);
     } catch (error) {
+        console.error("ME_API_ERROR:", error);
         return res.status(500).json({ message: "Internal Server Error" });
     }
 }

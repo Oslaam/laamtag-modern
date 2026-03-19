@@ -44,7 +44,6 @@ export default function NotificationSentry() {
 
                 if (response.ok) {
                     setStatus('success');
-                    console.log('Successfully saved to DB');
                 } else {
                     throw new Error('Failed to save to database');
                 }

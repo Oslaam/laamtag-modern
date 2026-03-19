@@ -80,7 +80,6 @@ export default function AdminDashboard() {
     socket = io({ path: '/api/socket' });
 
     socket.on('connect', () => {
-      console.log('Admin connected to socket node');
       socket.emit('agent-join-room', 'admin-room');
     });
 

@@ -26,6 +26,7 @@ export default function ProfilePage() {
     referralProgress: number;
     claimableRewards: number;
     _count?: { referrals: number };
+    claimedBadges?: any[]; // Added to match the safety check requirements
   } | null>(null);
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -58,7 +59,6 @@ export default function ProfilePage() {
           walletAddress: publicKey.toString(),
           username: identity
         });
-        console.log("Username synced to database:", identity);
       }
     } catch (err) {
       console.error("Profile fetch error", err);
@@ -399,8 +399,6 @@ export default function ProfilePage() {
                 <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '10px' }}>NO NEURAL LINKS ESTABLISHED</p>
               ) : (
                 friends.map(friend => {
-                  // Logic to check if the user is allowed to nudge back
-                  // isMyTurn is true if the last person who poked was NOT you
                   const isMyTurn = friend.lastPokedBy !== publicKey?.toString();
                   const hasActiveStreak = (friend.streak || 0) > 0;
 
@@ -451,7 +449,6 @@ export default function ProfilePage() {
                               receiverAddress: friend.walletAddress,
                               senderUsername: displayName
                             });
-                            // Refreshing updates the lastPokedBy state so the button dims immediately
                             fetchFriends();
                           } catch (e: any) {
                             alert("Neural link nudge failed.");
@@ -546,12 +543,13 @@ export default function ProfilePage() {
             )}
           </div>
         </div>
+
         {/* NEURAL WARRIORS SECTION */}
         <div style={{ marginBottom: '24px' }}>
           <WarriorGallery />
         </div>
 
-        {/* NFT GALLERY (Genesis) - ONLY ONE INSTANCE NEEDED */}
+        {/* NFT GALLERY (Genesis) */}
         <div style={{ paddingBottom: '100px' }}>
           <h2 style={{
             fontSize: '10px',

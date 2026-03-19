@@ -15,7 +15,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!address) return res.status(400).json({ error: "Wallet address required" });
 
     try {
-        console.log(`--- SEARCHING WARRIORS FOR: ${address} ---`);
 
         const response = await fetch(HELIUS_RPC, {
             method: 'POST',
@@ -55,7 +54,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     const meta = await metaRes.json();
                     rawImage = meta?.image || "";
                 } catch (e) {
-                    console.log(`Metadata fetch failed for ${name}`);
                 }
             }
 
@@ -66,7 +64,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             };
         }));
 
-        console.log(`Found ${warriorNfts.length} Warriors for this wallet.`);
         return res.status(200).json({ nfts: warriorNfts });
 
     } catch (error: any) {

@@ -2,57 +2,94 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = global.prisma || new PrismaClient();
-if (process.env.NODE_ENV !== 'production') global.prisma = prisma;
+
+const RANK_HIERARCHY = ["Bronze", "Bronze Elite", "Silver", "Silver Elite", "Gold", "Gold Elite", "Platinum", "Diamond", "Legend", "Mythic", "Eternal", "Ascendant"];
+
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method !== 'POST') return res.status(405).end();
 
-    const { walletAddress, signature, badgeRank } = req.body;
+    const { walletAddress, signature } = req.body;
+    const badgeRank = req.body.badgeRank?.trim();
+
+    if (!badgeRank) return res.status(400).json({ error: "Badge rank is required" });
 
     try {
-        // 1. Find or Create the Badge in the DB so we can link to it
-        // We use 'upsert' so if the badge doesn't exist yet, it creates it
-        const badge = await prisma.badge.upsert({
-            where: { name: badgeRank },
-            update: {}, // Don't change anything if it exists
-            create: {
-                name: badgeRank,
-                minPoints: 0, // You can update these later
-                cmId: "DYNAMIC",
-                collectionId: "DYNAMIC"
+        const user = await prisma.user.findUnique({
+            where: { walletAddress },
+            include: {
+                _count: {
+                    select: {
+                        quests: { where: { status: 'COMPLETED' } },
+                        boosts: true,
+                        friendsSent: true,
+                        friendsReceived: true
+                    }
+                }
             }
         });
 
-        // 2. Use a Transaction to save the activity AND the ownership record
-        await prisma.$transaction([
-            // Record the activity log
-            prisma.activity.create({
-                data: {
-                    userId: walletAddress,
-                    type: "BADGE_MINT",
-                    asset: "SOL",
-                    amount: 0.02,
-                    signature: signature,
-                }
-            }),
+        if (!user) return res.status(404).json({ error: "User not found" });
 
-            // Link the Badge to the User (The "Receipt")
+        let isEligible = false;
+        const qCount = user._count?.quests ?? 0;
+
+        if (badgeRank === "Early Adopter") {
+            isEligible = !!(
+                user.username &&
+                user.laamPoints >= 10000 &&
+                user.tagTickets >= 100 &&
+                user.hasPaidDiceEntry &&
+                user.hasResistanceUnlocked &&
+                user.hasPulseHunterUnlocked &&
+                user.hasPlinkoUnlocked &&
+                user.personalMinted > 0 &&
+                user.warriorMinted > 0 &&
+                qCount >= 20
+            );
+        } else if (badgeRank === "Game Master") {
+            isEligible = !!(
+                user.hasPaidDiceEntry &&
+                user.hasResistanceUnlocked &&
+                user.hasPulseHunterUnlocked &&
+                user.hasPlinkoUnlocked
+            );
+        } else if (badgeRank === "Booster") {
+            isEligible = (user._count?.boosts ?? 0) >= 10;
+        } else if (RANK_HIERARCHY.includes(badgeRank)) {
+            isEligible = RANK_HIERARCHY.indexOf(user.rank) >= RANK_HIERARCHY.indexOf(badgeRank);
+        } else {
+            isEligible = true;
+        }
+
+        if (!isEligible) return res.status(403).json({ error: "Requirements not met for this badge." });
+
+        // 2. Use the sanitized badgeRank for upsert
+        const badge = await prisma.badge.upsert({
+            where: { name: badgeRank },
+            update: {},
+            create: {
+                name: badgeRank,
+                minPoints: 0,
+                cmId: "OFF_CHAIN",
+                collectionId: "BADGES"
+            }
+        });
+
+        // 3. Atomic Transaction
+        await prisma.$transaction([
+            prisma.activity.create({
+                data: { userId: walletAddress, type: "BADGE_CLAIM", asset: "SKR", amount: 10, signature }
+            }),
             prisma.userBadge.create({
-                data: {
-                    userId: walletAddress,
-                    badgeId: badge.id,
-                    signature: signature
-                }
+                data: { userId: walletAddress, badgeId: badge.id, signature }
             })
         ]);
 
         return res.status(200).json({ success: true });
     } catch (error: any) {
-        // If they already claimed this badge, Prisma will throw a P2002 error
-        if (error.code === 'P2002') {
-            return res.status(400).json({ error: "You have already claimed this badge record." });
-        }
-        console.error("VERIFY_ERROR:", error);
-        return res.status(500).json({ error: "Failed to record badge claim" });
+        console.error("Verification Error:", error);
+        if (error.code === 'P2002') return res.status(400).json({ error: "Badge already claimed." });
+        return res.status(500).json({ error: "Internal Server Error" });
     }
 }

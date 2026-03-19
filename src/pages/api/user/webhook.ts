@@ -18,9 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         for (const event of events) {
             if (event.type === "NFT_MINT") {
                 const buyerAddress = event.events.nft.buyer;
-                const mintCount = event.events.nft.nfts.length; // How many were minted in this tx
-
-                console.log(`🔗 Webhook: Syncing ${mintCount} mints for ${buyerAddress}`);
+                const mintCount = event.events.nft.nfts.length;
 
                 // 2. DATABASE UPDATE LOGIC (Prisma)
                 // We use 'upsert' to handle both existing and new users

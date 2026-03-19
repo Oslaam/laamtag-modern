@@ -45,8 +45,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         let retries = 0;
         const maxRetries = 8;
 
-        console.log(`Searching for transaction: ${signature}`);
-
         while (!tx && retries < maxRetries) {
             try {
                 tx = await connection.getTransaction(signature, {
@@ -56,7 +54,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
                 if (!tx) {
                     retries++;
-                    console.log(`Retry ${retries}/${maxRetries} - Transaction not found yet...`);
                     await new Promise(resolve => setTimeout(resolve, 2000));
                 }
             } catch (err) {
@@ -102,12 +99,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const actualReceivedSol = (postBalance - preBalance) / LAMPORTS_PER_SOL;
         const expectedSol = amount * PRICE_PER_TICKET_SOL;
 
-        console.log(`Payment verification:`, {
-            expected: expectedSol,
-            actual: actualReceivedSol,
-            difference: Math.abs(expectedSol - actualReceivedSol)
-        });
-
         if (actualReceivedSol < (expectedSol - 0.0001)) {
             return res.status(400).json({
                 message: `Insufficient payment. Expected ${expectedSol} SOL, received ${actualReceivedSol} SOL`
@@ -125,13 +116,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         // FIX 8: Logging
         await logActivity(walletAddress, signatureIdentifier, amount, 'TAG');
-
-        console.log(`Purchase successful:`, {
-            wallet: walletAddress,
-            amount,
-            newBalance: updatedUser.tagTickets,
-            signature
-        });
 
         return res.status(200).json({
             success: true,

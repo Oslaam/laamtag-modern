@@ -80,18 +80,17 @@ export default function ActivityTicker() {
         <div className={styles.tickerContainer}>
             <div className={styles.tickerContent}>
                 {[...activities, ...activities].map((act, i) => {
+                    const isBadge = act.type === 'BADGE_CLAIM';
+                    const isSystem = act.type.includes('SYSTEM');
                     const isExpense = act.amount < 0 ||
                         act.type.includes('COST') ||
                         act.type.includes('PURCHASE') ||
                         act.type.includes('WITHDRAW');
 
-                    const isSystem = act.type.includes('SYSTEM');
-
-                    // Calculate display properties
                     const displayName = formatDisplayName(act.userId, act.username);
 
                     // Colors: .laam = Gold, .skr = Cyan, default = white
-                    const nameColor = (act.type.includes('WIN') || act.type.includes('GAME'))
+                    const nameColor = (isBadge || act.type.includes('WIN') || act.type.includes('GAME'))
                         ? '#eab308'
                         : act.username?.includes('.laam')
                             ? '#eab308'
@@ -100,10 +99,7 @@ export default function ActivityTicker() {
                                 : '#fff';
 
                     return (
-                        <div
-                            key={`${act.id}-${i}`}
-                            className={`${styles.tickerItem} ${act.isLive ? styles.livePulse : ''}`}
-                        >
+                        <div key={`${act.id}-${i}`} className={`${styles.tickerItem} ${act.isLive ? styles.livePulse : ''}`}>
                             {getIcon(act.type)}
 
                             <span
@@ -117,12 +113,17 @@ export default function ActivityTicker() {
                                 {displayName}
                             </span>
 
+                            {/* Middle Text: shows "unlocked" for badges, otherwise normal type */}
                             <span className={styles.action}>
-                                {act.type.replace(/_/g, ' ')}
+                                {isBadge ? 'unlocked' : act.type.replace(/_/g, ' ')}
                             </span>
 
-                            <span className={isSystem ? 'text-green-500 font-black' : (isExpense ? styles.amountNegative : styles.amountPositive)}>
-                                {isSystem ? `v.${act.amount}` : (act.amount > 0 ? `+${act.amount}` : act.amount)} {act.asset}
+                            {/* Right Text: shows "+1 BADGE" for badges, otherwise normal amount */}
+                            <span className={isBadge ? 'text-yellow-500 font-black' : (isSystem ? 'text-green-500 font-black' : (isExpense ? styles.amountNegative : styles.amountPositive))}>
+                                {isBadge
+                                    ? `+1 ${act.asset}`
+                                    : isSystem ? `v.${act.amount}` : `${act.amount > 0 ? '+' : ''}${act.amount} ${act.asset}`
+                                }
                             </span>
                         </div>
                     );

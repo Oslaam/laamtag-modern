@@ -1,34 +1,51 @@
-.grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 20px;
-    padding: 20px;
+.container {
+
+    width: 100%;
+
+    padding: 40px 20px;
+
+    background: #0a0a0a;
+
+    /* Dark background for the repository */
+
+    min-height: 100vh;
+
 }
 
-.badgeCard {
-    background: #1f2937;
-    border-radius: 12px;
-    padding: 20px;
-    text-align: center;
-    border: 1px solid #374151;
-    transition: all 0.3s ease;
+
+
+.header {
+
+    margin-bottom: 50px;
+
+    border-bottom: 1px solid rgba(234, 179, 8, 0.2);
+
+    padding-bottom: 20px;
+
 }
 
-.locked {
-    filter: grayscale(1);
-    /* This makes the whole card grey */
-    opacity: 0.6;
+
+
+.titleArea h2 {
+
+    color: #eab308;
+
+    font-family: 'Inter', sans-serif;
+
+    font-weight: 900;
+
+    letter-spacing: 4px;
+
+    margin-bottom: 10px;
+
 }
 
-.unlocked {
-    border-color: #f59e0b;
-    box-shadow: 0 0 15px rgba(245, 158, 11, 0.1);
-}
 
-.badgeImagePlaceholder {
-    width: 100px;
-    height: 100px;
-    background: #374151;
-    margin: 10px auto;
-    border-radius: 50%;
+
+.highlight {
+
+    color: #eab308;
+
+    text-shadow: 0 0 10px rgba(234, 179, 8, 0.5);
+
 }

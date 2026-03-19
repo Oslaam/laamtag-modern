@@ -16,11 +16,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
 
         // Map the data so the frontend gets a clean 'username' field
-        const activities = activitiesRaw.map(act => ({
-            ...act,
-            username: act.user?.username || null,
-            asset: act.asset?.toUpperCase() || 'SKR'
-        }));
+        const activities = activitiesRaw.map(act => {
+            const isBadge = act.type === 'BADGE_CLAIM';
+            return {
+                ...act,
+                username: act.user?.username || null,
+                // If it's a badge, the asset is the word "BADGE", otherwise use the database asset
+                asset: isBadge ? 'BADGE' : (act.asset?.toUpperCase() || 'SKR')
+            };
+        });
 
         res.status(200).json(activities);
     } catch (e) {

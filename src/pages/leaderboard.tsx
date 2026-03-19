@@ -91,7 +91,8 @@ export default function LeaderboardPage() {
                     leader.username ||
                     `${leader.walletAddress.slice(0, 4)}...${leader.walletAddress.slice(-4)}`;
 
-                  const nameColor = leader.username?.includes('.laam')
+                  // Logic updated to highlight Gold/Elite tiers even without .laam username
+                  const nameColor = (leader.username?.includes('.laam') || leader.tier !== "Bronze")
                     ? '#eab308'
                     : leader.username?.includes('.skr')
                       ? '#22d3ee'
@@ -151,8 +152,6 @@ export default function LeaderboardPage() {
               </div>
 
               <div className={styles.cardRecruiter}>
-
-                {/* Column headers */}
                 <div className={styles.tableHeadRecruiter}>
                   <span className={styles.headCellGold}>POS</span>
                   <span className={styles.headCellGold}>RECRUITER</span>

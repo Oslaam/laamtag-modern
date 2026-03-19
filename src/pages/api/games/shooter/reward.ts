@@ -1,4 +1,3 @@
-// src/pages/api/games/shooter/reward.ts
 import { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '../../../../lib/prisma';
 import { logActivity } from '../../../../lib/activityLogger';
@@ -18,7 +17,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             let bonusLaam = 0;
             let bonusTag = 0;
             let isLevelWin = false;
-            let isCritical = Math.random() < 0.10; // 10% chance for critical on bombs
+            let isCritical = Math.random() < 0.10;
 
             const multiplier = isCritical ? 2 : 1;
 

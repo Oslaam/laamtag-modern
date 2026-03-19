@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { getRank } from '../utils/ranks'; // Importing your existing rank logic
+import { getRank } from '../utils/ranks';
 
 export const useRankWatcher = () => {
   const { publicKey } = useWallet();
@@ -13,7 +13,7 @@ export const useRankWatcher = () => {
 
     const checkRank = async () => {
       try {
-        // Fetch latest user data from your existing API
+
         // Inside checkRank function
         const res = await fetch(`/api/user/${publicKey.toString()}`);
         if (!res.ok) return;
