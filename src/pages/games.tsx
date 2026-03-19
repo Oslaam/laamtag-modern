@@ -53,7 +53,7 @@ export default function GamesPage() {
     const fetchUser = useCallback(async () => {
         if (!publicKey) return;
         try {
-            const res = await fetch(`/api/user/me?address=${publicKey.toBase58()}`);
+            const res = await fetch(`/api/user/${publicKey.toBase58()}`);
             const data = await res.json();
             if (res.ok) setUser(data);
         } catch (err) { console.error(err); }

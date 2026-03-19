@@ -12,6 +12,7 @@ interface DiceTerminalProps {
         tagTickets: number;
         hasPaidDiceEntry: boolean;
         activities?: any[];
+        activitiesCount?: number;
     };
     refreshUser: () => void;
 }
@@ -207,7 +208,7 @@ const DiceTerminal: React.FC<DiceTerminalProps> = ({ user, refreshUser }) => {
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', marginTop: '4px' }}>
                     <span style={{ color: 'rgba(255,255,255,0.3)' }}>CURRENT NONCE:</span>
-                    <span style={{ color: '#eab308', fontWeight: 900 }}>{user.activities?.length || 0}</span>
+                    <span style={{ color: '#eab308', fontWeight: 900 }}>{user.activitiesCount || 0}</span>
                 </div>
             </div>
 

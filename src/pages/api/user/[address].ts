@@ -42,7 +42,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           select: {
             referrals: true,
             quests: { where: { status: 'COMPLETED' } },
-            boosts: true
+            boosts: true,
+            activities: true
           }
         }
       }
@@ -78,6 +79,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     });
 
+
     const recruitsCount = user._count?.referrals || 0;
     const recruitsNeededPerCrate = 10;
     const referralProgress = (recruitsCount % recruitsNeededPerCrate) * 10;
@@ -98,7 +100,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       referralProgress,
       claimableRewards,
       completedQuestsCount: user._count?.quests || 0,
-      purchasedBoostsCount: user._count?.boosts || 0
+      purchasedBoostsCount: user._count?.boosts || 0,
+      activitiesCount: user._count?.activities || 0,
     });
   } catch (error) {
     console.error("Profile fetch error:", error);
