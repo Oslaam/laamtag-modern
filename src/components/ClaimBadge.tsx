@@ -30,11 +30,6 @@ const RANK_HIERARCHY = [
   "Platinum", "Diamond", "Legend", "Mythic", "Eternal", "Ascendant"
 ];
 
-// ---------------------------------------------------------------------------
-// Manual web3.js → UMI instruction bridge (no umi-web3js-adapters required)
-// Converts a web3.js TransactionInstruction into the shape UMI's
-// transactionBuilder expects. Works with umi 0.9.x.
-// ---------------------------------------------------------------------------
 function web3IxToUmiIx(ix: any, signers: any[]) {
   return {
     instruction: {
@@ -44,7 +39,7 @@ function web3IxToUmiIx(ix: any, signers: any[]) {
         isSigner: k.isSigner,
         isWritable: k.isWritable,
       })),
-      data: ix.data, // Uint8Array — UMI accepts this directly
+      data: ix.data,
     },
     signers,
     bytesCreatedOnChain: 0,
@@ -65,51 +60,42 @@ export default function ClaimBadge({ user, mutate }: { user: any; mutate: () => 
     const loadId = toast.loading(`INITIATING ${badgeName.toUpperCase()} UPLINK...`);
 
     try {
-      // 1. Build UMI — identical pattern to Collectable.tsx
       const umi = createUmi(RPC_ENDPOINT)
         .use(walletAdapterIdentity(wallet))
         .use(mplToolbox());
 
-      // 2. Derive user's $SKR ATA via web3.js
       const userAta = await getAssociatedTokenAddress(
         new PublicKey(SKR_MINT_STR),
         wallet.publicKey
       );
 
-      // 3. Build SPL token transfer instruction via web3.js helper
       const transferIxWeb3 = createTransferCheckedInstruction(
-        userAta,                                        // source (user's ATA)
-        new PublicKey(SKR_MINT_STR),                    // mint
-        new PublicKey(TREASURY_ATA_STR),                // destination (treasury ATA)
-        wallet.publicKey,                               // owner / signer
-        CLAIM_FEE * Math.pow(10, SKR_DECIMALS),         // 50 * 1e6 raw units
+        userAta,
+        new PublicKey(SKR_MINT_STR),
+        new PublicKey(TREASURY_ATA_STR),
+        wallet.publicKey,
+        CLAIM_FEE * Math.pow(10, SKR_DECIMALS),
         SKR_DECIMALS
       );
 
-      // 4. Convert to UMI instruction shape — no adapter package needed
       const umiTransferIx = web3IxToUmiIx(transferIxWeb3, [umi.identity]);
 
-      // 5. Build full transaction with compute budget + SPL transfer
       const builder = transactionBuilder()
         .add(setComputeUnitLimit(umi, { units: 400_000 }))
         .add(setComputeUnitPrice(umi, { microLamports: 100_000 }))
         .add(umiTransferIx);
 
-      // 6. Send and confirm via UMI
-      //    UMI calls wallet.sendTransaction internally — supported by MWA on Solana Mobile
       const { signature } = await builder.sendAndConfirm(umi, {
         send: { maxRetries: 3 },
         confirm: { commitment: 'confirmed' },
       });
 
-      // 7. Deserialize signature to base58 string
       const sigString = typeof signature === 'string'
         ? signature
         : base58.deserialize(signature)[0];
 
       toast.loading("CONFIRMING ON-CHAIN...", { id: loadId });
 
-      // 8. Only sync to DB after confirmed on-chain success — prevents ghost writes
       const res = await fetch('/api/badges/verify-mint', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -123,21 +109,17 @@ export default function ClaimBadge({ user, mutate }: { user: any; mutate: () => 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "DATABASE_SYNC_FAILED");
 
-      // 9. Immediate frontend refresh
       await mutate();
-
       toast.success(`${badgeName.toUpperCase()} UNLOCKED`, { id: loadId });
 
     } catch (err: any) {
       console.error("BADGE_CLAIM_ERROR:", err);
-
       const msg =
         err?.message?.includes('custom program error') || err?.message?.includes('0x1')
           ? "Insufficient $SKR balance."
           : err?.message?.includes('insufficient lamports') || err?.message?.includes('0x0')
             ? "Insufficient SOL for fees."
             : err?.message || "TRANSACTION_FAILED";
-
       toast.error(msg, { id: loadId });
     } finally {
       setLoadingBadge(null);
@@ -146,6 +128,14 @@ export default function ClaimBadge({ user, mutate }: { user: any; mutate: () => 
 
   const badgeData = useMemo(() => {
     const claimed = user?.claimedBadges || [];
+
+    // ── READ FLAT FIELDS FROM /api/user/[address] RESPONSE ──────────────
+    // The API returns these as top-level flat numbers, NOT nested in _count.
+    // Old code was reading user?._count?.quests and user?._count?.friendsSent
+    // which don't exist — hence Social and Quest badges were always locked.
+    const completedQuests = user?.completedQuestsCount ?? 0;
+    const activeBoosts = user?.purchasedBoostsCount ?? 0;
+    const friendsCount = user?.friendsCount ?? 0;
 
     const mappedBadges = BADGE_LIST.map((badge) => {
       const isOwned = claimed.some((cb: any) => {
@@ -156,8 +146,6 @@ export default function ClaimBadge({ user, mutate }: { user: any; mutate: () => 
       });
 
       let isEligible = false;
-      const completedQuests = user?._count?.quests ?? 0;
-      const activeBoosts = user?._count?.boosts ?? 0;
 
       switch (badge.name) {
         case "Early Adopter":
@@ -196,11 +184,11 @@ export default function ClaimBadge({ user, mutate }: { user: any; mutate: () => 
           } else if (badge.category === "Streak") {
             isEligible = (user?.streakCount || 0) >= (badge.min ?? 0);
           } else if (badge.category === "Quest") {
+            // ✅ Fixed: reads completedQuestsCount (flat field from API)
             isEligible = completedQuests >= (badge.min ?? 0);
           } else if (badge.category === "Social") {
-            const friends =
-              (user?._count?.friendsSent ?? 0) + (user?._count?.friendsReceived ?? 0);
-            isEligible = friends >= (badge.min ?? 0);
+            // ✅ Fixed: reads friendsCount (flat field from API)
+            isEligible = friendsCount >= (badge.min ?? 0);
           } else {
             isEligible = true;
           }
