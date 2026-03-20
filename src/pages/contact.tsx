@@ -146,6 +146,7 @@ export default function ContactPage() {
                                     <label className={styles.fieldLabel}>Operator Name</label>
                                     <input
                                         required type="text"
+                                        placeholder='.skr domain name'
                                         value={formData.name}
                                         onChange={e => setFormData({ ...formData, name: e.target.value })}
                                         className={styles.fieldInput}
