@@ -1,7 +1,6 @@
 import { Server } from 'socket.io';
 
 const activeUsers = new Set();
-// Track conversation progress for the AI greeting
 const chatStates: Record<string, { step: number; adminJoined: boolean }> = {};
 
 export default function SocketHandler(req: any, res: any) {
@@ -23,84 +22,85 @@ export default function SocketHandler(req: any, res: any) {
         activeUsers.add(socket.id);
         io.emit('user-count-update', activeUsers.size);
 
-        socket.on('join-private-room', (walletAddress) => {
+        // User joins their private room
+        socket.on('join-private-room', (walletAddress: string) => {
             socket.join(walletAddress);
-
-            // Initialize AI state for new session
             chatStates[walletAddress] = { step: 0, adminJoined: false };
 
-            // IMMEDIATE AI GREETING
             setTimeout(() => {
-                io.to(walletAddress).emit('agent-send-message', {
+                io.to(walletAddress).emit('support-message', {
                     sender: 'SYSTEM',
                     text: "GREETINGS. I am the LAAM Terminal AI. How can I assist you today?"
                 });
                 chatStates[walletAddress].step = 1;
-            }, 1500);
+            }, 3000);
         });
 
-        socket.on('user-send-message', (data) => {
+        // User sends a message
+        socket.on('user-send-message', (data: { walletAddress: string; text: string; sender: string }) => {
             const room = data.walletAddress;
             const state = chatStates[room];
 
-            // If no admin has joined, the AI handles the logic
             if (state && !state.adminJoined) {
                 if (state.step === 1) {
-                    // USER REPLIED TO GREETING -> AI ASKS FOR ISSUE
                     setTimeout(() => {
-                        io.to(room).emit('agent-send-message', {
+                        io.to(room).emit('support-message', {
                             sender: 'SYSTEM',
-                            text: "Understood. Please describe your issue or inquiry in detail so I can prepare the transmission for an authorized agent."
+                            text: "Understood. Please describe your issue in detail so I can prepare for an authorized agent."
                         });
                         state.step = 2;
                     }, 1500);
-                }
-
-
-                else if (state.step === 2) {
-                    // USER DESCRIBED ISSUE -> AI PREPARES TRANSMISSION
-                    const userDescription = data.text;
-
+                } else if (state.step === 2) {
                     setTimeout(() => {
-                        io.to(room).emit('agent-send-message', {
+                        io.to(room).emit('support-message', {
                             sender: 'SYSTEM',
-                            text: "TRANSMITTING DATA... Please wait 3-5 minutes for an agent to connect. DO NOT CLOSE THIS WINDOW."
+                            text: "TRANSMITTING... Please wait 3-5 minutes for an agent. DO NOT CLOSE THIS WINDOW."
                         });
-
-                        // This is where the "Neural Intercept" happens for the Admin
                         io.to('admin-room').emit('new-ticket-notification', {
                             walletAddress: data.walletAddress,
                             title: "LIVE CHAT INTERCEPT",
-                            description: userDescription,
+                            description: data.text,
                             type: 'LIVE_CHAT',
                             isAIGenerated: true,
-                            aiSummary: `User is requesting assistance via Live Bridge regarding: ${userDescription.substring(0, 50)}...`,
+                            aiSummary: `User requesting help: ${data.text.substring(0, 80)}...`,
                             suggestedAction: "CONNECT_TO_BRIDGE",
                             status: 'WAITING'
                         });
+                        state.step = 3;
                     }, 1500);
-                    state.step = 3;
+                } else {
+                    // Waiting for admin — forward to admin room
+                    io.to('admin-room').emit('user-message-incoming', data);
                 }
             } else {
-                // If admin is joined, just forward the message to admin-room
-                io.to('admin-room').emit('new-ticket-notification', data);
+                // Admin joined — forward messages
+                io.to('admin-room').emit('user-message-incoming', data);
             }
         });
 
-        socket.on('agent-join-room', (walletAddress) => {
+        // Admin joins a user room
+        socket.on('agent-join-room', (walletAddress: string) => {
             socket.join(walletAddress);
             socket.join('admin-room');
 
-            // Mark as admin joined so AI stops replying
             if (chatStates[walletAddress]) {
                 chatStates[walletAddress].adminJoined = true;
+            } else {
+                chatStates[walletAddress] = { step: 3, adminJoined: true };
             }
 
             io.to(walletAddress).emit('agent-joined');
         });
 
-        socket.on('agent-send-message', (data) => {
-            socket.to(data.walletAddress).emit('agent-send-message', data);
+        // Admin sends message to user
+        socket.on('agent-send-message', (data: { walletAddress: string; text: string; sender: string }) => {
+            io.to(data.walletAddress).emit('support-message', data);
+        });
+
+        // Admin closes the ticket — only admin can do this
+        socket.on('close-ticket', (walletAddress: string) => {
+            io.to(walletAddress).emit('ticket-closed');
+            delete chatStates[walletAddress];
         });
 
         socket.on('disconnect', () => {

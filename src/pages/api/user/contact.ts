@@ -5,18 +5,17 @@ import prisma from '../../../lib/prisma';
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method !== 'POST') return res.status(405).json({ message: "Method not allowed" });
 
-    // 1. Extract the custom ticketId from the frontend
     const { type, name, email, walletAddress, title, description, ticketId } = req.body;
 
     if (!name || !email || !description) {
         return res.status(400).json({ error: "Missing required fields" });
     }
 
+    // Save ticket first — always recorded even if email fails
     try {
-        // 2. SAVE TO DATABASE using the frontend-generated ID
-        const ticket = await prisma.supportTicket.create({
+        await prisma.supportTicket.create({
             data: {
-                id: ticketId, // Store the TX-XXXX-2026 format as the ID
+                id: ticketId,
                 walletAddress: walletAddress || 'Anonymous',
                 type: type || 'Complaint',
                 name,
@@ -26,8 +25,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 status: "Pending"
             }
         });
+    } catch (dbError: any) {
+        console.error("DB ERROR:", dbError);
+        return res.status(500).json({ error: "Failed to save ticket" });
+    }
 
-        // 3. SETUP THE TRANSPORTER
+    // Send emails — failure here doesn't break the ticket save
+    try {
         const transporter = nodemailer.createTransport({
             host: "mail.privateemail.com",
             port: 465,
@@ -38,10 +42,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             },
             tls: { rejectUnauthorized: false }
         });
+        // No verify() — causes timeouts for non-admin connections
 
-        await transporter.verify();
-
-        // 4. ADMIN EMAIL - Includes the Reference ID
         const adminMail = {
             from: `"${name} via Vault" <${process.env.EMAIL_USER}>`,
             to: process.env.EMAIL_USER,
@@ -62,7 +64,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             `,
         };
 
-        // 5. USER EMAIL - Includes the Reference ID
         const userMail = {
             from: `"Laamtag Vault" <${process.env.EMAIL_USER}>`,
             to: email,
@@ -81,15 +82,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             `
         };
 
-        await Promise.all([
-            transporter.sendMail(adminMail),
-            transporter.sendMail(userMail)
-        ]);
+        // Send independently — one failing won't kill the other
+        await transporter.sendMail(adminMail).catch(e => console.error("ADMIN MAIL ERROR:", e.message));
+        await transporter.sendMail(userMail).catch(e => console.error("USER MAIL ERROR:", e.message));
 
-        return res.status(200).json({ success: true, ticketId: ticket.id });
-
-    } catch (error: any) {
-        console.error("MAILER ERROR:", error);
-        return res.status(500).json({ error: "Transmission failed", details: error.message });
+    } catch (mailError: any) {
+        console.error("MAILER ERROR:", mailError.message);
     }
+
+    return res.status(200).json({ success: true, ticketId });
 }

@@ -55,7 +55,6 @@
     text-shadow: 0 0 10px rgba(255, 68, 68, 0.4);
 }
 
-/* --- MINTING GRID --- */
 .mintGrid {
     display: grid;
     grid-template-columns: 1fr 1fr;

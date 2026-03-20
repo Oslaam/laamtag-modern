@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useRouter } from 'next/router';
@@ -50,10 +50,13 @@ export default function AdminDashboard() {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [showSuccessUI, setShowSuccessUI] = useState(false);
 
-  // Broadcast States
   const [broadcastTarget, setBroadcastTarget] = useState('');
   const [broadcastMsg, setBroadcastMsg] = useState('');
   const [broadcastType, setBroadcastType] = useState<'SYSTEM_NEWS' | 'ADMIN_ADJUST'>('SYSTEM_NEWS');
+
+  // Use refs so socket callbacks always have latest state
+  const activeChatUserRef = useRef<string | null>(null);
+  activeChatUserRef.current = activeChatUser;
 
   useEffect(() => {
     if (!publicKey) {
@@ -87,15 +90,13 @@ export default function AdminDashboard() {
       setActiveUserCount(count);
     });
 
-    // 1. New Ticket/AI Summary Notification
     socket.on('new-ticket-notification', (data: any) => {
       toast(`SIGNAL DETECTED: ${data.walletAddress?.slice(0, 6)}`, {
         icon: '📡',
         style: { background: '#111', color: '#a855f7', border: '1px solid #a855f7' }
       });
-
-      // Automatically add the user's description to the chat log if we are looking at them
-      if (activeChatUser === data.walletAddress) {
+      // Use ref so we always have latest activeChatUser in socket callback
+      if (activeChatUserRef.current === data.walletAddress) {
         setChatLog(prev => [...prev, {
           sender: data.walletAddress,
           text: data.description || data.text,
@@ -106,17 +107,15 @@ export default function AdminDashboard() {
       fetchData();
     });
 
-    // 2. The "Live Drop" - Listening for the same event the User sends
-    socket.on('agent-send-message', (data: any) => {
-      // If the message is from a user (not an admin) and we are in their chat
-      if (activeChatUser === data.walletAddress && data.sender !== 'OPERATOR') {
-        setChatLog((prev) => [...prev, {
+    // Renamed from agent-send-message → user-message-incoming to avoid collision
+    socket.on('user-message-incoming', (data: any) => {
+      if (activeChatUserRef.current === data.walletAddress) {
+        setChatLog(prev => [...prev, {
           ...data,
           isAdmin: false,
           timestamp: data.timestamp || new Date().toISOString()
         }]);
-      } else if (data.sender !== 'OPERATOR') {
-        // If we aren't looking at that chat, just show a notification
+      } else {
         setUnreadCount(prev => prev + 1);
         toast.success(`New Message: ${data.walletAddress?.slice(0, 6)}`);
       }
@@ -125,8 +124,8 @@ export default function AdminDashboard() {
 
   const joinUserChat = (walletAddress: string, initialMessage?: string) => {
     setActiveChatUser(walletAddress);
+    activeChatUserRef.current = walletAddress;
 
-    // If there's an initial message (the user's issue), put it in the log immediately
     if (initialMessage) {
       setChatLog([{
         sender: walletAddress,
@@ -154,7 +153,7 @@ export default function AdminDashboard() {
     };
 
     socket.emit('agent-send-message', adminMsg);
-    setChatLog((prev) => [...prev, adminMsg]);
+    setChatLog(prev => [...prev, adminMsg]);
   };
 
   const closeActiveTicket = () => {
@@ -162,6 +161,7 @@ export default function AdminDashboard() {
     socket.emit('close-ticket', activeChatUser);
     toast.error("TICKET_CLOSED_SIGNAL_SENT");
     setActiveChatUser(null);
+    activeChatUserRef.current = null;
     setChatLog([]);
   };
 
@@ -172,7 +172,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // UPDATED BULK BROADCAST LOGIC
   const sendNeuralBroadcast = async () => {
     if (!broadcastTarget || !broadcastMsg) return toast.error("MISSING_DATA");
 
@@ -199,7 +198,6 @@ export default function AdminDashboard() {
             message: broadcastMsg
           })
         });
-
         if (res.ok) successCount++;
       } catch (err) {
         console.error(`Failed to send to ${target}`, err);
@@ -480,7 +478,7 @@ export default function AdminDashboard() {
               </MotionDiv>
             ))}
 
-            {/* SUPPORT TAB - AI TICKETS */}
+            {/* SUPPORT TAB */}
             {activeTab === 'SUPPORT' && tickets.map((t: any) => (
               <MotionDiv layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={t.id}
                 className={`p-6 border rounded-[32px] bg-zinc-900/40 flex flex-col gap-4 transition-all ${t.isAIGenerated ? 'border-purple-500/30 shadow-[0_0_20px_rgba(168,85,247,0.05)]' : 'border-zinc-800 hover:border-yellow-500/30'}`}>
@@ -488,7 +486,6 @@ export default function AdminDashboard() {
                 <div className="flex justify-between items-start">
                   <div>
                     <div className="flex items-center gap-3 mb-1">
-                      {/* AI Badge */}
                       {t.isAIGenerated && (
                         <span className="bg-purple-500 text-white text-[8px] font-black px-2 py-0.5 rounded-md flex items-center gap-1 animate-pulse">
                           <Zap size={8} /> AI_PREPARED
@@ -508,7 +505,6 @@ export default function AdminDashboard() {
                     <button
                       onClick={() => {
                         setActiveTab('CHAT');
-                        // Pass the message/description so it shows up in the chat right away
                         joinUserChat(t.walletAddress || t.userWallet, t.message || t.description);
                       }}
                       className="bg-yellow-500 text-black px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-white transition-all flex items-center gap-2">
@@ -525,7 +521,6 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                {/* AI Summary Section */}
                 {t.isAIGenerated && t.aiSummary && (
                   <div className="bg-purple-500/5 border border-purple-500/20 p-4 rounded-2xl">
                     <div className="flex items-center gap-2 mb-2">
@@ -550,13 +545,12 @@ export default function AdminDashboard() {
               </MotionDiv>
             ))}
 
-            {/* CHAT TAB - UPDATED FOR PRIVATE ROOMS */}
+            {/* CHAT TAB */}
             {activeTab === 'CHAT' && (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* User List Sidebar */}
                 <div className="lg:col-span-1 space-y-4">
                   <h2 className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.3em] mb-4">Active Channels</h2>
-                  {tickets.filter(t => t.status === 'Pending').map((t: any) => (
+                  {tickets.filter((t: any) => t.status === 'Pending').map((t: any) => (
                     <button
                       key={t.id}
                       onClick={() => joinUserChat(t.walletAddress || t.userWallet)}
@@ -568,7 +562,6 @@ export default function AdminDashboard() {
                   ))}
                 </div>
 
-                {/* Main Chat Area */}
                 <div className="lg:col-span-2">
                   <MotionDiv initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-6 border border-yellow-500/20 rounded-[32px] bg-zinc-900/40">
                     <div className="flex items-center justify-between mb-4">
@@ -657,7 +650,6 @@ export default function AdminDashboard() {
               </div>
             ))}
 
-            {/* Empty States */}
             {(activeTab === 'QUESTS' ? submissions.length : activeTab === 'SUPPORT' ? tickets.length : 0) === 0 && !['RAFFLES', 'ALERTS', 'CHAT', 'HISTORY', 'BROADCAST'].includes(activeTab) && (
               <div className="text-center py-32 border-2 border-dashed border-zinc-900 rounded-[40px] bg-zinc-900/5">
                 <ShieldAlert className="mx-auto text-zinc-800 mb-4" size={40} />

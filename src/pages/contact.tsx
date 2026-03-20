@@ -1,73 +1,22 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { io, Socket } from 'socket.io-client';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { Send, Clock, MessageSquare, CheckCircle, XCircle, ArrowLeft, Bot, Copy, Check, ShieldCheck } from 'lucide-react';
+import { Send, Clock, CheckCircle, XCircle, ArrowLeft, Copy, Check } from 'lucide-react';
 import axios from 'axios';
 import styles from '../styles/Contact.module.css';
 
-let socket: Socket | undefined;
-
 export default function ContactPage() {
     const { publicKey } = useWallet();
-    const [view, setView] = useState<'form' | 'history' | 'live'>('form');
+    const [view, setView] = useState<'form' | 'history'>('form');
     const [loading, setLoading] = useState(false);
     const [copied, setCopied] = useState(false);
-
-    const [isChatReady, setIsChatReady] = useState(false);
-    const [message, setMessage] = useState('');
-    const [chatLog, setChatLog] = useState<{ sender: string; text: string }[]>([]);
-    const chatEndRef = useRef<HTMLDivElement>(null);
-    const [isAiTyping, setIsAiTyping] = useState(false);
-    const [isAgentConnected, setIsAgentConnected] = useState(false);
 
     const [showModal, setShowModal] = useState<{ type: 'success' | 'error'; id?: string } | null>(null);
     const [history, setHistory] = useState<any[]>([]);
     const [formData, setFormData] = useState({
         type: 'Complaint', name: '', email: '', title: '', description: '',
     });
-
-    useEffect(() => {
-        const socketInitializer = async () => {
-            await fetch('/api/socket');
-            socket = io({
-                path: '/api/socket',
-                addTrailingSlash: false,
-                transports: ['websocket', 'polling'],
-            });
-            socket.on('connect', () => {
-                if (publicKey) socket?.emit('join-private-room', publicKey.toBase58());
-            });
-            socket.on('agent-joined', () => {
-                setIsAgentConnected(true);
-                setChatLog(prev => [...prev, { sender: 'SYSTEM', text: 'An authorized agent has joined the channel.' }]);
-            });
-            socket.on('agent-send-message', (data: any) => {
-                setChatLog(prev => [...prev, { sender: 'SUPPORT', text: data.text }]);
-            });
-            socket.on('ticket-closed', () => {
-                alert('This session has been closed by support. Transmission cleared.');
-                setChatLog([]);
-                setIsAgentConnected(false);
-                setView('form');
-            });
-            socket.on('connect_error', (err) => console.error('Connection Error:', err.message));
-        };
-
-        if (view === 'live') {
-            socketInitializer();
-            const timer = setTimeout(() => setIsChatReady(true), 2000);
-            return () => {
-                clearTimeout(timer);
-                if (socket) socket.disconnect();
-            };
-        }
-    }, [view, publicKey]);
-
-    useEffect(() => {
-        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [chatLog, isAiTyping]);
 
     useEffect(() => {
         if (publicKey && view === 'history') {
@@ -106,23 +55,8 @@ export default function ContactPage() {
         }
     };
 
-    const sendChatMessage = (e?: React.FormEvent, customMsg?: string) => {
-        if (e) e.preventDefault();
-        const finalMessage = customMsg || message;
-        if (!finalMessage.trim() || !socket || !publicKey) return;
-        const userMsgData = { sender: 'USER', walletAddress: publicKey.toBase58(), text: finalMessage };
-        setChatLog(prev => [...prev, userMsgData]);
-        if (!isAgentConnected) {
-            setIsAiTyping(true);
-            setTimeout(() => setIsAiTyping(false), 2500);
-        }
-        socket.emit('user-send-message', userMsgData);
-        setMessage('');
-    };
-
     const TABS = [
         { id: 'form', icon: <Send size={13} />, label: 'TICKET' },
-        { id: 'live', icon: <MessageSquare size={13} />, label: 'LIVE CHAT' },
         { id: 'history', icon: <Clock size={13} />, label: 'HISTORY' },
     ] as const;
 
@@ -191,81 +125,6 @@ export default function ContactPage() {
                         </button>
                     ))}
                 </div>
-
-                {/* ── LIVE CHAT ── */}
-                {view === 'live' && (
-                    <div className={styles.liveChatWrap}>
-                        <div className={styles.chatStatusBar}>
-                            <div className={styles.statusBadge}>
-                                <span className={`${styles.statusDot} ${isAgentConnected ? styles.statusDotLive : ''}`} />
-                                <span>{isAgentConnected ? 'AGENT CONNECTED' : 'SIGNAL BROADCASTING...'}</span>
-                            </div>
-                            {isAgentConnected && <ShieldCheck size={14} color="#22c55e" />}
-                        </div>
-
-                        {!isChatReady ? (
-                            <div className={styles.initBox}>
-                                <Bot size={44} className={styles.botIcon} />
-                                <h3 className={styles.initText}>SECURE HANDSHAKE...</h3>
-                                <div className={styles.initBar} />
-                            </div>
-                        ) : (
-                            <div className={styles.chatBox}>
-                                <div className={styles.chatMessages}>
-                                    <div className={styles.msgSystem}>
-                                        <span className={styles.msgSysLabel}>SYSTEM:</span>
-                                        {isAgentConnected
-                                            ? ' Encryption active. Agent is online.'
-                                            : ' Signal broadcasted. Waiting for an available agent...'}
-                                    </div>
-
-                                    {chatLog.map((msg, i) => (
-                                        <div key={i} className={
-                                            msg.sender === 'SUPPORT' || msg.sender === 'SYSTEM'
-                                                ? styles.msgAgent : styles.msgUser
-                                        }>
-                                            {(msg.sender === 'SUPPORT' || msg.sender === 'SYSTEM') && (
-                                                <span className={styles.msgAgentLabel}>{msg.sender}:</span>
-                                            )}
-                                            {msg.text}
-                                        </div>
-                                    ))}
-
-                                    {isAiTyping && (
-                                        <div className={styles.typingIndicator}>
-                                            <span className={styles.typingDot} />
-                                            <span className={styles.typingDot} />
-                                            <span className={styles.typingDot} />
-                                        </div>
-                                    )}
-                                    <div ref={chatEndRef} />
-                                </div>
-
-                                <div className={styles.quickActions}>
-                                    {['STAKING', 'REWARDS', 'I NEED HELP'].map(label => (
-                                        <button key={label} onClick={() => sendChatMessage(undefined, label)} className={styles.quickChip}>
-                                            {label}
-                                        </button>
-                                    ))}
-                                </div>
-
-                                <form onSubmit={sendChatMessage} className={styles.chatInputRow}>
-                                    <input
-                                        type="text"
-                                        placeholder={isChatReady ? 'Enter transmission...' : 'Connecting...'}
-                                        value={message}
-                                        onChange={e => setMessage(e.target.value)}
-                                        className={styles.chatInput}
-                                        disabled={!isChatReady}
-                                    />
-                                    <button type="submit" className={styles.chatSendBtn} disabled={!isChatReady}>
-                                        <Send size={16} />
-                                    </button>
-                                </form>
-                            </div>
-                        )}
-                    </div>
-                )}
 
                 {/* ── TICKET FORM ── */}
                 {view === 'form' && (
