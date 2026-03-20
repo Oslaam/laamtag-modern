@@ -162,26 +162,22 @@ export default function Collectable() {
                     },
                 }));
 
-            builder = builder.mapInstructions((wrapped) => {
-                if (wrapped.instruction.programId.toString() === "CndyV3L7kwLE9Vq89U9B9KdeE77VBaK5DEn3Yf2KNoR") {
-                    return {
-                        ...wrapped,
-                        instruction: {
-                            ...wrapped.instruction,
-                            keys: [
-                                ...wrapped.instruction.keys,
-                                { pubkey: publicKey(T_WALLET_STR), isSigner: false, isWritable: true }
-                            ],
-                        },
-                    };
-                }
-                return wrapped;
-            });
+            // builder = builder.mapInstructions((wrapped) => {
+            //     if (wrapped.instruction.programId.toString() === "CndyV3L7kwLE9Vq89U9B9KdeE77VBaK5DEn3Yf2KNoR") {
+            //         return {
+            //             ...wrapped,
+            //             instruction: {
+            //                 ...wrapped.instruction,
+            //                 keys: [
+            //                     ...wrapped.instruction.keys,
+            //                     { pubkey: publicKey(T_WALLET_STR), isSigner: false, isWritable: true }
+            //                 ],
+            //             },
+            //         };
+            //     }
+            //     return wrapped;
+            // });
 
-            // KEY FIX: skipPreflight removed — preflight simulation catches
-            // insufficient balance and instruction errors BEFORE broadcasting.
-            // Without this, failed transactions still reach verify-mint and
-            // write to the database as if they succeeded.
             const { signature } = await builder.sendAndConfirm(umi, {
                 send: {
                     maxRetries: 3,

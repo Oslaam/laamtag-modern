@@ -1,6 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import prisma from '../../../lib/prisma';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method !== 'POST') return res.status(405).json({ message: "Method not allowed" });
@@ -11,7 +13,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: "Missing required fields" });
     }
 
-    // Save ticket first — always recorded even if email fails
+    // 1. Save ticket to DB first — always recorded even if email fails
     try {
         await prisma.supportTicket.create({
             data: {
@@ -30,25 +32,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(500).json({ error: "Failed to save ticket" });
     }
 
-    // Send emails — failure here doesn't break the ticket save
+    // 2. Send emails via Resend — works on all hosting platforms (HTTPS, not SMTP)
     try {
-        const transporter = nodemailer.createTransport({
-            host: "mail.privateemail.com",
-            port: 465,
-            secure: true,
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS,
-            },
-            tls: { rejectUnauthorized: false }
-        });
-        // No verify() — causes timeouts for non-admin connections
-
-        const adminMail = {
-            from: `"${name} via Vault" <${process.env.EMAIL_USER}>`,
-            to: process.env.EMAIL_USER,
+        // Admin notification
+        await resend.emails.send({
+            from: `Laamtag Vault <no-reply@uselaamtag.xyz>`,
+            to: process.env.ADMIN_EMAIL || process.env.EMAIL_USER!,
             replyTo: email,
-            subject: `[${type.toUpperCase()}] REF: ${ticketId}`,
+            subject: `[${type?.toUpperCase()}] REF: ${ticketId}`,
             html: `
                 <div style="font-family: monospace; max-width: 600px; margin: auto; background-color: #000; color: #fff; border: 1px solid #EAB308; padding: 20px;">
                     <h2 style="color: #EAB308; border-bottom: 1px solid #EAB308; padding-bottom: 10px;">NEW TRANSMISSION: ${ticketId}</h2>
@@ -62,10 +53,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     </div>
                 </div>
             `,
-        };
+        });
 
-        const userMail = {
-            from: `"Laamtag Vault" <${process.env.EMAIL_USER}>`,
+        // User confirmation
+        await resend.emails.send({
+            from: `Laamtag Vault <no-reply@uselaamtag.xyz>`,
             to: email,
             subject: `Transmission Logged: ${ticketId}`,
             html: `
@@ -77,17 +69,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                         <span style="color: #888; font-size: 10px;">REFERENCE ID:</span><br/>
                         <strong style="font-size: 18px; color: #EAB308;">${ticketId}</strong>
                     </div>
-                    <p>Our agents will review the logs shortly.</p>
+                    <p>Our agents will review your transmission shortly and respond to <strong>${email}</strong>.</p>
+                    <p style="color: rgba(255,255,255,0.4); font-size: 11px; margin-top: 20px;">LAAMTAG VAULT // SECURE COMMS</p>
                 </div>
             `
-        };
+        });
 
-        // Send independently — one failing won't kill the other
-        await transporter.sendMail(adminMail).catch(e => console.error("ADMIN MAIL ERROR:", e.message));
-        await transporter.sendMail(userMail).catch(e => console.error("USER MAIL ERROR:", e.message));
-
-    } catch (mailError: any) {
-        console.error("MAILER ERROR:", mailError.message);
+    } catch (emailError: any) {
+        // Email failed but ticket is saved — log and continue
+        console.error("RESEND ERROR:", emailError.message);
     }
 
     return res.status(200).json({ success: true, ticketId });
