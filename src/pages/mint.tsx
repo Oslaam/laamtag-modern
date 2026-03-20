@@ -89,7 +89,7 @@ const Mint: NextPage = () => {
   }, [isClient, publicKey, connection]);
 
   const handleIncrement = () => {
-    if (amount < (10 - stats.personal)) setAmount(prev => prev + 1);
+    if (amount < (20 - stats.personal)) setAmount(prev => prev + 1);
   };
   const handleDecrement = () => { if (amount > 1) setAmount(prev => prev - 1); };
 
@@ -154,7 +154,7 @@ const Mint: NextPage = () => {
   const progressPct = Math.min((stats.global / MAX_SUPPLY) * 100, 100);
   const isHealthy = cmStatus === "Candy Machine is HEALTHY";
   const canMint = !loading && !stats.soldOut && connected && isHealthy;
-  const remaining = 10 - stats.personal;
+  const remaining = 20 - stats.personal;
 
   return (
     <SeekerGuard>
@@ -244,7 +244,7 @@ const Mint: NextPage = () => {
 
           {/* ── MINT CONTROLS ── */}
           <div className={styles.mintCard}>
-            {stats.personal >= 10 ? (
+            {stats.personal >= 20 ? (
               <div className={styles.maxedOut}>
                 <Crown size={18} color="#eab308" />
                 <span>ALL POSITIONS CLAIMED</span>
