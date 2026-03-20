@@ -31,14 +31,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const ranges = { easy: 20, normal: 50, difficult: 100 };
       const newTarget = Math.floor(Math.random() * ranges[level as keyof typeof ranges]) + 1;
 
-      await prisma.$transaction([
-        prisma.user.update({ where: { walletAddress: walletAddress as string }, data: { tagTickets: { decrement: 1 } } }),
-        prisma.guessGame.upsert({
-          where: { userId: walletAddress as string },
-          create: { userId: walletAddress as string, currentTarget: newTarget, attempts: 0, isLocked: false },
-          update: { currentTarget: newTarget, attempts: 0, isLocked: false }
-        })
-      ]);
+      // ── Sequential writes — no transaction needed ──
+      await prisma.user.update({
+        where: { walletAddress: walletAddress as string },
+        data: { tagTickets: { decrement: 1 } }
+      });
+      await prisma.guessGame.upsert({
+        where: { userId: walletAddress as string },
+        create: { userId: walletAddress as string, currentTarget: newTarget, attempts: 0, isLocked: false },
+        update: { currentTarget: newTarget, attempts: 0, isLocked: false }
+      });
 
       await logActivity(walletAddress as string, 'GAME_COST', -1, 'TAG');
       return res.status(200).json({ success: true });
@@ -51,10 +53,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const pointsToClaim = game.pendingPoints;
-      await prisma.$transaction([
-        prisma.user.update({ where: { walletAddress: walletAddress as string }, data: { laamPoints: { increment: pointsToClaim } } }),
-        prisma.guessGame.update({ where: { userId: walletAddress as string }, data: { pendingPoints: 0 } })
-      ]);
+
+      // ── Sequential writes — no transaction needed ──
+      await prisma.user.update({
+        where: { walletAddress: walletAddress as string },
+        data: { laamPoints: { increment: pointsToClaim } }
+      });
+      await prisma.guessGame.update({
+        where: { userId: walletAddress as string },
+        data: { pendingPoints: 0 }
+      });
 
       await logActivity(walletAddress as string, 'GAME_WIN', pointsToClaim, 'LAAM');
       return res.status(200).json({ success: true });
@@ -74,15 +82,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         normal: [2000, 1000, 500],
         difficult: [5000, 2000, 1000]
       };
-      // Award points based on which attempt this was
       const pointsWon = rewards[level as string][gameStatus.attempts] || 10;
 
       const updated = await prisma.guessGame.update({
         where: { userId: walletAddress as string },
         data: { pendingPoints: { increment: pointsWon }, attempts: 0, currentTarget: null }
       });
-      // WE NOW RETURN THE REVEALED NUMBER EVEN ON WIN
-      return res.status(200).json({ win: true, message: "JAMMED!", pendingPoints: updated.pendingPoints, revealedNumber: gameStatus.currentTarget });
+      return res.status(200).json({
+        win: true,
+        message: "JAMMED!",
+        pendingPoints: updated.pendingPoints,
+        revealedNumber: gameStatus.currentTarget
+      });
     }
 
     if (currentAttempt >= 3) {
@@ -90,12 +101,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         where: { userId: walletAddress as string },
         data: { isLocked: true, attempts: 3, lastAttempt: new Date() }
       });
-      return res.status(200).json({ isLocked: true, win: false, revealedNumber: gameStatus.currentTarget });
+      return res.status(200).json({
+        isLocked: true,
+        win: false,
+        revealedNumber: gameStatus.currentTarget
+      });
     }
 
-    await prisma.guessGame.update({ where: { userId: walletAddress as string }, data: { attempts: currentAttempt } });
+    await prisma.guessGame.update({
+      where: { userId: walletAddress as string },
+      data: { attempts: currentAttempt }
+    });
+
     const hint = parseInt(userGuess) < gameStatus.currentTarget ? "HIGHER" : "LOWER";
-    return res.status(200).json({ win: false, message: `Frequency is ${hint} than ${userGuess}`, attempts: currentAttempt });
+    return res.status(200).json({
+      win: false,
+      message: `Frequency is ${hint} than ${userGuess}`,
+      attempts: currentAttempt
+    });
 
   } catch (error) {
     console.error(error);

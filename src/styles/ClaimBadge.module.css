@@ -1,294 +1,435 @@
- /* .badgeLobby {
-    width: 100%;
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
+/* ─────────────────────────────────────────────
+   ClaimBadge.module.css — Neural Badge Repository
+   Aesthetic: Cyberpunk / Dark Terminal / Crypto
+   ───────────────────────────────────────────── */
 
-.lobbyTitle {
-    color: #fff;
-    font-size: 18px;
-    text-align: center;
-    margin-bottom: 30px;
-    font-weight: 900;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-}
-
-.badgeGrid {
-    display: grid;
-    width: 100%;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 20px;
-}
-
-.badgeCard {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-}
-
-.badgeCard:hover:not(.locked) {
-    border-color: #eab308;
-    background: rgba(234, 179, 8, 0.05);
-    transform: translateY(-5px);
-}
-
-.locked {
-    opacity: 0.4;
-    filter: grayscale(1);
-}
-
-.badgeImg {
-    width: 80px;
-    height: 80px;
-    object-fit: contain;
-    margin-bottom: 15px;
-}
-
-.badgeName {
-    color: #fff;
-    font-size: 12px;
-    font-weight: 900;
-    margin: 0 0 15px 0;
-    text-align: center;
-    letter-spacing: 1px;
-}
-
-.btnClaim,
-.btnOwned,
-.btnLocked {
-    width: 100%;
-    padding: 10px;
-    border-radius: 6px;
-    font-size: 11px;
-    font-weight: 900;
-    cursor: pointer;
-    transition: all 0.2s;
-    border: none;
-    text-transform: uppercase;
-}
-
-.btnClaim {
-    background: #eab308;
-    color: #000;
-}
-
-.btnClaim:hover {
-    background: #facc15;
-    box-shadow: 0 0 15px rgba(234, 179, 8, 0.4);
-}
-
-.btnOwned {
-    background: rgba(34, 197, 94, 0.2);
-    color: #22c55e;
-    border: 1px solid #22c55e;
-    cursor: default;
-}
-
-.btnLocked {
-    background: rgba(255, 255, 255, 0.05);
-    color: rgba(255, 255, 255, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    cursor: not-allowed;
-}
-
-
-@media (max-width: 1024px) {
-    .badgeGrid {
-        grid-template-columns: repeat(3, 1fr);
-    }
-}
-
-@media (max-width: 768px) {
-    .badgeGrid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 15px;
-    }
-
-    .lobbyTitle {
-        font-size: 14px;
-    }
-
-    .badgeImg {
-        width: 60px;
-        height: 60px;
-    }
-}
-
-@media (max-width: 480px) {
-    .badgeGrid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
-    .badgeCard {
-        padding: 12px;
-    }
-
-    .badgeName {
-        font-size: 10px;
-    }
-}  */
-
-/* Container for the entire badge section */
+/* ── Layout Shell ─────────────────────────── */
 .badgeLobby {
     width: 100%;
     max-width: 1200px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 24px 20px 40px;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
 }
 
-/* Header styling */
+/* ── Header Block ─────────────────────────── */
+.lobbyHeader {
+    margin-bottom: 28px;
+}
+
+.lobbyTitleRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
 .lobbyTitle {
     color: #fff;
-    font-size: 18px;
-    text-align: center;
-    margin-bottom: 30px;
-    font-weight: 900;
-    letter-spacing: 2px;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 3px;
     text-transform: uppercase;
+    margin: 0;
+    position: relative;
+    padding-left: 14px;
 }
 
-/* Responsive Grid Arrangement */
+.lobbyTitle::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 100%;
+    background: #eab308;
+    border-radius: 2px;
+}
+
+/* ── Stats Row ────────────────────────────── */
+.statsRow {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.statChip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 10px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.5);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.statChip[data-highlight="true"] {
+    background: rgba(234, 179, 8, 0.12);
+    border-color: rgba(234, 179, 8, 0.4);
+    color: #eab308;
+}
+
+.statDot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.statDot[data-type="owned"] {
+    background: #22c55e;
+}
+
+.statDot[data-type="claimable"] {
+    background: #eab308;
+}
+
+.statDot[data-type="total"] {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* ── Category Tabs ────────────────────────── */
+.categoryTabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.catTab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.03);
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: inherit;
+}
+
+.catTab:hover {
+    border-color: rgba(255, 255, 255, 0.25);
+    color: rgba(255, 255, 255, 0.75);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.catTabActive {
+    background: rgba(234, 179, 8, 0.15);
+    border-color: rgba(234, 179, 8, 0.5);
+    color: #eab308;
+}
+
+.catCount {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 1px 5px;
+    border-radius: 10px;
+    font-size: 9px;
+}
+
+.catTabActive .catCount {
+    background: rgba(234, 179, 8, 0.25);
+}
+
+/* ── Badge Grid ───────────────────────────── */
 .badgeGrid {
     display: grid;
     width: 100%;
-    /* Default: 4 columns for desktop */
     grid-template-columns: repeat(4, 1fr);
-    gap: 20px;
+    gap: 16px;
 }
 
-/* Individual Badge Card */
+/* ── Badge Card ───────────────────────────── */
 .badgeCard {
     background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    padding: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 20px 16px 16px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    transition: all 0.3s ease;
+    transition: all 0.25s ease;
     position: relative;
     overflow: hidden;
 }
 
-.badgeCard:hover:not(.locked) {
-    border-color: #eab308;
-    background: rgba(234, 179, 8, 0.05);
-    transform: translateY(-5px);
+/* Faint scanline texture */
+.badgeCard::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(0deg,
+            transparent,
+            transparent 3px,
+            rgba(255, 255, 255, 0.015) 3px,
+            rgba(255, 255, 255, 0.015) 4px);
+    pointer-events: none;
+    border-radius: inherit;
 }
 
-/* Visual state for locked badges */
+.badgeCard:hover:not(.locked) {
+    border-color: rgba(234, 179, 8, 0.35);
+    background: rgba(234, 179, 8, 0.04);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 32px rgba(234, 179, 8, 0.08);
+}
+
+.badgeCard.claimable {
+    border-color: rgba(234, 179, 8, 0.25);
+    background: rgba(234, 179, 8, 0.03);
+}
+
+.badgeCard.owned {
+    border-color: rgba(34, 197, 94, 0.2);
+    background: rgba(34, 197, 94, 0.03);
+}
+
+.badgeCard.owned:hover {
+    border-color: rgba(34, 197, 94, 0.4);
+    background: rgba(34, 197, 94, 0.06);
+}
+
 .locked {
-    opacity: 0.4;
+    opacity: 0.38;
     filter: grayscale(1);
 }
 
-.badgeImg {
-    width: 80px;
-    height: 80px;
-    object-fit: contain;
-    margin-bottom: 15px;
+/* ── Ribbon (top-right corner badge) ─────── */
+.ribbon {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 900;
+    z-index: 2;
 }
 
+.ribbon[data-status="owned"] {
+    background: rgba(34, 197, 94, 0.2);
+    border: 1px solid #22c55e;
+    color: #22c55e;
+}
+
+.ribbon[data-status="claim"] {
+    background: rgba(234, 179, 8, 0.2);
+    border: 1px solid #eab308;
+    color: #eab308;
+    animation: pulseRibbon 2s ease-in-out infinite;
+}
+
+@keyframes pulseRibbon {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.4);
+    }
+
+    50% {
+        box-shadow: 0 0 0 5px rgba(234, 179, 8, 0);
+    }
+}
+
+/* ── Category Tag ─────────────────────────── */
+.categoryTag {
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.25);
+    margin-bottom: 12px;
+    align-self: flex-start;
+    padding: 2px 7px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+/* ── Image Wrap ───────────────────────────── */
+.imgWrap {
+    position: relative;
+    width: 72px;
+    height: 72px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.badgeImg {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+    position: relative;
+    z-index: 1;
+}
+
+/* Loading spinner ring around image */
+.spinnerRing {
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    border-top-color: #eab308;
+    border-right-color: rgba(234, 179, 8, 0.3);
+    animation: spin 0.8s linear infinite;
+    z-index: 2;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ── Badge Name ───────────────────────────── */
 .badgeName {
     color: #fff;
-    font-size: 12px;
-    font-weight: 900;
-    margin: 0 0 15px 0;
+    font-size: 11px;
+    font-weight: 800;
+    margin: 0 0 6px;
     text-align: center;
-    letter-spacing: 1px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    line-height: 1.4;
 }
 
-/* Button States */
+/* ── Fee Hint ─────────────────────────────── */
+.feeHint {
+    font-size: 9px;
+    color: rgba(234, 179, 8, 0.7);
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin: 0 0 10px;
+}
+
+/* ── Buttons ──────────────────────────────── */
 .btnClaim,
 .btnOwned,
 .btnLocked {
     width: 100%;
-    padding: 10px;
-    border-radius: 6px;
-    font-size: 11px;
-    font-weight: 900;
+    padding: 9px 10px;
+    border-radius: 7px;
+    font-size: 10px;
+    font-weight: 800;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.2s ease;
     border: none;
     text-transform: uppercase;
+    letter-spacing: 1px;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    margin-top: auto;
 }
 
-/* Available to Mint */
+.btnIcon {
+    font-size: 11px;
+    line-height: 1;
+}
+
 .btnClaim {
     background: #eab308;
     color: #000;
+    position: relative;
+    overflow: hidden;
 }
 
-.btnClaim:hover {
-    background: #facc15;
-    box-shadow: 0 0 15px rgba(234, 179, 8, 0.4);
+.btnClaim::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+    transform: skewX(-20deg);
+    animation: shimmer 2.8s ease-in-out infinite;
 }
 
-/* Already Minted */
+@keyframes shimmer {
+    0% {
+        left: -80%;
+    }
+
+    100% {
+        left: 140%;
+    }
+}
+
+.btnClaim:hover:not(:disabled) {
+    background: #fbbf24;
+    box-shadow: 0 0 18px rgba(234, 179, 8, 0.5);
+    transform: scale(1.02);
+}
+
+.btnClaim:active:not(:disabled) {
+    transform: scale(0.98);
+}
+
 .btnOwned {
-    background: rgba(34, 197, 94, 0.2);
+    background: rgba(34, 197, 94, 0.1);
     color: #22c55e;
-    border: 1px solid #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.35);
     cursor: default;
 }
 
-/* Cannot Mint */
 .btnLocked {
-    background: rgba(255, 255, 255, 0.05);
-    color: rgba(255, 255, 255, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.03);
+    color: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.07);
     cursor: not-allowed;
 }
 
-/* --- RESPONSIVENESS --- */
-
-/* Tablets */
-@media (max-width: 1024px) {
-    .badgeGrid {
-        grid-template-columns: repeat(3, 1fr);
-    }
+.btnSpinner {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid rgba(0, 0, 0, 0.3);
+    border-top-color: #000;
+    animation: spin 0.7s linear infinite;
 }
 
-/* Mobile Phones */
-@media (max-width: 768px) {
-    .badgeGrid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 15px;
-    }
-
-    .lobbyTitle {
-        font-size: 14px;
-    }
-
-    .badgeImg {
-        width: 60px;
-        height: 60px;
-    }
+.emptyState {
+    text-align: center;
+    padding: 48px 20px;
+    color: rgba(255, 255, 255, 0.25);
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    width: 100%;
 }
 
-/* Bomb Shake Effect */
 .bombShake {
     animation: shake 0.5s cubic-bezier(.36, .07, .19, .97) both;
     transform: translate3d(0, 0, 0);
     backface-visibility: hidden;
-    perspective: 1000px;
     background: #f87171 !important;
-    /* Turns red briefly */
     color: #fff !important;
 }
 
@@ -316,44 +457,104 @@
     }
 }
 
-/* Optional: Add a subtle glow to eligible badges to make them pop before deployment */
-.btnClaim {
-    position: relative;
-    overflow: hidden;
-}
-
-.btnClaim::after {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-    transform: rotate(45deg);
-    animation: shine 3s infinite;
-}
-
-@keyframes shine {
-    0% {
-        left: -100%;
-    }
-
-    100% {
-        left: 100%;
-    }
-}
-
-@media (max-width: 480px) {
+/* Large Tablet / Small Desktop */
+@media (max-width: 1100px) {
     .badgeGrid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* Tablet */
+@media (max-width: 768px) {
+    .badgeLobby {
+        padding: 16px 14px 32px;
+    }
+
+    .badgeGrid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+    }
+
+    .lobbyTitleRow {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .lobbyTitle {
+        font-size: 13px;
+    }
+
+    .imgWrap,
+    .badgeImg {
+        width: 60px;
+        height: 60px;
     }
 
     .badgeCard {
-        padding: 12px;
+        padding: 16px 12px 12px;
+    }
+
+    .categoryTabs {
+        gap: 5px;
+    }
+
+    .catTab {
+        padding: 5px 10px;
+        font-size: 9px;
+    }
+}
+
+@media (max-width: 560px) {
+    .badgeGrid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
     }
 
     .badgeName {
         font-size: 10px;
+    }
+
+    .badgeCard {
+        padding: 14px 10px 10px;
+        border-radius: 10px;
+    }
+
+    .imgWrap,
+    .badgeImg {
+        width: 52px;
+        height: 52px;
+    }
+
+    .btnClaim,
+    .btnOwned,
+    .btnLocked {
+        font-size: 9px;
+        padding: 8px 8px;
+    }
+
+    .statsRow {
+        gap: 5px;
+    }
+
+    .statChip {
+        font-size: 9px;
+        padding: 3px 8px;
+    }
+}
+
+/* Small Mobile */
+@media (max-width: 380px) {
+    .categoryTabs {
+        gap: 4px;
+    }
+
+    .catTab {
+        padding: 4px 8px;
+        font-size: 8px;
+    }
+
+    .badgeGrid {
+        gap: 8px;
     }
 }

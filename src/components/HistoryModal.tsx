@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { X, TrendingUp, Zap, History, Clock, Users } from 'lucide-react';
+import { X, TrendingUp, Zap, Clock, Users } from 'lucide-react';
+import styles from '../styles/HistoryModal.module.css';
 
 type FilterType = 'ALL' | 'WINS' | 'COSTS' | 'STAKING' | 'NFT';
+const FILTERS: FilterType[] = ['ALL', 'WINS', 'COSTS', 'STAKING', 'NFT'];
 
-export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
+export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
     const { publicKey } = useWallet();
     const [rawHistory, setRawHistory] = useState<any[]>([]);
     const [groupedHistory, setGroupedHistory] = useState<any>({});
-    const [stats, setStats] = useState({ todayEarned: 0, streak: 0 });
     const [loading, setLoading] = useState(true);
     const [activeFilter, setActiveFilter] = useState<FilterType>('ALL');
 
@@ -19,7 +20,6 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
                 .then(res => res.json())
                 .then(data => {
                     setRawHistory(data.history || []);
-                    setStats(data.stats || { todayEarned: 0, streak: 0 });
                     setLoading(false);
                 });
         }
@@ -27,28 +27,10 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
 
     useEffect(() => {
         const filtered = rawHistory.filter(item => {
-            // GLOBAL RULE: Never show game points in history
             if (item.asset === 'POINTS') return false;
-
             if (activeFilter === 'ALL') return true;
-
-            if (activeFilter === 'COSTS') {
-                return item.type.includes('COST') ||
-                    item.type.includes('FEE') ||
-                    item.type.includes('LOSS') ||
-                    item.type.includes('SPENT') ||
-                    item.type.includes('ENTRY');
-            }
-
-            if (activeFilter === 'WINS') {
-                return (
-                    item.type.includes('WIN') ||
-                    item.type.includes('REWARD') ||
-                    item.type.includes('GAME') ||
-                    item.type.includes('HUNTER')
-                );
-            }
-
+            if (activeFilter === 'COSTS') return item.type.includes('COST') || item.type.includes('FEE') || item.type.includes('LOSS') || item.type.includes('SPENT') || item.type.includes('ENTRY');
+            if (activeFilter === 'WINS') return item.type.includes('WIN') || item.type.includes('REWARD') || item.type.includes('GAME') || item.type.includes('HUNTER');
             if (activeFilter === 'STAKING') return item.type.includes('STAKING');
             if (activeFilter === 'NFT') return item.type.includes('NFT');
             return true;
@@ -56,7 +38,7 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
 
         const groups = filtered.reduce((acc: any, item: any) => {
             const date = new Date(item.createdAt).toLocaleDateString('en-US', {
-                weekday: 'long', year: 'numeric', month: 'short', day: 'numeric'
+                weekday: 'long', year: 'numeric', month: 'short', day: 'numeric',
             });
             if (!acc[date]) acc[date] = [];
             acc[date].push(item);
@@ -69,158 +51,87 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
     if (!isOpen) return null;
 
     return (
-        <div className="overlay" style={{ backdropFilter: 'blur(10px)', zIndex: 1000 }}>
-            <div className="terminal-card" style={{
-                width: '100%',
-                maxWidth: '450px',
-                maxHeight: '85vh',
-                display: 'flex',
-                flexDirection: 'column',
-                padding: 0,
-                overflow: 'hidden',
-                border: '1px solid rgba(255,255,255,0.1)'
-            }}>
-                {/* HEADER */}
-                <div style={{ padding: '24px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                        <div>
-                            <h2 style={{ color: '#eab308', margin: 0, fontSize: '14px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '2px' }}>
-                                Master Ledger
-                            </h2>
-                            <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', margin: 0, fontWeight: 900 }}>TRANSACTION LOGS</p>
-                        </div>
-                        <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '8px', padding: '8px', color: '#fff', cursor: 'pointer' }}>
-                            <X size={18} />
-                        </button>
-                    </div>
+        <div className={styles.backdrop}>
+            <div className={styles.modal}>
 
-                    {/* FILTER TABS */}
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(5, 1fr)',
-                        gap: '4px',
-                        background: 'rgba(0,0,0,0.3)',
-                        padding: '4px',
-                        borderRadius: '12px',
-                        border: '1px solid rgba(255,255,255,0.05)'
-                    }}>
-                        {(['ALL', 'WINS', 'COSTS', 'STAKING', 'NFT'] as FilterType[]).map((tab) => (
-                            <button
-                                key={tab}
-                                onClick={() => setActiveFilter(tab)}
-                                style={{
-                                    background: activeFilter === tab ? '#eab308' : 'transparent',
-                                    color: activeFilter === tab ? '#000' : 'rgba(255,255,255,0.4)',
-                                    border: 'none',
-                                    padding: '8px 0',
-                                    borderRadius: '8px',
-                                    fontSize: '7px',
-                                    fontWeight: 900,
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s'
-                                }}
-                            >
-                                {tab}
-                            </button>
-                        ))}
+                {/* ── HEADER ── */}
+                <div className={styles.header}>
+                    <div className={styles.headerLeft}>
+                        <h2 className={styles.title}>Master Ledger</h2>
+                        <p className={styles.titleSub}>TRANSACTION LOGS</p>
                     </div>
+                    <button onClick={onClose} className={styles.closeBtn}>
+                        <X size={16} />
+                    </button>
                 </div>
 
-                {/* SCROLLABLE LIST */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
+                {/* ── FILTERS ── */}
+                <div className={styles.filterBar}>
+                    {FILTERS.map(tab => (
+                        <button
+                            key={tab}
+                            onClick={() => setActiveFilter(tab)}
+                            className={`${styles.filterBtn} ${activeFilter === tab ? styles.filterBtnActive : ''}`}
+                        >
+                            {tab}
+                        </button>
+                    ))}
+                </div>
+
+                {/* ── LIST ── */}
+                <div className={styles.body}>
                     {loading ? (
-                        <div style={{ textAlign: 'center', padding: '40px' }}>
-                            <p className="terminal-desc animate-pulse">DECRYPTING RECORDS...</p>
+                        <div className={styles.centerState}>
+                            <p className={styles.loadingText}>DECRYPTING RECORDS...</p>
                         </div>
                     ) : Object.keys(groupedHistory).length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '40px' }}>
-                            <p className="terminal-desc" style={{ fontSize: '10px' }}>NO RECORDS FOUND</p>
+                        <div className={styles.centerState}>
+                            <p className={styles.emptyText}>NO RECORDS FOUND</p>
                         </div>
                     ) : (
-                        Object.keys(groupedHistory).map((date) => (
-                            <div key={date} style={{ marginBottom: '24px' }}>
-                                <h3 style={{ fontSize: '9px', fontWeight: 900, color: 'rgba(234,179,8,0.5)', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px', borderLeft: '2px solid #eab308', paddingLeft: '8px' }}>
-                                    {date}
-                                </h3>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        Object.keys(groupedHistory).map(date => (
+                            <div key={date} className={styles.dateGroup}>
+                                <h3 className={styles.dateLabel}>{date}</h3>
+                                <div className={styles.itemList}>
                                     {groupedHistory[date].map((item: any) => {
-                                        // 1. Define the logic checks
                                         const isCost = item.type.includes('COST') || item.type.includes('FEE') || item.type.includes('LOSS') || item.type.includes('ENTRY') || item.amount < 0;
                                         const isRecruit = item.type.includes('RECRUIT');
                                         const isGameWin = item.type.includes('GAME') || item.type.includes('HUNTER');
 
-                                        // 2. Set the colors (Red for costs, Purple for recruits, Gold for game/SKR wins, Green for the rest)
-                                        const themeColor = isCost
-                                            ? '#ef4444'
-                                            : isRecruit
-                                                ? '#8b5cf6'
-                                                : (isGameWin || item.asset === 'SKR')
-                                                    ? '#eab308'
-                                                    : '#22c55e';
+                                        const theme = isCost ? 'red'
+                                            : isRecruit ? 'purple'
+                                                : (isGameWin || item.asset === 'SKR') ? 'gold'
+                                                    : 'green';
 
-                                        // 3. Set the background transparency to match the theme color
-                                        const bgColor = isCost
-                                            ? 'rgba(239, 68, 68, 0.1)'
-                                            : isRecruit
-                                                ? 'rgba(139, 92, 246, 0.1)'
-                                                : (isGameWin || item.asset === 'SKR')
-                                                    ? 'rgba(234, 179, 8, 0.1)'
-                                                    : 'rgba(34, 197, 94, 0.1)';
-
-                                        // 4. Format the number display
-                                        const displayAmount = isCost ? `-${Math.abs(item.amount)}` : `+${Math.abs(item.amount)}`;
+                                        const displayAmount = isCost
+                                            ? `-${Math.abs(item.amount)}`
+                                            : `+${Math.abs(item.amount)}`;
 
                                         return (
-                                            <div key={item.id} style={{
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center',
-                                                padding: '12px 16px',
-                                                background: 'rgba(255,255,255,0.02)',
-                                                borderRadius: '12px',
-                                                border: '1px solid rgba(255,255,255,0.05)'
-                                            }}>
-                                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                                                    {/* ICON SECTION */}
-                                                    <div style={{
-                                                        width: '32px',
-                                                        height: '32px',
-                                                        borderRadius: '8px',
-                                                        background: bgColor,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        color: themeColor
-                                                    }}>
-                                                        {isRecruit ? <Users size={16} /> : (isCost ? <Zap size={16} /> : <TrendingUp size={16} />)}
+                                            <div key={item.id} className={styles.item}>
+                                                <div className={styles.itemLeft}>
+                                                    <div className={`${styles.itemIcon} ${styles[`icon_${theme}`]}`}>
+                                                        {isRecruit
+                                                            ? <Users size={14} />
+                                                            : isCost
+                                                                ? <Zap size={14} />
+                                                                : <TrendingUp size={14} />}
                                                     </div>
-
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                            <span style={{
-                                                                fontSize: '7px',
-                                                                fontWeight: 900,
-                                                                padding: '2px 6px',
-                                                                borderRadius: '4px',
-                                                                background: item.asset === 'SKR' ? 'rgba(234, 179, 8, 0.1)' : bgColor,
-                                                                color: item.asset === 'SKR' ? '#eab308' : themeColor,
-                                                                textTransform: 'uppercase'
-                                                            }}>
-                                                                {item.type.split('_').join(' ')}
-                                                            </span>
-                                                        </div>
-                                                        <p style={{ fontSize: '10px', fontWeight: 900, color: '#fff', margin: 0 }}>
+                                                    <div className={styles.itemMeta}>
+                                                        <span className={`${styles.itemType} ${styles[`type_${theme}`]}`}>
+                                                            {item.type.split('_').join(' ')}
+                                                        </span>
+                                                        <p className={styles.itemLabel}>
                                                             {item.asset} {isCost ? 'EXPENSE' : 'INCOME'}
                                                         </p>
                                                     </div>
                                                 </div>
-
-                                                <div style={{ textAlign: 'right' }}>
-                                                    <p style={{ fontSize: '13px', fontWeight: 900, margin: 0, color: themeColor }}>
+                                                <div className={styles.itemRight}>
+                                                    <span className={`${styles.itemAmount} ${styles[`amount_${theme}`]}`}>
                                                         {displayAmount}
-                                                    </p>
-                                                    <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '2px' }}>
-                                                        <Clock size={8} />
+                                                    </span>
+                                                    <span className={styles.itemTime}>
+                                                        <Clock size={7} />
                                                         {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                     </span>
                                                 </div>
@@ -232,6 +143,7 @@ export default function HistoryModal({ isOpen, onClose }: { isOpen: boolean, onC
                         ))
                     )}
                 </div>
+
             </div>
         </div>
     );

@@ -1,30 +1,57 @@
 .odometerContainer {
-    background: #0a0a0a;
-    border: 1px solid #1a1a1a;
+    background: #080808;
+    border: 1px solid #1c1c1c;
     padding: 20px;
-    border-radius: 16px;
-    margin-bottom: 24px;
+    border-radius: 14px;
+    margin-bottom: 28px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.8);
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.9);
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
+}
+
+.odometerLeft {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.odometerLabel {
+    font-size: 8px;
+    color: #444;
+    font-weight: 900;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+}
+
+.digitRow {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.digits {
+    display: flex;
+    gap: 4px;
 }
 
 .digitBox {
-    background: linear-gradient(180deg, #1a1a1a 0%, #000 50%, #1a1a1a 100%);
-    border: 1px solid #333;
-    border-radius: 4px;
-    width: 32px;
-    height: 45px;
+    background: linear-gradient(180deg, #1c1c1c 0%, #000 50%, #1c1c1c 100%);
+    border: 1px solid #2a2a2a;
+    border-radius: 5px;
+    width: 34px;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 28px;
     font-weight: 900;
     color: #fff;
-    font-family: monospace;
+    font-family: 'IBM Plex Mono', monospace;
     position: relative;
     overflow: hidden;
+    letter-spacing: 0;
 }
 
 .digitGlow {
@@ -34,43 +61,586 @@
     right: 0;
     height: 2px;
     background: #eab308;
-    box-shadow: 0 0 10px #eab308;
-    opacity: 0.5;
+    box-shadow: 0 0 8px #eab308;
+    opacity: 0.45;
 }
 
-/* Milestone Effect: Glows gold and pulses when streak is a multiple of 10 */
 .milestoneGlow {
-    border-color: #eab308 !important;
-    box-shadow: 0 0 15px rgba(234, 179, 8, 0.4);
-    animation: pulse 1.5s infinite;
+    border-color: #eab308;
+    box-shadow: 0 0 16px rgba(234, 179, 8, 0.35);
+    animation: milestonePulse 1.5s ease-in-out infinite;
 }
 
-@keyframes pulse {
-    0% {
+@keyframes milestonePulse {
+
+    0%,
+    100% {
         transform: scale(1);
     }
 
     50% {
         transform: scale(1.05);
-        shadow: 0 0 20px rgba(234, 179, 8, 0.6);
+        box-shadow: 0 0 24px rgba(234, 179, 8, 0.55);
     }
+}
 
-    100% {
-        transform: scale(1);
-    }
+.daysLabel {
+    font-size: 11px;
+    font-weight: 900;
+    color: #eab308;
+    padding-bottom: 5px;
+    letter-spacing: 1px;
+}
+
+.odometerRight {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.systemStatusLabel {
+    font-size: 7px;
+    color: #333;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.systemStatusValue {
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+}
+
+.statusActive {
+    color: #22c55e;
+}
+
+.statusInactive {
+    color: #ef4444;
+}
+
+.sectionHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+}
+
+.sectionTitle {
+    font-size: 9px;
+    font-weight: 900;
+    color: #eab308;
+    text-transform: uppercase;
+    letter-spacing: 2.5px;
+    margin: 0;
+    font-family: 'IBM Plex Mono', monospace;
+}
+
+.sectionTitleBlue {
+    color: #60a5fa;
+}
+
+.sectionTitleDim {
+    color: rgba(255, 255, 255, 0.18);
+}
+
+.sectionCount {
+    font-size: 9px;
+    font-weight: 900;
+    color: rgba(234, 179, 8, 0.4);
+    letter-spacing: 1px;
+    font-family: 'IBM Plex Mono', monospace;
+}
+
+.sectionCountBlue {
+    color: rgba(96, 165, 250, 0.5);
+}
+
+.sectionCountDim {
+    color: rgba(255, 255, 255, 0.12);
+}
+
+.resetTimer {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 9px;
+    font-weight: 900;
+    color: #ef4444;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-family: 'IBM Plex Mono', monospace;
+}
+
+.dailyGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 32px;
+}
+
+.dailyCard {
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    transition: all 0.2s;
+    font-family: 'IBM Plex Mono', monospace;
+}
+
+.dailyCardClaimed {
+    opacity: 0.55;
+    border-color: rgba(34, 197, 94, 0.15);
+}
+
+.dailyCardTop {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.dailyAssetName {
+    font-size: 13px;
+    font-weight: 900;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.dailyStatus {
+    font-size: 7px;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 3px 7px;
+    border-radius: 4px;
+}
+
+.dailyStatusAvail {
+    color: #eab308;
+    background: rgba(234, 179, 8, 0.1);
+    border: 1px solid rgba(234, 179, 8, 0.25);
+}
+
+.dailyStatusClaimed {
+    color: #22c55e;
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.claimBtn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.claimBtnReady {
+    background: #fff;
+    color: #000;
+}
+
+.claimBtnReady:hover:not(:disabled) {
+    background: #eab308;
+    box-shadow: 0 0 14px rgba(234, 179, 8, 0.3);
+}
+
+.claimBtnDone {
+    background: rgba(34, 197, 94, 0.12);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.25);
+    cursor: default;
+}
+
+.questList {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 32px;
+}
+
+.questCard {
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 12px;
+    padding: 14px 16px;
+    position: relative;
+    overflow: hidden;
+    font-family: 'IBM Plex Mono', monospace;
+    transition: border-color 0.2s;
+}
+
+.questCard:hover {
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.questCardPending {
+    border-color: rgba(96, 165, 250, 0.3);
+    background: rgba(96, 165, 250, 0.03);
+    opacity: 0.85;
+}
+
+.questCardArchived {
+    background: rgba(0, 0, 0, 0.25);
+    opacity: 0.75;
+}
+
+.questCardSecured {
+    background: rgba(34, 197, 94, 0.04);
+    border-color: rgba(34, 197, 94, 0.2);
+    opacity: 0.85;
+}
+
+.questCardMissed {
+    background: rgba(239, 68, 68, 0.03);
+    border-color: rgba(239, 68, 68, 0.15);
+    opacity: 0.6;
+    filter: grayscale(0.4);
+}
+
+.questCardLocked {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.lockedOverlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    font-size: 9px;
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.5);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    z-index: 10;
+    font-family: inherit;
+    backdrop-filter: blur(1px);
+}
+
+.blurred {
+    filter: blur(1.5px);
+    pointer-events: none;
+}
+
+.archivedSubHeader {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0 10px;
+    margin-top: 4px;
+}
+
+.archivedSubLabel {
+    font-size: 7px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-family: 'IBM Plex Mono', monospace;
+}
+
+.archivedSubLabelGreen {
+    color: rgba(34, 197, 94, 0.6);
+}
+
+.archivedSubLabelRed {
+    color: rgba(239, 68, 68, 0.5);
+}
+
+.archivedSubCount {
+    font-size: 7px;
+    font-weight: 900;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.5px;
+}
+
+.archivedSubCountGreen {
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+    color: #22c55e;
+}
+
+.archivedSubCountRed {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.18);
+    color: #ef4444;
+}
+
+.archivedSubLine {
+    flex: 1;
+    height: 1px;
+}
+
+.archivedSubLineGreen {
+    background: rgba(34, 197, 94, 0.1);
+}
+
+.archivedSubLineRed {
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.questCardInner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.questInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+}
+
+.questTitle {
+    font-size: 13px;
+    font-weight: 900;
+    color: #fff;
+    margin: 0;
+    line-height: 1.3;
+}
+
+.questTitleStrike {
+    text-decoration: line-through;
+    opacity: 0.5;
+}
+
+.questTitleDim {
+    color: #6b7280;
+}
+
+.questMeta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.questReward {
+    font-size: 10px;
+    font-weight: 900;
+    color: #eab308;
+    letter-spacing: 0.5px;
+}
+
+.questTimer {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 8px;
+    font-weight: 700;
+    color: #ef4444;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.questAction {
+    flex-shrink: 0;
+}
+
+.actionBtn {
+    padding: 9px 16px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #fff;
+    font-family: inherit;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.actionBtn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.13);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.actionBtnGold {
+    background: #eab308;
+    border-color: #eab308;
+    color: #000;
+}
+
+.actionBtnGold:hover:not(:disabled) {
+    background: #fbbf24;
+    box-shadow: 0 0 12px rgba(234, 179, 8, 0.3);
+}
+
+.proofInput {
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 12px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: #fff;
+    font-size: 10px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.proofInput:focus {
+    border-color: rgba(234, 179, 8, 0.4);
+}
+
+.proofInput::placeholder {
+    color: rgba(255, 255, 255, 0.2);
+}
+
+.pendingLabel {
+    font-size: 9px;
+    font-weight: 700;
+    color: #60a5fa;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.waitingTag {
+    font-size: 9px;
+    font-weight: 900;
+    color: #60a5fa;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+}
+
+.archiveStatus {
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+}
+
+.archiveRejected {
+    color: #ef4444;
+}
+
+.archiveExpired {
+    color: #6b7280;
+}
+
+.archiveSuccess {
+    color: #22c55e;
+}
+
+.archiveIcon {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+}
+
+.showMoreBtn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.35);
+    padding: 11px;
+    border-radius: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    margin-top: 4px;
+    transition: all 0.2s;
+}
+
+.showMoreBtn:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.emptyState {
+    padding: 32px;
+    text-align: center;
+    font-size: 9px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.15);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    border: 1px dashed rgba(255, 255, 255, 0.07);
+    border-radius: 10px;
+    font-family: 'IBM Plex Mono', monospace;
 }
 
 @media (max-width: 640px) {
     .odometerContainer {
         flex-direction: column;
-        gap: 15px;
+        gap: 16px;
         align-items: flex-start;
-        padding: 15px;
+        padding: 16px;
+    }
+
+    .odometerRight {
+        text-align: left;
     }
 
     .digitBox {
-        width: 28px;
-        height: 40px;
-        font-size: 22px;
+        width: 30px;
+        height: 42px;
+        font-size: 24px;
+    }
+
+    .dailyGrid {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    .questTitle {
+        font-size: 12px;
+    }
+
+    .actionBtn {
+        padding: 8px 12px;
+        font-size: 8px;
+    }
+}
+
+@media (max-width: 380px) {
+    .dailyGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .questCardInner {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .actionBtn {
+        width: 100%;
+        text-align: center;
     }
 }

@@ -3,6 +3,32 @@ import Head from 'next/head';
 import Link from 'next/link';
 import SeekerGuard from '../components/SeekerGuard';
 import { Zap, Clock, ShieldCheck, ArrowRight } from 'lucide-react';
+import styles from '../styles/Vault.module.css';
+
+const EMISSION_ROWS = [
+  {
+    label: '1 NFT',
+    imgs: [{ size: 30, opacity: 1 }],
+    laam: '500',
+    tag: '20',
+    highlight: false,
+  },
+  {
+    label: '2 NFTs',
+    imgs: [{ size: 26, opacity: 1 }, { size: 26, opacity: 1 }],
+    laam: '1,000',
+    tag: '40',
+    highlight: false,
+  },
+  {
+    label: 'UNLIMITED',
+    imgs: [{ size: 22, opacity: 1 }, { size: 22, opacity: 0.5 }],
+    extra: true,
+    laam: '+500 / NFT',
+    tag: '+20 / NFT',
+    highlight: true,
+  },
+];
 
 export default function VaultPromoPage() {
   const { connected } = useWallet();
@@ -12,100 +38,101 @@ export default function VaultPromoPage() {
       <div className="content-wrapper">
         <Head><title>LAAMTAG | The Vault Briefing</title></Head>
 
-        <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-          <h1 className="page-title">The <span style={{ color: '#eab308' }}>Vault</span></h1>
-          <p className="terminal-desc" style={{ fontSize: '10px' }}>PROTOCOL: REWARD_STRUCTURE_v2.0</p>
+        {/* ── HEADER ── */}
+        <div className={styles.pageHeader}>
+          <h1 className={styles.pageTitle}>
+            The <span className={styles.titleAccent}>Vault</span>
+          </h1>
+          <p className={styles.pageSubtitle}>PROTOCOL: REWARD_STRUCTURE_v2.0</p>
         </div>
 
-        {/* TOP INFO CARDS */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '30px' }}>
-          <div className="terminal-card" style={{ padding: '20px', textAlign: 'center', border: '1px solid rgba(255, 68, 68, 0.2)' }}>
-            <Clock size={20} color="#ff4444" style={{ margin: '0 auto 10px' }} />
-            <h3 style={{ fontSize: '12px', margin: '0 0 5px' }}>48H INITIAL LOCK</h3>
-            <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', margin: 0 }}>Assets must stay locked for 48 hours before rewards begin accruing.</p>
+        {/* ── INFO CARDS ── */}
+        <div className={styles.infoGrid}>
+          <div className={`${styles.infoCard} ${styles.infoCardRed}`}>
+            <Clock size={18} className={styles.infoIconRed} />
+            <h3 className={styles.infoCardTitle}>48H Initial Lock</h3>
+            <p className={styles.infoCardDesc}>Assets must stay locked for 48 hours before rewards begin accruing.</p>
           </div>
-          <div className="terminal-card" style={{ padding: '20px', textAlign: 'center', border: '1px solid rgba(168, 85, 247, 0.2)' }}>
-            <Zap size={20} color="#a855f7" style={{ margin: '0 auto 10px' }} />
-            <h3 style={{ fontSize: '12px', margin: '0 0 5px' }}>24H CLAIM CYCLE</h3>
-            <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', margin: 0 }}>Sync your rewards to your wallet once every 24 hours.</p>
+          <div className={`${styles.infoCard} ${styles.infoCardPurple}`}>
+            <Zap size={18} className={styles.infoIconPurple} />
+            <h3 className={styles.infoCardTitle}>24H Claim Cycle</h3>
+            <p className={styles.infoCardDesc}>Sync your rewards to your wallet once every 24 hours.</p>
           </div>
         </div>
 
-        {/* REWARD TABLE */}
-        <div className="terminal-card" style={{ padding: '20px', marginBottom: '30px' }}>
-          <h2 style={{ fontSize: '14px', fontWeight: 900, marginBottom: '20px', textAlign: 'center' }}>EMISSION SCHEDULE</h2>
-          
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                <th style={{ padding: '10px', fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>ASSETS LOCKED</th>
-                <th style={{ padding: '10px', fontSize: '10px', color: '#eab308' }}>DAILY LAAM</th>
-                <th style={{ padding: '10px', fontSize: '10px', color: '#fff' }}>DAILY TAG</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                <td style={{ padding: '15px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'center' }}>
-                    <img src="/assets/images/vault-box.gif" style={{ width: '30px', borderRadius: '4px' }} />
+        {/* ── EMISSION TABLE ── */}
+        <div className={styles.tableCard}>
+          <h2 className={styles.tableTitle}>Emission Schedule</h2>
+
+          <div className={styles.tableWrap}>
+            <div className={styles.tableHead}>
+              <span className={styles.thAssets}>Assets Locked</span>
+              <span className={styles.thLaam}>Daily LAAM</span>
+              <span className={styles.thTag}>Daily TAG</span>
+            </div>
+
+            {EMISSION_ROWS.map((row, i) => (
+              <div key={i} className={`${styles.tableRow} ${row.highlight ? styles.tableRowHighlight : ''}`}>
+                <div className={styles.tdAssets}>
+                  <div className={styles.tdImgs}>
+                    {row.imgs.map((img, j) => (
+                      <img
+                        key={j}
+                        src="/assets/images/vault-box.gif"
+                        alt=""
+                        className={styles.vaultBoxImg}
+                        style={{ width: img.size, height: img.size, opacity: img.opacity }}
+                      />
+                    ))}
+                    {row.extra && <span className={styles.ellipsis}>···</span>}
                   </div>
-                  <span style={{ fontSize: '11px', fontWeight: 900 }}>1 NFT</span>
-                </td>
-                <td style={{ fontSize: '14px', fontWeight: 900 }}>500</td>
-                <td style={{ fontSize: '14px', fontWeight: 900 }}>20</td>
-              </tr>
-              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                <td style={{ padding: '15px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: '4px' }}>
-                    <img src="/assets/images/vault-box.gif" style={{ width: '25px', borderRadius: '4px' }} />
-                    <img src="/assets/images/vault-box.gif" style={{ width: '25px', borderRadius: '4px' }} />
-                  </div>
-                  <span style={{ fontSize: '11px', fontWeight: 900 }}>2 NFTs</span>
-                </td>
-                <td style={{ fontSize: '14px', fontWeight: 900 }}>1000</td>
-                <td style={{ fontSize: '14px', fontWeight: 900 }}>40</td>
-              </tr>
-              <tr>
-                <td style={{ padding: '15px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: '4px' }}>
-                    <img src="/assets/images/vault-box.gif" style={{ width: '20px', borderRadius: '4px' }} />
-                    <img src="/assets/images/vault-box.gif" style={{ width: '20px', borderRadius: '4px', opacity: 0.6 }} />
-                    <span style={{ fontSize: '12px' }}>...</span>
-                  </div>
-                  <span style={{ fontSize: '11px', fontWeight: 900 }}>UNLIMITED</span>
-                </td>
-                <td style={{ fontSize: '14px', fontWeight: 900, color: '#eab308' }}>+500 / NFT</td>
-                <td style={{ fontSize: '14px', fontWeight: 900, color: '#fff' }}>+20 / NFT</td>
-              </tr>
-            </tbody>
-          </table>
+                  <span className={`${styles.tdLabel} ${row.highlight ? styles.tdLabelGold : ''}`}>
+                    {row.label}
+                  </span>
+                </div>
+                <div className={styles.tdLaam}>
+                  <span className={`${styles.tdVal} ${row.highlight ? styles.tdValGold : ''}`}>
+                    {row.laam}
+                  </span>
+                </div>
+                <div className={styles.tdTag}>
+                  <span className={styles.tdVal}>{row.tag}</span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* CTA SECTION */}
-        <div className="terminal-card" style={{ padding: '30px', textAlign: 'center', background: 'linear-gradient(to bottom, rgba(234, 179, 8, 0.05), transparent)' }}>
-          <ShieldCheck size={40} color="#eab308" style={{ margin: '0 auto 20px' }} />
-          <h2 style={{ fontSize: '20px', fontWeight: 900, marginBottom: '10px' }}>READY TO SECURE REWARDS?</h2>
-          <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', marginBottom: '25px', lineHeight: '1.6' }}>
-            Enter the Staking Arena to lock your Genesis Tags. <br/>
+        {/* ── BOOST CALLOUT ── */}
+        <div className={styles.boostCallout}>
+          <div className={styles.boostCalloutIcon}>
+            <Zap size={14} className={styles.purpleIcon} />
+          </div>
+          <div>
+            <p className={styles.boostCalloutTitle}>Multiplier Boosts Available</p>
+            <p className={styles.boostCalloutDesc}>
+              Purchase SKR-powered boosts (x2 → x100) inside the Staking Arena to multiply your per-second accrual rate.
+            </p>
+          </div>
+        </div>
+
+        {/* ── CTA ── */}
+        <div className={styles.ctaCard}>
+          <div className={styles.ctaGlow} />
+          <ShieldCheck size={36} className={styles.ctaIcon} />
+          <h2 className={styles.ctaTitle}>Ready to Secure Rewards?</h2>
+          <p className={styles.ctaDesc}>
+            Enter the Staking Arena to lock your Genesis Tags.
             Rewards are calculated per-second after your initial 48h deployment.
           </p>
-          
-          <Link href="/staking" style={{ textDecoration: 'none' }}>
-            <button className="primary-btn" style={{ 
-              width: '100%', 
-              padding: '15px', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              gap: '10px',
-              fontSize: '14px',
-              letterSpacing: '2px'
-            }}>
-              {connected ? "ENTER STAKING ARENA" : "CONNECT WALLET TO START"}
-              <ArrowRight size={18} />
+          <Link href="/staking" className={styles.ctaLink}>
+            <button className={styles.ctaBtn}>
+              {connected ? 'ENTER STAKING ARENA' : 'CONNECT WALLET TO START'}
+              <ArrowRight size={16} />
             </button>
           </Link>
         </div>
+
       </div>
     </SeekerGuard>
   );

@@ -4,21 +4,18 @@ import { toast } from 'react-hot-toast';
 import { BADGE_LIST } from '../utils/badge-list';
 import styles from '../styles/ClaimBadge.module.css';
 
-// UMI imports (umi 0.9.x compatible — no umi-web3js-adapters needed)
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
 import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
 import { mplToolbox, setComputeUnitLimit, setComputeUnitPrice } from '@metaplex-foundation/mpl-toolbox';
 import { publicKey, transactionBuilder } from '@metaplex-foundation/umi';
 import { base58 } from '@metaplex-foundation/umi/serializers';
 
-// SPL Token + web3.js — used only for ATA derivation & instruction building
 import {
   createTransferCheckedInstruction,
   getAssociatedTokenAddress,
 } from '@solana/spl-token';
 import { PublicKey } from '@solana/web3.js';
 
-// Constants
 const SKR_MINT_STR = "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3";
 const TREASURY_ATA_STR = "Csex5aLu6U6o1mqQrxWKqEmS6cLvitcxunQXMyZoDMEM";
 const RPC_ENDPOINT = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
@@ -29,6 +26,8 @@ const RANK_HIERARCHY = [
   "Bronze", "Bronze Elite", "Silver", "Silver Elite", "Gold", "Gold Elite",
   "Platinum", "Diamond", "Legend", "Mythic", "Eternal", "Ascendant"
 ];
+
+const CATEGORIES = ["All", "Rank", "Streak", "Quest", "Social", "Special"];
 
 function web3IxToUmiIx(ix: any, signers: any[]) {
   return {
@@ -50,6 +49,7 @@ export default function ClaimBadge({ user, mutate }: { user: any; mutate: () => 
   const { connection } = useConnection();
   const wallet = useWallet();
   const [loadingBadge, setLoadingBadge] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState("All");
 
   const handleClaim = async (badgeName: string) => {
     if (!wallet.publicKey || !wallet.connected) {
@@ -128,11 +128,6 @@ export default function ClaimBadge({ user, mutate }: { user: any; mutate: () => 
 
   const badgeData = useMemo(() => {
     const claimed = user?.claimedBadges || [];
-
-    // ── READ FLAT FIELDS FROM /api/user/[address] RESPONSE ──────────────
-    // The API returns these as top-level flat numbers, NOT nested in _count.
-    // Old code was reading user?._count?.quests and user?._count?.friendsSent
-    // which don't exist — hence Social and Quest badges were always locked.
     const completedQuests = user?.completedQuestsCount ?? 0;
     const activeBoosts = user?.purchasedBoostsCount ?? 0;
     const friendsCount = user?.friendsCount ?? 0;
@@ -184,10 +179,8 @@ export default function ClaimBadge({ user, mutate }: { user: any; mutate: () => 
           } else if (badge.category === "Streak") {
             isEligible = (user?.streakCount || 0) >= (badge.min ?? 0);
           } else if (badge.category === "Quest") {
-            // ✅ Fixed: reads completedQuestsCount (flat field from API)
             isEligible = completedQuests >= (badge.min ?? 0);
           } else if (badge.category === "Social") {
-            // ✅ Fixed: reads friendsCount (flat field from API)
             isEligible = friendsCount >= (badge.min ?? 0);
           } else {
             isEligible = true;
@@ -197,7 +190,6 @@ export default function ClaimBadge({ user, mutate }: { user: any; mutate: () => 
       return { ...badge, isOwned, isEligible };
     });
 
-    // Sort: Available (0) → Locked (1) → Unlocked (2)
     return mappedBadges.sort((a, b) => {
       const getPriority = (item: any) => {
         if (item.isEligible && !item.isOwned) return 0;
@@ -208,21 +200,92 @@ export default function ClaimBadge({ user, mutate }: { user: any; mutate: () => 
     });
   }, [user]);
 
+  const filteredBadges = useMemo(() => {
+    if (activeCategory === "All") return badgeData;
+    return badgeData.filter((b) => b.category === activeCategory);
+  }, [badgeData, activeCategory]);
+
+  // Stats for header
+  const totalOwned = badgeData.filter((b) => b.isOwned).length;
+  const totalClaimable = badgeData.filter((b) => b.isEligible && !b.isOwned).length;
+
   return (
     <div className={styles.badgeLobby}>
-      <h3 className={styles.lobbyTitle}>Neural Badge Repository</h3>
+      {/* Header */}
+      <div className={styles.lobbyHeader}>
+        <div className={styles.lobbyTitleRow}>
+          <h3 className={styles.lobbyTitle}>Neural Badge Repository</h3>
+          <div className={styles.statsRow}>
+            <span className={styles.statChip}>
+              <span className={styles.statDot} data-type="owned" />
+              {totalOwned} Owned
+            </span>
+            {totalClaimable > 0 && (
+              <span className={styles.statChip} data-highlight="true">
+                <span className={styles.statDot} data-type="claimable" />
+                {totalClaimable} Ready
+              </span>
+            )}
+            <span className={styles.statChip}>
+              <span className={styles.statDot} data-type="total" />
+              {badgeData.length} Total
+            </span>
+          </div>
+        </div>
+
+        {/* Category Filters */}
+        <div className={styles.categoryTabs}>
+          {CATEGORIES.map((cat) => {
+            const count = cat === "All"
+              ? badgeData.length
+              : badgeData.filter((b) => b.category === cat).length;
+            return (
+              <button
+                key={cat}
+                className={`${styles.catTab} ${activeCategory === cat ? styles.catTabActive : ''}`}
+                onClick={() => setActiveCategory(cat)}
+              >
+                {cat}
+                <span className={styles.catCount}>{count}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Badge Grid */}
       <div className={styles.badgeGrid}>
-        {badgeData.map((badge) => {
+        {filteredBadges.map((badge) => {
           const isLocked = !badge.isEligible && !badge.isOwned;
           const canClaim = badge.isEligible && !badge.isOwned;
+          const isLoading = loadingBadge === badge.name;
 
           return (
             <div
               key={badge.name}
-              className={`${styles.badgeCard} ${isLocked ? styles.locked : ''}`}
+              className={`${styles.badgeCard} ${isLocked ? styles.locked : ''} ${badge.isOwned ? styles.owned : ''} ${canClaim ? styles.claimable : ''}`}
             >
-              <img src={badge.img} alt={badge.name} className={styles.badgeImg} />
+              {/* Status ribbon */}
+              {badge.isOwned && <span className={styles.ribbon} data-status="owned">✓</span>}
+              {canClaim && <span className={styles.ribbon} data-status="claim">!</span>}
+
+              {/* Category tag */}
+              {badge.category && (
+                <span className={styles.categoryTag}>{badge.category}</span>
+              )}
+
+              <div className={styles.imgWrap}>
+                <img src={badge.img} alt={badge.name} className={styles.badgeImg} />
+                {isLoading && <div className={styles.spinnerRing} />}
+              </div>
+
               <h4 className={styles.badgeName}>{badge.name}</h4>
+
+              {/* Fee hint on claimable */}
+              {canClaim && (
+                <p className={styles.feeHint}>50 $SKR</p>
+              )}
+
               <button
                 onClick={() => canClaim && handleClaim(badge.name)}
                 disabled={!canClaim || !!loadingBadge}
@@ -232,14 +295,25 @@ export default function ClaimBadge({ user, mutate }: { user: any; mutate: () => 
                       styles.btnClaim
                 }
               >
-                {badge.isOwned ? "UNLOCKED" :
-                  loadingBadge === badge.name ? "WAIT..." :
-                    isLocked ? "LOCKED" : "CLAIM"}
+                {badge.isOwned
+                  ? <><span className={styles.btnIcon}>✓</span> UNLOCKED</>
+                  : isLoading
+                    ? <><span className={styles.btnSpinner} /> WAIT...</>
+                    : isLocked
+                      ? <><span className={styles.btnIcon}>🔒</span> LOCKED</>
+                      : <><span className={styles.btnIcon}>⚡</span> CLAIM</>
+                }
               </button>
             </div>
           );
         })}
       </div>
+
+      {filteredBadges.length === 0 && (
+        <div className={styles.emptyState}>
+          <span>No badges in this category</span>
+        </div>
+      )}
     </div>
   );
 }

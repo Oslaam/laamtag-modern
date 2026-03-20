@@ -4,9 +4,9 @@ import { useState, useEffect } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import axios from "axios";
-import { Minus, Plus, Crown } from "lucide-react";
+import { Minus, Plus, Crown, Zap, AlertTriangle } from "lucide-react";
 import SeekerGuard from "../components/SeekerGuard";
-import styles from "../styles/Mint.module.css"; // CSS Module Import
+import styles from "../styles/Mint.module.css";
 
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-adapters";
@@ -51,8 +51,7 @@ const Mint: NextPage = () => {
       try {
         const status = await verifyCandyMachine();
         setCmStatus(status);
-      } catch (err) {
-        console.error("Health Check Failed", err);
+      } catch {
         setCmStatus("CONNECTION ERROR");
       }
     };
@@ -70,7 +69,7 @@ const Mint: NextPage = () => {
       setStats({
         global: redeemed,
         personal: res.data.personalMinted || 0,
-        soldOut: redeemed >= total
+        soldOut: redeemed >= total,
       });
       setUsername(res.data.username || null);
     } catch (e) {
@@ -103,7 +102,6 @@ const Mint: NextPage = () => {
       const itemsAvailable = Number(candyMachine.data?.itemsAvailable ?? 0);
       if (itemsAvailable <= 0) throw new Error("Candy Machine is SOLD OUT");
 
-      const maxMintable = Math.min(amount, 10 - stats.personal, itemsAvailable);
       const treasuryPubkey = umiPublicKey(MY_TREASURY_ADDR.trim());
 
       let builder = transactionBuilder()
@@ -132,15 +130,15 @@ const Mint: NextPage = () => {
       await axios.post('/api/user/update-mints', {
         walletAddress: publicKey.toBase58(),
         actualCount: stats.personal + amount,
-        amountMinted: amount
+        amountMinted: amount,
       });
 
       const rewardRes = await axios.post('/api/user/reward-nft', {
         address: publicKey.toBase58(),
-        mintCount: amount
+        mintCount: amount,
       });
 
-      alert(`🎉 SUCCESS! Minted ${amount} NFT(s) and earned ${rewardRes.data.earned} LAAM!`);
+      alert(`SUCCESS! Minted ${amount} NFT(s) and earned ${rewardRes.data.earned} LAAM!`);
       fetchStatus();
     } catch (err: any) {
       console.error("MINT_ERROR:", err);
@@ -151,102 +149,169 @@ const Mint: NextPage = () => {
   };
 
   if (!isClient) return null;
+
   const totalDisplay = (MINT_PRICE + RENT_PER_NFT) * amount;
+  const progressPct = Math.min((stats.global / MAX_SUPPLY) * 100, 100);
+  const isHealthy = cmStatus === "Candy Machine is HEALTHY";
+  const canMint = !loading && !stats.soldOut && connected && isHealthy;
+  const remaining = 10 - stats.personal;
 
   return (
     <SeekerGuard>
       <div className="main-content">
         <Head><title>LAAMTAG | Mint</title></Head>
 
-        <div className="content-wrapper">
-          {/* IMAGE SECTION */}
-          <div className={styles.imageContainer}>
-            <div className={styles.imageOuter}>
-              <img
-                src="/assets/images/nft.gif"
-                alt="Laamtag NFT"
-                className={styles.nftGif}
-              />
+        <div className={`content-wrapper ${styles.page}`}>
+
+          {/* ── NFT IMAGE ── */}
+          <div className={styles.imageSection}>
+            <div className={styles.imageFrame}>
+              <div className={styles.imageCornerTL} />
+              <div className={styles.imageCornerTR} />
+              <div className={styles.imageCornerBL} />
+              <div className={styles.imageCornerBR} />
+              <img src="/assets/images/nft.gif" alt="Laamtag NFT" className={styles.nftGif} />
+              <div className={styles.imageLabel}>GENESIS COLLECTION</div>
             </div>
           </div>
 
-          {/* TEXT SECTION */}
-          <div className={styles.textSection}>
-            <h1 className={`page-title ${styles.title}`}>Laamtag Genesis</h1>
-
+          {/* ── TITLE + USER ROW ── */}
+          <div className={styles.titleSection}>
+            <div className={styles.titleRow}>
+              <h1 className={styles.title}>Laamtag</h1>
+              <span className={styles.titleSub}>Genesis</span>
+            </div>
             <div className={styles.userRow}>
-              <p className="terminal-desc" style={{ margin: 0 }}>
-                Claim your position,
-              </p>
-              <span
-                className={styles.usernameDisplay}
-                style={{ color: username ? '#eab308' : '#fff' }}
-              >
-                {username && <Crown size={12} />}
-                {username || (publicKey ? `${publicKey.toBase58().slice(0, 4)}...${publicKey.toBase58().slice(-4)}` : 'SEEKER')}
+              <span className={styles.userLabel}>Claim your position,</span>
+              <span className={`${styles.username} ${username ? styles.usernameGold : ''}`}>
+                {username && <Crown size={11} />}
+                {username || (publicKey
+                  ? `${publicKey.toBase58().slice(0, 4)}...${publicKey.toBase58().slice(-4)}`
+                  : 'SEEKER')}
               </span>
             </div>
-
-            <p
-              className={styles.balanceText}
-              style={{ color: balance < totalDisplay ? '#ef4444' : '#eab308' }}
-            >
-              BALANCE: {balance.toFixed(3)} SOL
-            </p>
+            <div className={styles.balanceRow}>
+              <span className={styles.balanceLabel}>Balance</span>
+              <span className={`${styles.balanceValue} ${balance < totalDisplay ? styles.balanceLow : styles.balanceOk}`}>
+                {balance.toFixed(3)} SOL
+              </span>
+              {balance < totalDisplay && (
+                <span className={styles.balanceWarn}>
+                  <AlertTriangle size={10} /> INSUFFICIENT
+                </span>
+              )}
+            </div>
           </div>
 
-          {/* PROGRESS SECTION */}
-          <div className="terminal-card" style={{ marginBottom: '2rem' }}>
+          {/* ── STATS STRIP ── */}
+          <div className={styles.statsStrip}>
+            <div className={styles.statItem}>
+              <span className={styles.statVal}>{stats.global.toLocaleString()}</span>
+              <span className={styles.statLabel}>MINTED</span>
+            </div>
+            <div className={styles.statDivider} />
+            <div className={styles.statItem}>
+              <span className={styles.statVal}>{(MAX_SUPPLY - stats.global).toLocaleString()}</span>
+              <span className={styles.statLabel}>REMAINING</span>
+            </div>
+            <div className={styles.statDivider} />
+            <div className={styles.statItem}>
+              <span className={styles.statVal}>{stats.personal}</span>
+              <span className={styles.statLabel}>YOURS</span>
+            </div>
+            <div className={styles.statDivider} />
+            <div className={styles.statItem}>
+              <span className={styles.statVal}>{MINT_PRICE} SOL</span>
+              <span className={styles.statLabel}>PRICE</span>
+            </div>
+          </div>
+
+          {/* ── PROGRESS ── */}
+          <div className={styles.progressCard}>
             <div className={styles.progressHeader}>
-              <span className={styles.progressLabel}>Global Progress</span>
+              <span className={styles.progressLabel}>Global Supply</span>
               <span className={styles.progressValue}>
-                {stats.global} <span style={{ opacity: 0.3, fontSize: '10px' }}>/ {MAX_SUPPLY}</span>
+                {stats.global.toLocaleString()}
+                <span className={styles.progressMax}> / {MAX_SUPPLY.toLocaleString()}</span>
               </span>
             </div>
-            <div className={styles.progressBarTrack}>
-              <div
-                className={styles.progressBarFill}
-                style={{ width: `${(stats.global / MAX_SUPPLY) * 100}%` }}
-              />
+            <div className={styles.progressTrack}>
+              <div className={styles.progressFill} style={{ width: `${progressPct}%` }} />
+              <div className={styles.progressGlow} style={{ left: `${progressPct}%` }} />
             </div>
+            <div className={styles.progressPct}>{progressPct.toFixed(1)}% claimed</div>
           </div>
 
-          {/* MINT CONTROLS */}
-          <div className="terminal-card">
+          {/* ── MINT CONTROLS ── */}
+          <div className={styles.mintCard}>
             {stats.personal >= 10 ? (
-              <div style={{ textAlign: 'center', padding: '1rem', color: '#eab308', fontWeight: 900 }}>
-                ALL POSITIONS CLAIMED
+              <div className={styles.maxedOut}>
+                <Crown size={18} color="#eab308" />
+                <span>ALL POSITIONS CLAIMED</span>
               </div>
             ) : (
-              <div className={styles.controlRow}>
-                <div className={styles.counterBox}>
-                  <button onClick={handleDecrement} className={styles.counterBtn}><Minus /></button>
-                  <span className={styles.amountDisplay}>{amount}</span>
-                  <button onClick={handleIncrement} className={styles.counterBtn}><Plus /></button>
+              <>
+                <div className={styles.mintHeader}>
+                  <span className={styles.mintLabel}>Select Quantity</span>
+                  <span className={styles.mintRemaining}>{remaining} remaining</span>
+                </div>
+
+                <div className={styles.counterRow}>
+                  <button
+                    onClick={handleDecrement}
+                    disabled={amount <= 1}
+                    className={styles.counterBtn}
+                  >
+                    <Minus size={16} />
+                  </button>
+                  <div className={styles.amountBox}>
+                    <span className={styles.amountVal}>{amount}</span>
+                    <span className={styles.amountSub}>unit{amount > 1 ? 's' : ''}</span>
+                  </div>
+                  <button
+                    onClick={handleIncrement}
+                    disabled={amount >= remaining}
+                    className={styles.counterBtn}
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
+
+                <div className={styles.costRow}>
+                  <span className={styles.costLabel}>Total cost</span>
+                  <span className={styles.costValue}>~{totalDisplay.toFixed(3)} SOL</span>
                 </div>
 
                 <button
                   onClick={handleMint}
-                  disabled={loading || stats.soldOut || !connected || cmStatus !== "Candy Machine is HEALTHY"}
-                  className="primary-btn"
-                  style={{ opacity: (loading || stats.soldOut) ? 0.3 : 1 }}
+                  disabled={!canMint}
+                  className={`${styles.mintBtn} ${!canMint ? styles.mintBtnDisabled : ''}`}
                 >
-                  {loading
-                    ? `MINTING ${amount} UNIT${amount > 1 ? 'S' : ''}...`
-                    : stats.soldOut
-                      ? "SOLD OUT"
-                      : `MINT ${amount} UNIT${amount > 1 ? 'S' : ''} (~${totalDisplay.toFixed(3)} SOL)`
-                  }
+                  {loading ? (
+                    <>
+                      <span className={styles.mintBtnSpinner} />
+                      MINTING {amount} UNIT{amount > 1 ? 'S' : ''}...
+                    </>
+                  ) : stats.soldOut ? (
+                    'SOLD OUT'
+                  ) : (
+                    <>
+                      <Zap size={14} fill="#000" />
+                      MINT {amount} UNIT{amount > 1 ? 'S' : ''}
+                    </>
+                  )}
                 </button>
 
-                {cmStatus !== "Candy Machine is HEALTHY" && (
-                  <p className={styles.statusText} style={{ color: '#ef4444' }}>
-                    NETWORK SYNCING... PLEASE WAIT
+                {!isHealthy && (
+                  <p className={styles.statusWarn}>
+                    <AlertTriangle size={10} />
+                    NETWORK SYNCING — PLEASE WAIT
                   </p>
                 )}
-              </div>
+              </>
             )}
           </div>
+
         </div>
       </div>
     </SeekerGuard>

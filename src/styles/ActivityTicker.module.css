@@ -1,9 +1,9 @@
 .tickerContainer {
     width: 100%;
     overflow: hidden;
-    background: #000000;
-    border-bottom: 1px solid rgba(234, 179, 8, 0.4);
-    height: 32px;
+    background: #000;
+    border-bottom: 1px solid rgba(234, 179, 8, 0.35);
+    height: 30px;
     display: flex;
     align-items: center;
     white-space: nowrap;
@@ -11,62 +11,64 @@
     top: 0;
     left: 0;
     z-index: 1000;
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
+}
+
+.liveTag {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 12px;
+    height: 100%;
+    background: #eab308;
+    color: #000;
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-family: inherit;
+    position: relative;
+}
+
+.liveTag::before {
+    content: '';
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #000;
+    opacity: 0.5;
+    animation: liveDot 1.5s ease-in-out infinite;
+}
+
+@keyframes liveDot {
+
+    0%,
+    100% {
+        opacity: 0.5;
+    }
+
+    50% {
+        opacity: 1;
+    }
+}
+
+.tickerTrack {
+    flex: 1;
+    overflow: hidden;
+    height: 100%;
+    display: flex;
+    align-items: center;
 }
 
 .tickerContent {
     display: inline-flex;
-    animation: marquee 50s linear infinite;
-}
-
-.tickerItem {
-    display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 0 40px;
-    font-size: 10px;
-    font-weight: 900;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    animation: marquee 55s linear infinite;
 }
 
-.wallet {
-    color: #eab308;
-}
-
-.action {
-    color: #ffffff;
-}
-
-.amountPositive {
-    color: #22c55e;
-}
-
-.amountNegative {
-    color: #ef4444;
-}
-
-.unlockButton:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    filter: grayscale(1);
-}
-
-.buttonDisabled {
-    animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-    0% {
-        opacity: 0.6;
-    }
-
-    50% {
-        opacity: 0.8;
-    }
-
-    100% {
-        opacity: 0.6;
-    }
+.tickerContent:hover {
+    animation-play-state: paused;
 }
 
 @keyframes marquee {
@@ -79,21 +81,128 @@
     }
 }
 
+.tickerItem {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0 28px;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    height: 30px;
+}
+
+.iconWrap {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.iconGold {
+    color: #eab308;
+}
+
+.iconGreen {
+    color: #22c55e;
+}
+
+.iconPink {
+    color: #f472b6;
+}
+
+.iconPurple {
+    color: #a855f7;
+}
+
+.iconOrange {
+    color: #f97316;
+}
+
+.iconBlue {
+    color: #60a5fa;
+}
+
+.iconRed {
+    color: #ef4444;
+}
+
+.name {
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+}
+
+.nameUser {
+    text-transform: lowercase;
+}
+
+.nameWallet {
+    text-transform: uppercase;
+    font-family: monospace;
+}
+
+.nameGold {
+    color: #eab308;
+}
+
+.nameCyan {
+    color: #22d3ee;
+}
+
+.nameWhite {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.action {
+    color: rgba(255, 255, 255, 0.45);
+    font-weight: 600;
+    font-size: 8px;
+    letter-spacing: 0.5px;
+}
+
+.amount {
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+}
+
+.amountPos {
+    color: #22c55e;
+}
+
+.amountNeg {
+    color: #ef4444;
+}
+
+.amountBadge {
+    color: #eab308;
+}
+
+.amountSystem {
+    color: #22c55e;
+}
+
+.sep {
+    color: rgba(255, 255, 255, 0.1);
+    font-size: 10px;
+    font-weight: 900;
+    padding-left: 8px;
+}
+
 @keyframes liveFade {
-    0% {
-        background: rgba(34, 197, 94, 0.1);
+
+    0%,
+    100% {
+        background: rgba(34, 197, 94, 0.06);
     }
 
     50% {
-        background: rgba(34, 197, 94, 0.2);
-    }
-
-    100% {
-        background: rgba(34, 197, 94, 0.1);
+        background: rgba(34, 197, 94, 0.14);
     }
 }
 
 .livePulse {
-    animation: liveFade 2s infinite ease-in-out;
-    border: 1px solid rgba(34, 197, 94, 0.3) !important;
+    animation: liveFade 2s ease-in-out infinite;
+    border-radius: 4px;
 }

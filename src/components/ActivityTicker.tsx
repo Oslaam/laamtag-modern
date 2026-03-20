@@ -9,63 +9,36 @@ export default function ActivityTicker() {
     const [activities, setActivities] = useState<any[]>([]);
 
     useEffect(() => {
-        // 1. Initial Data Fetch
         const fetchFeed = async () => {
             try {
                 const res = await fetch('/api/user/activity-ticker');
                 const data = await res.json();
                 if (Array.isArray(data)) setActivities(data);
             } catch (err) {
-                console.error("Ticker fetch failed", err);
+                console.error('Ticker fetch failed', err);
             }
         };
 
         fetchFeed();
         const interval = setInterval(fetchFeed, 30000);
-
-        // 2. Real-time Connection Listener
-        // socketInitializer();
-
         return () => {
             clearInterval(interval);
             if (socket) socket.disconnect();
         };
     }, []);
 
-    const socketInitializer = async () => {
-        await fetch('/api/socket');
-        socket = io({ path: '/api/socket' });
-
-        socket.on('user-count-update', (count: number) => {
-            const liveEvent = {
-                id: `live-${Date.now()}`,
-                type: 'SYSTEM_NODE_JOINED',
-                userId: '0xSystem',
-                amount: count,
-                asset: 'ACTIVE_NODES',
-                isLive: true
-            };
-
-            setActivities(prev => [liveEvent, ...prev.slice(0, 19)]);
-        });
-    };
-
     const getIcon = (type: string) => {
         const t = type.toUpperCase();
-
-        // Check for Games first so they get the bounce!
-        if (t.includes('GAME') || t.includes('HUNTER')) return <Trophy size={12} className="text-yellow-500 animate-bounce" />;
-
-        if (t.includes('SYSTEM')) return <Wifi size={12} className="text-green-500 animate-pulse" />;
-        if (t.includes('MINT')) return <Hammer size={12} className="text-pink-400" />;
-        if (t.includes('RECRUIT')) return <Users size={12} className="text-purple-400" />;
-        if (t.includes('SPIN') || t.includes('WIN')) return <Trophy size={12} className="text-yellow-400" />;
-        if (t.includes('CLAIM') || t.includes('LOOT')) return <Gift size={12} className="text-green-400" />;
-        if (t.includes('PURCHASE') || t.includes('BUY') || t.includes('SHOP')) return <ShoppingCart size={12} className="text-orange-400" />;
-        if (t.includes('SWAP')) return <RefreshCcw size={12} className="text-blue-400" />;
-        if (t.includes('WITHDRAW')) return <ArrowUpRight size={12} className="text-red-400" />;
-
-        return <Zap size={12} className="text-yellow-500" />;
+        if (t.includes('GAME') || t.includes('HUNTER')) return <Trophy size={11} className={styles.iconGold} />;
+        if (t.includes('SYSTEM')) return <Wifi size={11} className={styles.iconGreen} />;
+        if (t.includes('MINT')) return <Hammer size={11} className={styles.iconPink} />;
+        if (t.includes('RECRUIT')) return <Users size={11} className={styles.iconPurple} />;
+        if (t.includes('SPIN') || t.includes('WIN')) return <Trophy size={11} className={styles.iconGold} />;
+        if (t.includes('CLAIM') || t.includes('LOOT')) return <Gift size={11} className={styles.iconGreen} />;
+        if (t.includes('PURCHASE') || t.includes('BUY') || t.includes('SHOP')) return <ShoppingCart size={11} className={styles.iconOrange} />;
+        if (t.includes('SWAP')) return <RefreshCcw size={11} className={styles.iconBlue} />;
+        if (t.includes('WITHDRAW')) return <ArrowUpRight size={11} className={styles.iconRed} />;
+        return <Zap size={11} className={styles.iconGold} />;
     };
 
     const formatDisplayName = (address: string, username?: string) => {
@@ -78,56 +51,60 @@ export default function ActivityTicker() {
 
     return (
         <div className={styles.tickerContainer}>
-            <div className={styles.tickerContent}>
-                {[...activities, ...activities].map((act, i) => {
-                    const isBadge = act.type === 'BADGE_CLAIM';
-                    const isSystem = act.type.includes('SYSTEM');
-                    const isExpense = act.amount < 0 ||
-                        act.type.includes('COST') ||
-                        act.type.includes('PURCHASE') ||
-                        act.type.includes('WITHDRAW');
+            <div className={styles.liveTag}>LIVE</div>
+            <div className={styles.tickerTrack}>
+                <div className={styles.tickerContent}>
+                    {[...activities, ...activities].map((act, i) => {
+                        const isBadge = act.type === 'BADGE_CLAIM';
+                        const isSystem = act.type.includes('SYSTEM');
+                        const isExpense = act.amount < 0 || act.type.includes('COST') || act.type.includes('PURCHASE') || act.type.includes('WITHDRAW');
 
-                    const displayName = formatDisplayName(act.userId, act.username);
+                        const displayName = formatDisplayName(act.userId, act.username);
 
-                    // Colors: .laam = Gold, .skr = Cyan, default = white
-                    const nameColor = (isBadge || act.type.includes('WIN') || act.type.includes('GAME'))
-                        ? '#eab308'
-                        : act.username?.includes('.laam')
-                            ? '#eab308'
-                            : act.username?.includes('.skr')
-                                ? '#22d3ee'
-                                : '#fff';
+                        const nameClass = (isBadge || act.type.includes('WIN') || act.type.includes('GAME'))
+                            ? styles.nameGold
+                            : act.username?.includes('.laam')
+                                ? styles.nameGold
+                                : act.username?.includes('.skr')
+                                    ? styles.nameCyan
+                                    : styles.nameWhite;
 
-                    return (
-                        <div key={`${act.id}-${i}`} className={`${styles.tickerItem} ${act.isLive ? styles.livePulse : ''}`}>
-                            {getIcon(act.type)}
+                        const amountClass = isBadge
+                            ? styles.amountBadge
+                            : isSystem
+                                ? styles.amountSystem
+                                : isExpense
+                                    ? styles.amountNeg
+                                    : styles.amountPos;
 
-                            <span
-                                className={styles.wallet}
-                                style={{
-                                    color: nameColor,
-                                    fontWeight: act.username ? 800 : 400,
-                                    textTransform: act.username ? 'lowercase' : 'uppercase'
-                                }}
+                        return (
+                            <div
+                                key={`${act.id}-${i}`}
+                                className={`${styles.tickerItem} ${act.isLive ? styles.livePulse : ''}`}
                             >
-                                {displayName}
-                            </span>
+                                <span className={styles.iconWrap}>{getIcon(act.type)}</span>
 
-                            {/* Middle Text: shows "unlocked" for badges, otherwise normal type */}
-                            <span className={styles.action}>
-                                {isBadge ? 'unlocked' : act.type.replace(/_/g, ' ')}
-                            </span>
+                                <span className={`${styles.name} ${nameClass} ${act.username ? styles.nameUser : styles.nameWallet}`}>
+                                    {displayName}
+                                </span>
 
-                            {/* Right Text: shows "+1 BADGE" for badges, otherwise normal amount */}
-                            <span className={isBadge ? 'text-yellow-500 font-black' : (isSystem ? 'text-green-500 font-black' : (isExpense ? styles.amountNegative : styles.amountPositive))}>
-                                {isBadge
-                                    ? `+1 ${act.asset}`
-                                    : isSystem ? `v.${act.amount}` : `${act.amount > 0 ? '+' : ''}${act.amount} ${act.asset}`
-                                }
-                            </span>
-                        </div>
-                    );
-                })}
+                                <span className={styles.action}>
+                                    {isBadge ? 'UNLOCKED' : act.type.replace(/_/g, ' ')}
+                                </span>
+
+                                <span className={`${styles.amount} ${amountClass}`}>
+                                    {isBadge
+                                        ? `+1 ${act.asset}`
+                                        : isSystem
+                                            ? `v.${act.amount}`
+                                            : `${act.amount > 0 ? '+' : ''}${act.amount} ${act.asset}`}
+                                </span>
+
+                                <span className={styles.sep}>·</span>
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
         </div>
     );

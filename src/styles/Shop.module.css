@@ -1,0 +1,304 @@
+.pageHeader {
+    text-align: center;
+    margin-bottom: 8px;
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
+}
+
+.pageTitle {
+    font-size: 26px;
+    font-weight: 900;
+    font-style: italic;
+    color: #a855f7;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    margin: 0 0 8px;
+    text-shadow: 0 0 20px rgba(168, 85, 247, 0.35);
+}
+
+.pageSubtitle {
+    font-size: 8px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.2);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin: 0;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    padding: 24px 0;
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
+}
+
+.card {
+    position: relative;
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 22px 16px 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 10px;
+    transition: all 0.25s ease;
+    overflow: hidden;
+}
+
+.card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(168, 85, 247, 0.15), transparent);
+}
+
+.card:hover {
+    border-color: rgba(168, 85, 247, 0.3);
+    background: rgba(168, 85, 247, 0.04);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3);
+}
+
+.cardHot {
+    border-color: rgba(168, 85, 247, 0.4);
+    background: rgba(168, 85, 247, 0.06);
+    box-shadow: 0 0 24px rgba(168, 85, 247, 0.12);
+}
+
+.cardHot::before {
+    background: linear-gradient(90deg, transparent, rgba(168, 85, 247, 0.5), transparent);
+}
+
+.hotBadge {
+    position: absolute;
+    top: 11px;
+    right: 11px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(168, 85, 247, 0.15);
+    border: 1px solid rgba(168, 85, 247, 0.35);
+    color: #a855f7;
+    font-size: 7px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    padding: 3px 7px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    font-family: inherit;
+}
+
+.iconWrap {
+    width: 52px;
+    height: 52px;
+    background: rgba(168, 85, 247, 0.08);
+    border: 1px solid rgba(168, 85, 247, 0.18);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.ticketIcon {
+    color: #a855f7;
+}
+
+.packLabel {
+    font-size: 11px;
+    font-weight: 900;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin: 0;
+    line-height: 1.3;
+}
+
+.packDesc {
+    font-size: 8px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.25);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin: 0;
+}
+
+.amountBox {
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px dotted rgba(168, 85, 247, 0.2);
+    border-radius: 10px;
+    padding: 10px 20px;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    width: 100%;
+    justify-content: center;
+}
+
+.amountVal {
+    font-size: 22px;
+    font-weight: 900;
+    color: #a855f7;
+    line-height: 1;
+}
+
+.amountUnit {
+    font-size: 8px;
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.35);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+}
+
+.priceRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 7px 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 7px;
+}
+
+.priceLabel {
+    font-size: 7px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.25);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.priceVal {
+    font-size: 13px;
+    font-weight: 900;
+    color: #fff;
+    letter-spacing: 0.5px;
+}
+
+.buyBtn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 11px;
+    border-radius: 9px;
+    background: rgba(168, 85, 247, 0.2);
+    border: 1px solid rgba(168, 85, 247, 0.35);
+    color: #a855f7;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: auto;
+}
+
+.buyBtn:hover:not(.buyBtnDisabled) {
+    background: #a855f7;
+    color: #fff;
+    box-shadow: 0 4px 18px rgba(168, 85, 247, 0.35);
+    transform: scale(1.02);
+}
+
+.buyBtnHot {
+    background: #a855f7;
+    color: #fff;
+    border-color: #a855f7;
+    box-shadow: 0 4px 16px rgba(168, 85, 247, 0.25);
+}
+
+.buyBtnHot:hover:not(.buyBtnDisabled) {
+    background: #c084fc;
+    box-shadow: 0 6px 24px rgba(168, 85, 247, 0.45);
+}
+
+.buyBtnDisabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.spinner {
+    animation: spin 0.7s linear infinite;
+}
+
+.infoStrip {
+    margin-top: 32px;
+    text-align: center;
+    background: rgba(168, 85, 247, 0.04);
+    border: 1px dashed rgba(168, 85, 247, 0.18);
+    border-radius: 14px;
+    padding: 16px 20px;
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
+}
+
+.infoText {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.35);
+    line-height: 1.8;
+    margin: 0;
+    letter-spacing: 0.3px;
+}
+
+.infoText strong {
+    color: rgba(255, 255, 255, 0.65);
+    font-weight: 900;
+}
+
+@media (max-width: 900px) {
+    .grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 560px) {
+    .grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        padding: 16px 0;
+    }
+
+    .card {
+        padding: 16px 12px 14px;
+        gap: 8px;
+    }
+
+    .packLabel {
+        font-size: 9px;
+        letter-spacing: 1px;
+    }
+
+    .amountVal {
+        font-size: 18px;
+    }
+
+    .iconWrap {
+        width: 44px;
+        height: 44px;
+    }
+
+    .buyBtn {
+        font-size: 9px;
+        padding: 9px;
+        letter-spacing: 1px;
+    }
+
+    .pageTitle {
+        font-size: 20px;
+    }
+}

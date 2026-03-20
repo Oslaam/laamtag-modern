@@ -8,6 +8,7 @@ const TREASURY = "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc";
 const UNLOCK_AMOUNT = 300_000_000;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+
     // ─── GET: Load game state ───────────────────────────────────────────────────
     if (req.method === 'GET') {
         const { walletAddress } = req.query;
@@ -26,7 +27,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method !== 'POST') return res.status(405).end();
 
     const { walletAddress, action, userGuess, signature } = req.body;
-
     if (!walletAddress) return res.status(400).json({ message: "Missing walletAddress" });
 
     try {
@@ -37,24 +37,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (action === 'unlock') {
             if (!signature) return res.status(400).json({ success: false, error: "Missing signature" });
 
-            // Already unlocked? Return success idempotently (handles mobile retry scenario)
             if (user.hasPulseHunterUnlocked) {
                 return res.status(200).json({ success: true, message: "Already unlocked" });
             }
 
-            // Check if this signature was already processed — prevents replay attacks
             let alreadyUsed = false;
             try {
-                const existingTx = await (prisma as any).usedSignature.findUnique({
-                    where: { signature }
-                });
+                const existingTx = await (prisma as any).usedSignature.findUnique({ where: { signature } });
                 if (existingTx) alreadyUsed = true;
-            } catch (_) {
-                // usedSignature table may not exist yet — skip this check
-            }
+            } catch (_) { }
 
             if (alreadyUsed) {
-                // Signature already processed — just unlock the user
                 await prisma.user.update({
                     where: { walletAddress },
                     data: { hasPulseHunterUnlocked: true }
@@ -62,7 +55,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 return res.status(200).json({ success: true, message: "Recovered from previous attempt" });
             }
 
-            // Verify on-chain
             const connection = new Connection(RPC_URL, {
                 commitment: 'confirmed',
                 confirmTransactionInitialTimeout: 60000,
@@ -137,7 +129,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     userId: walletAddress,
                     type: 'PULSE_HUNTER_UNLOCK',
                     asset: 'SKR',
-                    amount: -300,               
+                    amount: -300,
                     signature: signature,
                     createdAt: new Date()
                 }
@@ -159,7 +151,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             return res.status(200).json({ success: true });
         }
 
-        // GUESS ACTION
+        // ─── GUESS ACTION ───────────────────────────────────────────────────────
         if (action === 'guess') {
             let game = await prisma.pulseHunterGame.findUnique({ where: { userId: walletAddress } });
 
@@ -202,18 +194,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 const rewards = [1000, 500, 100];
                 const prize = rewards[game.attempts] || 50;
 
-                await prisma.$transaction([
-                    prisma.pulseHunterGame.update({
-                        where: { userId: walletAddress },
-                        data: { isLocked: true, lastAttempt: now, attempts: currentAttempt }
-                    }),
-                    prisma.pendingReward.create({
-                        data: { userId: walletAddress, asset: 'SKR', amount: prize, type: 'GAME_WIN' }
-                    }),
-                    prisma.activity.create({
-                        data: { userId: walletAddress, asset: 'SKR', amount: prize, type: 'PULSE_HUNTER_WIN' }
-                    })
-                ]);
+                // ── Sequential writes — no transaction, no timeout risk ──
+                await prisma.pulseHunterGame.update({
+                    where: { userId: walletAddress },
+                    data: { isLocked: true, lastAttempt: now, attempts: currentAttempt }
+                });
+                await prisma.pendingReward.create({
+                    data: { userId: walletAddress, asset: 'SKR', amount: prize, type: 'GAME_WIN' }
+                });
+                await prisma.activity.create({
+                    data: { userId: walletAddress, asset: 'SKR', amount: prize, type: 'PULSE_HUNTER_WIN' }
+                });
+
                 return res.status(200).json({ win: true, prize, attemptUsed: currentAttempt });
             }
 

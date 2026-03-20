@@ -1,0 +1,687 @@
+.topBar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
+}
+
+.skrChip {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: rgba(168, 85, 247, 0.08);
+    border: 1px solid rgba(168, 85, 247, 0.25);
+    border-radius: 20px;
+    padding: 6px 14px;
+}
+
+.skrVal {
+    font-size: 11px;
+    font-weight: 900;
+    color: #fff;
+    letter-spacing: 0.5px;
+}
+
+.skrLabel {
+    font-size: 10px;
+    font-weight: 900;
+    color: #a855f7;
+    letter-spacing: 1px;
+}
+
+.pageHeader {
+    text-align: center;
+    margin-bottom: 28px;
+}
+
+.pageTitle {
+    font-size: 28px;
+    font-weight: 900;
+    font-style: italic;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin: 0 0 6px;
+    font-family: 'IBM Plex Mono', monospace;
+}
+
+.titleAccent {
+    color: #eab308;
+}
+
+.pageSubtitle {
+    font-size: 8px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.2);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin: 0;
+    font-family: 'IBM Plex Mono', monospace;
+}
+
+.statsStrip {
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 16px 0;
+    margin-bottom: 24px;
+    font-family: 'IBM Plex Mono', monospace;
+}
+
+.statCell {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.statVal {
+    font-size: 20px;
+    font-weight: 900;
+    color: #fff;
+}
+
+.statLabel {
+    font-size: 7px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.25);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+}
+
+.statDivider {
+    width: 1px;
+    height: 36px;
+    background: rgba(255, 255, 255, 0.06);
+    flex-shrink: 0;
+}
+
+.goldIcon {
+    color: #eab308;
+}
+
+.purpleIcon {
+    color: #a855f7;
+}
+
+.dimIcon {
+    color: rgba(255, 255, 255, 0.25);
+}
+
+.nftList {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.nftCard {
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    transition: border-color 0.25s;
+}
+
+.nftCardStaked {
+    border-color: rgba(234, 179, 8, 0.2);
+    background: rgba(234, 179, 8, 0.02);
+}
+
+.nftTop {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    margin-bottom: 14px;
+}
+
+.nftImgWrap {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    border-radius: 12px;
+    overflow: hidden;
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.nftImg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: opacity 0.3s;
+}
+
+.nftImgStaked {
+    opacity: 0.45;
+}
+
+.nftLockOverlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.multPill {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: #a855f7;
+    color: #fff;
+    font-size: 8px;
+    font-weight: 900;
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+    font-family: inherit;
+}
+
+.queuePill {
+    position: absolute;
+    bottom: 5px;
+    right: 5px;
+    background: #eab308;
+    color: #000;
+    font-size: 7px;
+    font-weight: 900;
+    padding: 2px 5px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.2s;
+}
+
+.queuePill:hover {
+    background: #fbbf24;
+}
+
+.nftInfo {
+    flex: 1;
+    min-width: 0;
+}
+
+.nftName {
+    font-size: 14px;
+    font-weight: 900;
+    color: #fff;
+    margin: 0 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.nftReady {
+    font-size: 9px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.2);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin: 0;
+}
+
+.ticker {
+    margin-top: 4px;
+}
+
+.tickerLocked {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 68, 68, 0.08);
+    border: 1px solid rgba(255, 68, 68, 0.18);
+    border-radius: 7px;
+    padding: 7px 10px;
+    font-size: 9px;
+    font-weight: 900;
+    color: #ff4444;
+    letter-spacing: 0.5px;
+    font-family: inherit;
+}
+
+.tickerGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.tickerCell {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.tickerCell:first-child {
+    border: 1px solid rgba(234, 179, 8, 0.18);
+}
+
+.tickerCell:last-child {
+    border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.tickerLabel {
+    font-size: 7px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.35);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.multBadge {
+    background: rgba(168, 85, 247, 0.2);
+    color: #a855f7;
+    border: 1px solid rgba(168, 85, 247, 0.3);
+    font-size: 7px;
+    font-weight: 900;
+    padding: 1px 5px;
+    border-radius: 3px;
+}
+
+.tickerValGold {
+    font-size: 15px;
+    font-weight: 900;
+    color: #eab308;
+    font-family: inherit;
+    letter-spacing: 0.5px;
+}
+
+.tickerVal {
+    font-size: 15px;
+    font-weight: 900;
+    color: #fff;
+    font-family: inherit;
+    letter-spacing: 0.5px;
+}
+
+.tickerUpcoming {
+    font-size: 7px;
+    font-weight: 900;
+    color: rgba(234, 179, 8, 0.6);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.boostSection {
+    background: rgba(168, 85, 247, 0.04);
+    border: 1px dashed rgba(168, 85, 247, 0.2);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+.boostSectionHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.boostSectionTitle {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 8px;
+    font-weight: 900;
+    color: #a855f7;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+}
+
+.viewScheduleBtn {
+    background: none;
+    border: none;
+    color: #eab308;
+    font-family: inherit;
+    font-size: 7px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+    transition: color 0.2s;
+}
+
+.viewScheduleBtn:hover {
+    color: #fbbf24;
+}
+
+.boostGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+}
+
+.boostOptBtn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 6px;
+    background: rgba(168, 85, 247, 0.12);
+    border: 1px solid rgba(168, 85, 247, 0.25);
+    border-radius: 7px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.boostOptBtn:hover:not(:disabled) {
+    background: rgba(168, 85, 247, 0.22);
+    border-color: rgba(168, 85, 247, 0.45);
+}
+
+.boostOptBtn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.boostOptMult {
+    font-size: 12px;
+    font-weight: 900;
+    color: #a855f7;
+}
+
+.boostOptPrice {
+    font-size: 7px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.35);
+    letter-spacing: 0.5px;
+}
+
+.nftActions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.claimBtn {
+    width: 100%;
+    padding: 13px;
+    border-radius: 9px;
+    border: none;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    transition: all 0.2s;
+}
+
+.claimBtnReady {
+    background: linear-gradient(135deg, #7e22ce, #a855f7);
+    color: #fff;
+    box-shadow: 0 4px 18px rgba(168, 85, 247, 0.3);
+}
+
+.claimBtnReady:hover:not(:disabled) {
+    box-shadow: 0 6px 24px rgba(168, 85, 247, 0.45);
+    transform: translateY(-1px);
+}
+
+.claimBtnLocked {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    color: rgba(255, 255, 255, 0.25);
+    cursor: not-allowed;
+}
+
+.claimBtnLabel {
+    font-size: 10px;
+    letter-spacing: 2px;
+}
+
+.claimBtnRewards {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.85);
+    letter-spacing: 0.5px;
+}
+
+.actionBtn {
+    width: 100%;
+    padding: 12px;
+    border-radius: 9px;
+    border: none;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.actionBtnStake {
+    background: #eab308;
+    color: #000;
+}
+
+.actionBtnStake:hover:not(:disabled) {
+    background: #fbbf24;
+    box-shadow: 0 4px 16px rgba(234, 179, 8, 0.35);
+}
+
+.actionBtnUnstake {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.actionBtnUnstake:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.07);
+    color: rgba(255, 255, 255, 0.75);
+}
+
+.modalBackdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.88);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    backdrop-filter: blur(10px);
+}
+
+.modal {
+    max-width: 480px;
+    width: 100%;
+    background: #0d0d0d;
+    border: 1px solid rgba(168, 85, 247, 0.4);
+    border-radius: 16px;
+    padding: 24px;
+    position: relative;
+    font-family: 'IBM Plex Mono', monospace;
+}
+
+.modalClose {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 7px;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.modalClose:hover {
+    background: rgba(255, 255, 255, 0.09);
+    color: #fff;
+}
+
+.modalTitle {
+    font-size: 14px;
+    font-weight: 900;
+    color: #fff;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin: 0 0 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.boostList {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 340px;
+    overflow-y: auto;
+}
+
+.boostItem {
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 9px;
+}
+
+.boostItemActive {
+    background: rgba(168, 85, 247, 0.08);
+    border-color: rgba(168, 85, 247, 0.35);
+}
+
+.boostItemHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.boostStatus {
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 1px;
+}
+
+.boostStatusActive {
+    color: #a855f7;
+}
+
+.boostStatusQueued {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.boostMult {
+    font-size: 10px;
+    font-weight: 900;
+    color: #eab308;
+    letter-spacing: 0.5px;
+}
+
+.boostCountdown {
+    font-size: 11px;
+    font-weight: 900;
+    color: #a855f7;
+    letter-spacing: 0.5px;
+}
+
+.emptyState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 48px;
+    border: 1px dashed rgba(255, 255, 255, 0.07);
+    border-radius: 14px;
+    font-size: 9px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.2);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    text-align: center;
+    font-family: 'IBM Plex Mono', monospace;
+}
+
+.emptyIcon {
+    color: rgba(255, 255, 255, 0.12);
+}
+
+.loadingState {
+    padding: 60px 0;
+    text-align: center;
+}
+
+.loadingText {
+    font-size: 9px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.2);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    font-family: 'IBM Plex Mono', monospace;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.3;
+    }
+}
+
+@media (max-width: 480px) {
+    .statsStrip {
+        padding: 12px 0;
+    }
+
+    .statVal {
+        font-size: 16px;
+    }
+
+    .statLabel {
+        font-size: 6px;
+        letter-spacing: 1px;
+    }
+
+    .nftImgWrap {
+        width: 68px;
+        height: 68px;
+    }
+
+    .boostGrid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .tickerValGold,
+    .tickerVal {
+        font-size: 13px;
+    }
+
+    .claimBtn {
+        padding: 11px;
+    }
+}

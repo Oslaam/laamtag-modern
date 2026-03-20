@@ -1,0 +1,264 @@
+.vault {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 16px;
+    padding: 20px;
+    margin-top: 16px;
+    margin-bottom: 20px;
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+}
+
+.headerLeft {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.goldIcon {
+    color: #eab308;
+    flex-shrink: 0;
+}
+
+.title {
+    font-size: 13px;
+    font-weight: 900;
+    color: #eab308;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin: 0;
+}
+
+.subtitle {
+    font-size: 7px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.25);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin: 3px 0 0;
+}
+
+.onlineBadge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(34, 197, 94, 0.08);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+    border-radius: 7px;
+    padding: 4px 10px;
+    font-size: 7px;
+    font-weight: 900;
+    color: #22c55e;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+}
+
+.assetGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+}
+
+.assetCell {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 14px 10px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    text-align: center;
+}
+
+.assetCellGold {
+    border-color: rgba(234, 179, 8, 0.2);
+    background: rgba(234, 179, 8, 0.03);
+}
+
+.assetLabel {
+    font-size: 7px;
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.35);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.assetLabelGold {
+    color: rgba(234, 179, 8, 0.7);
+}
+
+.assetVal {
+    font-size: 18px;
+    font-weight: 900;
+    color: #fff;
+    letter-spacing: 0.5px;
+    line-height: 1;
+}
+
+.assetValBlue {
+    color: #3b82f6;
+}
+
+.claimBtn {
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+    padding: 9px 4px;
+    border-radius: 7px;
+    border: none;
+    font-family: inherit;
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.claimBtnSkr {
+    background: #111;
+    border: 1px solid #eab308;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.claimBtnSkrLocked {
+    cursor: not-allowed;
+}
+
+.claimBtnSkr:not(.claimBtnSkrLocked):hover .liquidFill {
+    filter: brightness(1.1);
+}
+
+.liquidFill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: #eab308;
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 0;
+}
+
+.claimBtnText {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    mix-blend-mode: difference;
+    color: #fff;
+    font-weight: 900;
+}
+
+.claimBtnReady {
+    background: #eab308;
+    color: #000;
+}
+
+.claimBtnReady:hover:not(:disabled) {
+    background: #fbbf24;
+    box-shadow: 0 0 12px rgba(234, 179, 8, 0.3);
+}
+
+.claimBtnBlue {
+    background: #3b82f6;
+    color: #fff;
+}
+
+.claimBtnBlue:hover:not(:disabled) {
+    background: #60a5fa;
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+}
+
+.claimBtnEmpty {
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.15);
+    cursor: not-allowed;
+    opacity: 0.4;
+}
+
+.claimBtn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.claimBtnReady:disabled,
+.claimBtnBlue:disabled {
+    opacity: 0.3;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.spinner {
+    animation: spin 0.7s linear infinite;
+}
+
+.thresholdNote {
+    font-size: 6px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.2);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin: 0;
+}
+
+.txLink {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 14px;
+    padding: 9px 14px;
+    background: rgba(34, 197, 94, 0.05);
+    border: 1px solid rgba(34, 197, 94, 0.18);
+    border-radius: 8px;
+    color: #22c55e;
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-decoration: none;
+    transition: background 0.2s;
+    font-family: inherit;
+}
+
+.txLink:hover {
+    background: rgba(34, 197, 94, 0.1);
+}
+
+@media (max-width: 480px) {
+    .vault {
+        padding: 14px;
+    }
+
+    .assetGrid {
+        gap: 8px;
+    }
+
+    .assetVal {
+        font-size: 15px;
+    }
+
+    .title {
+        font-size: 11px;
+    }
+
+    .onlineBadge {
+        display: none;
+    }
+}

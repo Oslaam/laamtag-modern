@@ -7,7 +7,6 @@ import { Send, Clock, MessageSquare, CheckCircle, XCircle, ArrowLeft, Bot, Copy,
 import axios from 'axios';
 import styles from '../styles/Contact.module.css';
 
-// Variable to hold the socket instance outside the component render cycle
 let socket: Socket | undefined;
 
 export default function ContactPage() {
@@ -16,58 +15,44 @@ export default function ContactPage() {
     const [loading, setLoading] = useState(false);
     const [copied, setCopied] = useState(false);
 
-    // --- LIVE CHAT STATES ---
     const [isChatReady, setIsChatReady] = useState(false);
     const [message, setMessage] = useState('');
-    const [chatLog, setChatLog] = useState<{ sender: string, text: string }[]>([]);
+    const [chatLog, setChatLog] = useState<{ sender: string; text: string }[]>([]);
     const chatEndRef = useRef<HTMLDivElement>(null);
     const [isAiTyping, setIsAiTyping] = useState(false);
     const [isAgentConnected, setIsAgentConnected] = useState(false);
 
-    // Updated to store success/error and the generated ID
-    const [showModal, setShowModal] = useState<{ type: 'success' | 'error', id?: string } | null>(null);
+    const [showModal, setShowModal] = useState<{ type: 'success' | 'error'; id?: string } | null>(null);
     const [history, setHistory] = useState<any[]>([]);
     const [formData, setFormData] = useState({
-        type: 'Complaint', name: '', email: '', title: '', description: ''
+        type: 'Complaint', name: '', email: '', title: '', description: '',
     });
 
-    // 1. SOCKET & HANDSHAKE INITIALIZATION
     useEffect(() => {
         const socketInitializer = async () => {
             await fetch('/api/socket');
-
             socket = io({
                 path: '/api/socket',
                 addTrailingSlash: false,
-                transports: ['websocket', 'polling']
+                transports: ['websocket', 'polling'],
             });
-
             socket.on('connect', () => {
-                if (publicKey) {
-                    const walletAddr = publicKey.toBase58();
-                    socket?.emit('join-private-room', walletAddr);
-                }
+                if (publicKey) socket?.emit('join-private-room', publicKey.toBase58());
             });
-
             socket.on('agent-joined', () => {
                 setIsAgentConnected(true);
                 setChatLog(prev => [...prev, { sender: 'SYSTEM', text: 'An authorized agent has joined the channel.' }]);
             });
-
             socket.on('agent-send-message', (data: any) => {
-                setChatLog((prev) => [...prev, { sender: 'SUPPORT', text: data.text }]);
+                setChatLog(prev => [...prev, { sender: 'SUPPORT', text: data.text }]);
             });
-
             socket.on('ticket-closed', () => {
-                alert("This session has been closed by support. Transmission cleared.");
+                alert('This session has been closed by support. Transmission cleared.');
                 setChatLog([]);
                 setIsAgentConnected(false);
                 setView('form');
             });
-
-            socket.on('connect_error', (err) => {
-                console.error("Connection Error:", err.message);
-            });
+            socket.on('connect_error', (err) => console.error('Connection Error:', err.message));
         };
 
         if (view === 'live') {
@@ -80,26 +65,21 @@ export default function ContactPage() {
         }
     }, [view, publicKey]);
 
-    // Auto-scroll chat to bottom
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [chatLog, isAiTyping]);
 
-    // History fetcher
     useEffect(() => {
         if (publicKey && view === 'history') {
             axios.get(`/api/user/messages?address=${publicKey.toBase58()}`)
                 .then(res => setHistory(res.data))
-                .catch(err => console.error("History error", err));
+                .catch(err => console.error('History error', err));
         }
     }, [publicKey, view]);
 
-    // --- HELPERS ---
     const generateTicketId = () => {
-        const prefix = "TX";
         const randomHex = Math.random().toString(16).toUpperCase().substring(2, 6);
-        const year = new Date().getFullYear();
-        return `${prefix}-${randomHex}-${year}`;
+        return `TX-${randomHex}-${new Date().getFullYear()}`;
     };
 
     const copyToClipboard = (text: string) => {
@@ -108,21 +88,18 @@ export default function ContactPage() {
         setTimeout(() => setCopied(false), 2000);
     };
 
-    // --- HANDLERS ---
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         const ticketId = generateTicketId();
-
         try {
             await axios.post('/api/user/contact', {
-                ...formData,
-                ticketId,
-                walletAddress: publicKey?.toBase58() || 'Anonymous'
+                ...formData, ticketId,
+                walletAddress: publicKey?.toBase58() || 'Anonymous',
             });
             setShowModal({ type: 'success', id: ticketId });
             setFormData({ type: 'Complaint', name: '', email: '', title: '', description: '' });
-        } catch (err) {
+        } catch {
             setShowModal({ type: 'error' });
         } finally {
             setLoading(false);
@@ -131,62 +108,52 @@ export default function ContactPage() {
 
     const sendChatMessage = (e?: React.FormEvent, customMsg?: string) => {
         if (e) e.preventDefault();
-
         const finalMessage = customMsg || message;
         if (!finalMessage.trim() || !socket || !publicKey) return;
-
-        const userMsgData = {
-            sender: 'USER', // Simpler for log check
-            walletAddress: publicKey.toBase58(),
-            text: finalMessage
-        };
-
-        setChatLog((prev) => [...prev, userMsgData]);
-
-        // TRIGGER "TYPING" FEELING
+        const userMsgData = { sender: 'USER', walletAddress: publicKey.toBase58(), text: finalMessage };
+        setChatLog(prev => [...prev, userMsgData]);
         if (!isAgentConnected) {
             setIsAiTyping(true);
             setTimeout(() => setIsAiTyping(false), 2500);
         }
-
         socket.emit('user-send-message', userMsgData);
         setMessage('');
     };
 
+    const TABS = [
+        { id: 'form', icon: <Send size={13} />, label: 'TICKET' },
+        { id: 'live', icon: <MessageSquare size={13} />, label: 'LIVE CHAT' },
+        { id: 'history', icon: <Clock size={13} />, label: 'HISTORY' },
+    ] as const;
+
     return (
-        <div className={styles.mainContent}>
+        <div className={styles.page}>
             <Head><title>LAAMTAG | The Bridge</title></Head>
 
-            {/* TRANSMISSION MODAL */}
+            {/* ── MODAL ── */}
             {showModal && (
                 <div className={styles.overlay}>
-                    <div className={styles.terminalModal}>
-                        {showModal.type === 'success' ? (
-                            <CheckCircle size={50} color="#eab308" />
-                        ) : (
-                            <XCircle size={50} color="#ef4444" />
-                        )}
+                    <div className={styles.modal}>
+                        <div className={`${styles.modalIconWrap} ${showModal.type === 'success' ? styles.modalIconSuccess : styles.modalIconError}`}>
+                            {showModal.type === 'success'
+                                ? <CheckCircle size={28} />
+                                : <XCircle size={28} />}
+                        </div>
                         <h2 className={styles.modalTitle}>
                             {showModal.type === 'success' ? 'TRANSMITTED' : 'FAILED'}
                         </h2>
-
                         {showModal.type === 'success' && showModal.id && (
                             <div className={styles.idContainer}>
                                 <p className={styles.idLabel}>REFERENCE ID</p>
                                 <div className={styles.idRow}>
                                     <code className={styles.idCode}>{showModal.id}</code>
-                                    <button
-                                        onClick={() => copyToClipboard(showModal.id!)}
-                                        className={styles.copyBtn}
-                                        title="Copy ID"
-                                    >
-                                        {copied ? <Check size={16} color="#22c55e" /> : <Copy size={16} />}
+                                    <button onClick={() => copyToClipboard(showModal.id!)} className={styles.copyBtn}>
+                                        {copied ? <Check size={14} color="#22c55e" /> : <Copy size={14} />}
                                     </button>
                                 </div>
                             </div>
                         )}
-
-                        <p className={styles.terminalDesc}>
+                        <p className={styles.modalDesc}>
                             {showModal.type === 'success'
                                 ? 'Your message has reached the Vault databanks.'
                                 : 'Transmission interrupted. Signal lost.'}
@@ -198,106 +165,101 @@ export default function ContactPage() {
                 </div>
             )}
 
-            <div className={styles.contentWrapper}>
+            <div className={styles.wrapper}>
+
+                {/* ── HEADER ── */}
                 <div className={styles.header}>
-                    <Link href="/" className={styles.backButton}>
-                        <ArrowLeft size={20} />
+                    <Link href="/" className={styles.backBtn}>
+                        <ArrowLeft size={18} />
                     </Link>
-                    <div style={{ textAlign: 'right' }}>
+                    <div className={styles.headerRight}>
                         <h1 className={styles.pageTitle}>THE BRIDGE</h1>
-                        <p className={styles.terminalDescSmall}>SECURE COMMS CHANNEL</p>
+                        <p className={styles.pageSubtitle}>SECURE COMMS CHANNEL</p>
                     </div>
                 </div>
 
-                <div className={styles.tabSelector}>
-                    <button onClick={() => setView('form')} className={`${styles.tabButton} ${view === 'form' ? styles.activeTab : ''}`}><Send size={14} /> TICKET</button>
-                    <button onClick={() => setView('live')} className={`${styles.tabButton} ${view === 'live' ? styles.activeTab : ''}`}><MessageSquare size={14} /> LIVE CHAT</button>
-                    <button onClick={() => setView('history')} className={`${styles.tabButton} ${view === 'history' ? styles.activeTab : ''}`}><Clock size={14} /> HISTORY</button>
+                {/* ── TABS ── */}
+                <div className={styles.tabs}>
+                    {TABS.map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setView(tab.id)}
+                            className={`${styles.tab} ${view === tab.id ? styles.tabActive : ''}`}
+                        >
+                            {tab.icon}
+                            {tab.label}
+                        </button>
+                    ))}
                 </div>
 
+                {/* ── LIVE CHAT ── */}
                 {view === 'live' && (
-                    <div className={styles.liveChatContainer}>
-
-                        {/* --- STATUS BAR INDICATOR --- */}
-                        <div className={styles.chatHeaderStatus} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <div className={styles.liveChatWrap}>
+                        <div className={styles.chatStatusBar}>
                             <div className={styles.statusBadge}>
-                                <span className={`${styles.statusDot} ${isAgentConnected ? styles.statusDotLive : ''}`}></span>
+                                <span className={`${styles.statusDot} ${isAgentConnected ? styles.statusDotLive : ''}`} />
                                 <span>{isAgentConnected ? 'AGENT CONNECTED' : 'SIGNAL BROADCASTING...'}</span>
                             </div>
-                            {isAgentConnected && <ShieldCheck size={16} color="#22c55e" />}
+                            {isAgentConnected && <ShieldCheck size={14} color="#22c55e" />}
                         </div>
 
                         {!isChatReady ? (
-                            /* INITIALIZING STATE */
-                            <div className={styles.initializingBox}>
-                                <Bot size={48} className={styles.botIcon} />
-                                <div className={styles.typingWrapper}>
-                                    <h3 className={styles.typingText}>SECURE HANDSHAKE...</h3>
-                                </div>
-                                <div className={styles.pulseBar}></div>
+                            <div className={styles.initBox}>
+                                <Bot size={44} className={styles.botIcon} />
+                                <h3 className={styles.initText}>SECURE HANDSHAKE...</h3>
+                                <div className={styles.initBar} />
                             </div>
                         ) : (
-                            /* ACTIVE CHAT INTERFACE */
                             <div className={styles.chatBox}>
                                 <div className={styles.chatMessages}>
-                                    <div className={styles.aiMessage}>
-                                        <span style={{ color: '#eab308', fontWeight: 'bold' }}>SYSTEM:</span>
+                                    <div className={styles.msgSystem}>
+                                        <span className={styles.msgSysLabel}>SYSTEM:</span>
                                         {isAgentConnected
-                                            ? " Encryption active. Agent is online."
-                                            : " Signal broadcasted. Waiting for an available agent..."
-                                        }
+                                            ? ' Encryption active. Agent is online.'
+                                            : ' Signal broadcasted. Waiting for an available agent...'}
                                     </div>
 
                                     {chatLog.map((msg, i) => (
-                                        <div
-                                            key={i}
-                                            className={msg.sender === 'SUPPORT' || msg.sender === 'SYSTEM'
-                                                ? styles.aiMessage
-                                                : styles.userMessage
-                                            }
-                                        >
+                                        <div key={i} className={
+                                            msg.sender === 'SUPPORT' || msg.sender === 'SYSTEM'
+                                                ? styles.msgAgent : styles.msgUser
+                                        }>
+                                            {(msg.sender === 'SUPPORT' || msg.sender === 'SYSTEM') && (
+                                                <span className={styles.msgAgentLabel}>{msg.sender}:</span>
+                                            )}
                                             {msg.text}
                                         </div>
                                     ))}
 
                                     {isAiTyping && (
-                                        <div className={styles.aiTypingIndicator}>
-                                            <span className={styles.typingDot}></span>
-                                            <span className={styles.typingDot}></span>
-                                            <span className={styles.typingDot}></span>
+                                        <div className={styles.typingIndicator}>
+                                            <span className={styles.typingDot} />
+                                            <span className={styles.typingDot} />
+                                            <span className={styles.typingDot} />
                                         </div>
                                     )}
-
                                     <div ref={chatEndRef} />
                                 </div>
 
                                 <div className={styles.quickActions}>
-                                    {['STAKING', 'REWARDS', 'I NEED HELP'].map((label) => (
-                                        <button
-                                            key={label}
-                                            onClick={() => sendChatMessage(undefined, label)}
-                                            className={styles.actionBadge}
-                                        >
+                                    {['STAKING', 'REWARDS', 'I NEED HELP'].map(label => (
+                                        <button key={label} onClick={() => sendChatMessage(undefined, label)} className={styles.quickChip}>
                                             {label}
                                         </button>
                                     ))}
                                 </div>
 
-                                <form onSubmit={sendChatMessage} className={styles.chatInputArea}>
+                                <form onSubmit={sendChatMessage} className={styles.chatInputRow}>
                                     <input
                                         type="text"
-                                        placeholder={isChatReady ? "Enter transmission..." : "Connecting..."}
+                                        placeholder={isChatReady ? 'Enter transmission...' : 'Connecting...'}
                                         value={message}
-                                        onChange={(e) => setMessage(e.target.value)}
+                                        onChange={e => setMessage(e.target.value)}
                                         className={styles.chatInput}
                                         disabled={!isChatReady}
                                     />
-                                    <button
-                                        type="submit"
-                                        className={styles.chatSendBtn}
-                                        disabled={!isChatReady}
-                                    >
-                                        <Send size={18} />
+                                    <button type="submit" className={styles.chatSendBtn} disabled={!isChatReady}>
+                                        <Send size={16} />
                                     </button>
                                 </form>
                             </div>
@@ -305,56 +267,84 @@ export default function ContactPage() {
                     </div>
                 )}
 
+                {/* ── TICKET FORM ── */}
                 {view === 'form' && (
-                    <div className={styles.terminalCardLarge}>
+                    <div className={styles.formCard}>
                         <form onSubmit={handleSubmit} className={styles.formStack}>
                             <div className={styles.inputGrid}>
-                                <div className={styles.inputField}>
-                                    <label>TYPE</label>
-                                    <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })}>
+                                <div className={styles.field}>
+                                    <label className={styles.fieldLabel}>Type</label>
+                                    <select
+                                        value={formData.type}
+                                        onChange={e => setFormData({ ...formData, type: e.target.value })}
+                                        className={styles.fieldInput}
+                                    >
                                         <option value="Complaint">COMPLAINT</option>
                                         <option value="Suggestion">SUGGESTION</option>
                                     </select>
                                 </div>
-                                <div className={styles.inputField}>
-                                    <label>OPERATOR NAME</label>
-                                    <input required type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+                                <div className={styles.field}>
+                                    <label className={styles.fieldLabel}>Operator Name</label>
+                                    <input
+                                        required type="text"
+                                        value={formData.name}
+                                        onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                        className={styles.fieldInput}
+                                    />
                                 </div>
                             </div>
-                            <div className={styles.inputField}>
-                                <label>REPLY EMAIL</label>
-                                <input required type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+                            <div className={styles.field}>
+                                <label className={styles.fieldLabel}>Reply Email</label>
+                                <input
+                                    required type="email"
+                                    value={formData.email}
+                                    onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                    className={styles.fieldInput}
+                                />
                             </div>
-                            <div className={styles.inputField}>
-                                <label>SUBJECT</label>
-                                <input required type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} />
+                            <div className={styles.field}>
+                                <label className={styles.fieldLabel}>Subject</label>
+                                <input
+                                    required type="text"
+                                    value={formData.title}
+                                    onChange={e => setFormData({ ...formData, title: e.target.value })}
+                                    className={styles.fieldInput}
+                                />
                             </div>
-                            <div className={styles.inputField}>
-                                <label>DESCRIPTION</label>
-                                <textarea required rows={5} value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
+                            <div className={styles.field}>
+                                <label className={styles.fieldLabel}>Description</label>
+                                <textarea
+                                    required rows={5}
+                                    value={formData.description}
+                                    onChange={e => setFormData({ ...formData, description: e.target.value })}
+                                    className={styles.fieldInput}
+                                />
                             </div>
                             <button disabled={loading} className={styles.primaryBtn}>
-                                {loading ? "UPLOADING..." : "EXECUTE TRANSMISSION"}
+                                {loading
+                                    ? <><span className={styles.btnSpinner} /> UPLOADING...</>
+                                    : <><Send size={13} /> EXECUTE TRANSMISSION</>}
                             </button>
                         </form>
                     </div>
                 )}
 
+                {/* ── HISTORY ── */}
                 {view === 'history' && (
-                    <div className={styles.historyStack}>
+                    <div className={styles.historyList}>
                         {history.length === 0 ? (
-                            <div className={styles.emptyHistory}>NO ARCHIVED MESSAGES</div>
+                            <div className={styles.emptyState}>NO ARCHIVED MESSAGES</div>
                         ) : (
-                            history.map((ticket) => (
-                                <div key={ticket.id} className={styles.terminalCard}>
-                                    <div className={styles.cardHeader}>
+                            history.map(ticket => (
+                                <div key={ticket.id} className={styles.historyCard}>
+                                    <div className={styles.historyCardTop}>
                                         <span className={styles.typeBadge}>{ticket.type.toUpperCase()}</span>
                                         <span className={styles.dateText}>{new Date(ticket.createdAt).toLocaleDateString()}</span>
                                     </div>
-                                    <h3 className={styles.cardTitle}>{ticket.title}</h3>
-                                    <p className={styles.terminalDesc}>{ticket.description}</p>
-                                    <div className={`${styles.statusText} ${ticket.status === 'Pending' ? styles.statusPending : styles.statusSuccess}`}>
-                                        STATUS: {ticket.status.toUpperCase()}
+                                    <h3 className={styles.historyTitle}>{ticket.title}</h3>
+                                    <p className={styles.historyDesc}>{ticket.description}</p>
+                                    <div className={`${styles.statusChip} ${ticket.status === 'Pending' ? styles.statusPending : styles.statusDone}`}>
+                                        ● {ticket.status.toUpperCase()}
                                     </div>
                                 </div>
                             ))
@@ -362,9 +352,7 @@ export default function ContactPage() {
                     </div>
                 )}
 
-                <p className={styles.footerText}>
-                    AUTHORIZED COMMS MODULE // LAAM TERMINAL V.01
-                </p>
+                <p className={styles.footer}>AUTHORIZED COMMS MODULE // LAAM TERMINAL V.01</p>
             </div>
         </div>
     );

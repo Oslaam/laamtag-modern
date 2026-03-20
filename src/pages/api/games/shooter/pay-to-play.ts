@@ -5,46 +5,32 @@ import { logActivity } from '../../../../lib/activityLogger';
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-    // Added 'reason' to body to differentiate between START and REDEPLOY
     const { walletAddress, reason = 'GAME_START_FEE' } = req.body;
     const PLAY_COST = 5;
 
     if (!walletAddress) return res.status(400).json({ error: "Wallet address required" });
 
     try {
-        const result = await prisma.$transaction(async (tx) => {
-            const user = await tx.user.findUnique({ where: { walletAddress } });
+        const user = await prisma.user.findUnique({ where: { walletAddress } });
 
-            if (!user) throw new Error("USER_NOT_FOUND");
+        if (!user) return res.status(404).json({ error: "User not found" });
+        if (user.tagTickets < PLAY_COST) return res.status(403).json({ error: "You need 5 TAG to play!" });
 
-            if (user.tagTickets < PLAY_COST) {
-                throw new Error("INSUFFICIENT_FUNDS");
-            }
-
-            // Deduct the 5 TAG
-            const updatedUser = await tx.user.update({
-                where: { walletAddress },
-                data: {
-                    tagTickets: { decrement: PLAY_COST }
-                }
-            });
-
-            // Log the activity using the dynamic reason
-            await logActivity(walletAddress, reason as any, -PLAY_COST, 'TAG');
-
-            return {
-                success: true,
-                remainingTag: updatedUser.tagTickets
-            };
+        // ── Sequential writes — no transaction needed ──
+        const updatedUser = await prisma.user.update({
+            where: { walletAddress },
+            data: { tagTickets: { decrement: PLAY_COST } }
         });
 
-        return res.status(200).json(result);
+        await logActivity(walletAddress, reason as any, -PLAY_COST, 'TAG');
+
+        return res.status(200).json({
+            success: true,
+            remainingTag: updatedUser.tagTickets
+        });
 
     } catch (error: any) {
         console.error("Payment Error:", error.message);
-        const status = error.message === "INSUFFICIENT_FUNDS" ? 403 : 500;
-        return res.status(status).json({
-            error: error.message === "INSUFFICIENT_FUNDS" ? "You need 5 TAG to play!" : "Transaction failed"
-        });
+        return res.status(500).json({ error: "Transaction failed" });
     }
 }

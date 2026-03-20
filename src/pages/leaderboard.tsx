@@ -19,6 +19,25 @@ interface UserStanding extends LeaderboardUser {
   rank: number;
 }
 
+const TIER_COLORS: Record<string, string> = {
+  Bronze: '#cd7f32',
+  'Bronze Elite': '#cd7f32',
+  Silver: '#94a3b8',
+  'Silver Elite': '#94a3b8',
+  Gold: '#eab308',
+  'Gold Elite': '#eab308',
+  Platinum: '#22d3ee',
+  Diamond: '#a855f7',
+  Legend: '#f97316',
+  Mythic: '#ef4444',
+  Eternal: '#ec4899',
+  Ascendant: '#ffffff',
+};
+
+function getTierColor(tier: string) {
+  return TIER_COLORS[tier] || 'rgba(255,255,255,0.3)';
+}
+
 export default function LeaderboardPage() {
   const { publicKey } = useWallet();
   const [leaders, setLeaders] = useState<LeaderboardUser[]>([]);
@@ -62,14 +81,39 @@ export default function LeaderboardPage() {
 
           {/* ── HEADER ── */}
           <div className={styles.header}>
-            <h1 className={`page-title ${styles.pageTitle}`}>Hall of Seekers</h1>
-            <p className={`terminal-desc ${styles.subtitle}`}>TOP CONTRIBUTORS IN THE UNIVERSE</p>
+            <div className={styles.headerIconRow}>
+              <Trophy size={18} className={styles.headerTrophyIcon} />
+            </div>
+            <h1 className={styles.pageTitle}>Hall of Seekers</h1>
+            <p className={styles.subtitle}>TOP CONTRIBUTORS IN THE UNIVERSE</p>
           </div>
 
-          {/* ── MAIN LEADERBOARD TABLE ── */}
-          <div className={styles.card}>
+          {/* ── PODIUM (top 3) ── */}
+          {!loading && leaders.length >= 3 && (
+            <div className={styles.podium}>
+              {[leaders[1], leaders[0], leaders[2]].map((leader, podiumIdx) => {
+                const positions = [2, 1, 3];
+                const pos = positions[podiumIdx];
+                const name = leader.username || `${leader.walletAddress.slice(0, 4)}...${leader.walletAddress.slice(-4)}`;
+                return (
+                  <div key={leader.walletAddress} className={`${styles.podiumSlot} ${pos === 1 ? styles.podiumFirst : ''}`}>
+                    <div className={`${styles.podiumAvatar} ${pos === 1 ? styles.podiumAvatarFirst : pos === 2 ? styles.podiumAvatarSecond : styles.podiumAvatarThird}`}>
+                      {pos === 1
+                        ? <Crown size={16} color="#000" />
+                        : <Medal size={14} color={pos === 2 ? '#94a3b8' : '#cd7f32'} />}
+                    </div>
+                    <p className={styles.podiumName}>{name}</p>
+                    <p className={styles.podiumPoints}>{Math.floor(leader.laamPoints).toLocaleString()}</p>
+                    <div className={`${styles.podiumBlock} ${pos === 1 ? styles.podiumBlockFirst : pos === 2 ? styles.podiumBlockSecond : styles.podiumBlockThird}`}>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
-            {/* Column headers */}
+          {/* ── MAIN TABLE ── */}
+          <div className={styles.card}>
             <div className={styles.tableHead}>
               <span className={styles.headCell}>RANK</span>
               <span className={styles.headCell}>SEEKER</span>
@@ -83,54 +127,40 @@ export default function LeaderboardPage() {
               </div>
             ) : (
               <div className={styles.tableBody}>
-                {leaders.map((leader, index) => {
+                {leaders.slice(3).map((leader, index) => {
                   const isUser = leader.walletAddress === publicKey?.toString();
-                  const rank = index + 1;
-
-                  const displayName =
-                    leader.username ||
+                  const rank = index + 4;
+                  const displayName = leader.username ||
                     `${leader.walletAddress.slice(0, 4)}...${leader.walletAddress.slice(-4)}`;
-
-                  // Logic updated to highlight Gold/Elite tiers even without .laam username
-                  const nameColor = (leader.username?.includes('.laam') || leader.tier !== "Bronze")
+                  const nameColor = (leader.username?.includes('.laam') || leader.tier !== 'Bronze')
                     ? '#eab308'
                     : leader.username?.includes('.skr')
                       ? '#22d3ee'
-                      : isUser
-                        ? '#eab308'
-                        : '#fff';
+                      : isUser ? '#eab308' : '#fff';
 
                   return (
-                    <div
-                      key={leader.walletAddress}
-                      className={isUser ? styles.rowHighlight : styles.row}
-                    >
-                      {/* Rank */}
+                    <div key={leader.walletAddress} className={`${styles.row} ${isUser ? styles.rowHighlight : ''}`}>
                       <div className={styles.rankCell}>
-                        {rank === 1 ? (
-                          <Crown size={14} color="#eab308" />
-                        ) : rank <= 3 ? (
-                          <Medal size={14} color={rank === 2 ? '#94a3b8' : '#cd7f32'} />
-                        ) : null}
-                        <span className={rank <= 3 ? styles.rankNumTop : styles.rankNum}>
-                          #{rank}
-                        </span>
+                        <span className={styles.rankNum}>#{rank}</span>
                       </div>
 
-                      {/* Name */}
-                      <span
-                        className={leader.username ? styles.nameUsername : styles.nameWallet}
-                        style={{ color: nameColor }}
-                      >
+                      <span className={leader.username ? styles.nameUsername : styles.nameWallet} style={{ color: nameColor }}>
                         {displayName}
                       </span>
 
-                      {/* Tier */}
                       <div className={`${styles.tierCell} ${styles.headTier}`}>
-                        <span className={styles.tierBadge}>{leader.tier}</span>
+                        <span
+                          className={styles.tierBadge}
+                          style={{
+                            color: getTierColor(leader.tier),
+                            borderColor: `${getTierColor(leader.tier)}40`,
+                            background: `${getTierColor(leader.tier)}10`,
+                          }}
+                        >
+                          {leader.tier}
+                        </span>
                       </div>
 
-                      {/* Points */}
                       <div className={styles.pointsCell}>
                         {Math.floor(leader.laamPoints).toLocaleString()}
                       </div>
@@ -146,7 +176,7 @@ export default function LeaderboardPage() {
             <>
               <div className={styles.recruiterHeader}>
                 <div className={styles.recruiterBadge}>
-                  <UserPlus size={14} color="#eab308" />
+                  <UserPlus size={13} color="#eab308" />
                   <span className={styles.recruiterBadgeText}>ELITE RECRUITERS</span>
                 </div>
               </div>
@@ -155,26 +185,22 @@ export default function LeaderboardPage() {
                 <div className={styles.tableHeadRecruiter}>
                   <span className={styles.headCellGold}>POS</span>
                   <span className={styles.headCellGold}>RECRUITER</span>
-                  <span className={`${styles.headCellGold} ${styles.headRight}`}>
-                    TOTAL RECRUITS
-                  </span>
+                  <span className={`${styles.headCellGold} ${styles.headRight}`}>TOTAL RECRUITS</span>
                 </div>
 
                 {eliteRecruiters.map((recruiter, index) => (
                   <div key={`rec-${recruiter.walletAddress}`} className={styles.recruiterRow}>
                     <span className={styles.rankPos}>{index + 1}</span>
-
                     <div className={styles.recruiterName}>
-                      <Fingerprint size={12} color="#eab308" />
+                      <Fingerprint size={11} color="#eab308" />
                       <span className={styles.recruiterNameText}>
                         {recruiter.username ||
                           `${recruiter.walletAddress.slice(0, 4)}...${recruiter.walletAddress.slice(-4)}`}
                       </span>
                     </div>
-
                     <div className={styles.recruitCount}>
                       <span className={styles.recruitCountNum}>{recruiter.referralCount}</span>
-                      <Users size={12} color="rgba(255,255,255,0.3)" />
+                      <Users size={11} color="rgba(255,255,255,0.3)" />
                     </div>
                   </div>
                 ))}
@@ -185,7 +211,7 @@ export default function LeaderboardPage() {
           <div className={styles.bottomSpacer} />
         </div>
 
-        {/* ── PERSISTENT STANDING BAR ── */}
+        {/* ── STANDING BAR ── */}
         {publicKey && myStats && (
           <div className={styles.standingBar}>
             <div className={styles.standingLeft}>
@@ -193,19 +219,13 @@ export default function LeaderboardPage() {
                 <p className={styles.standingRankLabel}>RANK</p>
               </div>
               <div className={styles.standingMeta}>
-                <p className={styles.standingTag}>
-                  {myStats.username || 'TAG STATUS'}
-                </p>
-                <p className={styles.standingRankName}>
-                  {getRank(myStats.laamPoints).name}
-                </p>
+                <p className={styles.standingTag}>{'TAG STATUS'}</p>
+                <p className={styles.standingRankName}>{getRank(myStats.laamPoints).name}</p>
               </div>
             </div>
-
             <div className={styles.standingPoints}>
               <p className={styles.standingPointsNum}>
-                {Math.floor(myStats.laamPoints || 0).toLocaleString()}{' '}
-                <span className={styles.standingPointsUnit}>LAAM</span>
+                {Math.floor(myStats.laamPoints || 0).toLocaleString()}
               </p>
             </div>
           </div>

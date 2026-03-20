@@ -1,0 +1,112 @@
+.hero {
+    padding: 28px 0 24px;
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
+}
+
+.heroTitle {
+    font-size: 28px;
+    font-weight: 900;
+    font-style: italic;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 0 0 8px;
+    line-height: 1.15;
+}
+
+.heroAccent {
+    color: #eab308;
+    display: block;
+}
+
+.heroId {
+    font-size: 8px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.2);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin: 0;
+}
+
+.cardGrid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.card {
+    display: block;
+    text-decoration: none;
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: all 0.2s ease;
+    position: relative;
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
+}
+
+.card:hover {
+    border-color: rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.04);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.cardBody {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 18px;
+    gap: 12px;
+}
+
+.cardTitle {
+    font-size: 14px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 0 0 4px;
+    line-height: 1.2;
+}
+
+.cardDesc {
+    font-size: 9px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.35);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin: 0;
+}
+
+.cardNum {
+    font-size: 11px;
+    font-weight: 900;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid;
+    letter-spacing: 1px;
+    flex-shrink: 0;
+    font-family: inherit;
+}
+
+.cardAccentLine {
+    height: 1px;
+    width: 100%;
+    opacity: 0.25;
+    transition: opacity 0.2s;
+}
+
+.card:hover .cardAccentLine {
+    opacity: 0.5;
+}
+
+@media (max-width: 374px) {
+    .heroTitle {
+        font-size: 22px;
+    }
+
+    .cardTitle {
+        font-size: 12px;
+    }
+}

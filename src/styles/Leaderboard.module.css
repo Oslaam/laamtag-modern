@@ -1,80 +1,200 @@
 .wrapper {
     padding: 24px 16px 0;
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
 }
 
-/* ── Header ── */
 .header {
     text-align: center;
-    margin-bottom: 40px;
+    margin-bottom: 32px;
+}
+
+.headerIconRow {
+    margin-bottom: 10px;
+}
+
+.headerTrophyIcon {
+    color: #eab308;
+    filter: drop-shadow(0 0 10px rgba(234, 179, 8, 0.5));
 }
 
 .pageTitle {
+    font-size: 22px;
+    font-weight: 900;
+    font-style: italic;
     color: #eab308;
+    text-transform: uppercase;
+    letter-spacing: 3px;
     margin: 0 0 8px;
 }
 
 .subtitle {
-    font-size: 10px;
-    letter-spacing: 2px;
-    opacity: 0.5;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: rgba(255, 255, 255, 0.25);
+    text-transform: uppercase;
     margin: 0;
 }
 
-/* ── Terminal Card ── */
+.podium {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 28px;
+    padding: 0 8px;
+}
+
+.podiumSlot {
+    flex: 1;
+    max-width: 120px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.podiumFirst {
+    position: relative;
+    top: -10px;
+}
+
+.podiumAvatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.podiumAvatarFirst {
+    width: 52px;
+    height: 52px;
+    background: #eab308;
+    box-shadow: 0 0 20px rgba(234, 179, 8, 0.4);
+}
+
+.podiumAvatarSecond {
+    background: rgba(148, 163, 184, 0.15);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.podiumAvatarThird {
+    background: rgba(205, 127, 50, 0.12);
+    border: 1px solid rgba(205, 127, 50, 0.25);
+}
+
+.podiumName {
+    font-size: 9px;
+    font-weight: 900;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    margin: 0;
+}
+
+.podiumPoints {
+    font-size: 10px;
+    font-weight: 900;
+    color: #eab308;
+    margin: 0;
+}
+
+.podiumBlock {
+    width: 100%;
+    border-radius: 8px 8px 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 0;
+}
+
+.podiumBlockFirst {
+    background: rgba(234, 179, 8, 0.15);
+    border: 1px solid rgba(234, 179, 8, 0.25);
+    border-bottom: none;
+    height: 56px;
+}
+
+.podiumBlockSecond {
+    background: rgba(148, 163, 184, 0.06);
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    border-bottom: none;
+    height: 40px;
+}
+
+.podiumBlockThird {
+    background: rgba(205, 127, 50, 0.06);
+    border: 1px solid rgba(205, 127, 50, 0.15);
+    border-bottom: none;
+    height: 32px;
+}
+
+.podiumPos {
+    font-size: 12px;
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.4);
+}
+
 .card {
-    border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
     background: rgba(255, 255, 255, 0.02);
     overflow: hidden;
-    margin-bottom: 48px;
+    margin-bottom: 32px;
     max-width: 600px;
     margin-left: auto;
     margin-right: auto;
 }
 
 .cardRecruiter {
-    border-radius: 12px;
-    border: 1px solid rgba(234, 179, 8, 0.2);
+    border-radius: 14px;
+    border: 1px solid rgba(234, 179, 8, 0.18);
     background: rgba(255, 255, 255, 0.02);
     overflow: hidden;
-    margin-bottom: 48px;
+    margin-bottom: 32px;
     max-width: 600px;
-    /* Centering recruiter card as well */
     margin-left: auto;
     margin-right: auto;
 }
 
-/* ── Table Header Row ── */
 .tableHead {
     display: grid;
-    grid-template-columns: 56px 1fr 72px 96px;
-    padding: 14px 20px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.02);
+    grid-template-columns: 56px 1fr 80px 96px;
+    padding: 12px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(0, 0, 0, 0.2);
 }
 
 .tableHeadRecruiter {
     display: grid;
     grid-template-columns: 56px 1fr 110px;
     padding: 12px 20px;
-    background: rgba(234, 179, 8, 0.05);
+    background: rgba(234, 179, 8, 0.04);
     border-bottom: 1px solid rgba(234, 179, 8, 0.1);
 }
 
 .headCell {
-    font-size: 9px;
-    font-weight: 900;
-    color: rgba(255, 255, 255, 0.3);
+    font-size: 8px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.25);
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 1.5px;
 }
 
 .headCellGold {
-    font-size: 9px;
-    font-weight: 900;
-    color: rgba(234, 179, 8, 0.6);
+    font-size: 8px;
+    font-weight: 700;
+    color: rgba(234, 179, 8, 0.5);
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 1.5px;
 }
 
 .headRight {
@@ -85,31 +205,33 @@
     text-align: center;
 }
 
-/* ── Scrollable Body ── */
 .tableBody {
-    max-height: 40vh;
+    max-height: 42vh;
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: rgba(234, 179, 8, 0.3) transparent;
+    scrollbar-color: rgba(234, 179, 8, 0.2) transparent;
 }
 
 .tableBody::-webkit-scrollbar {
-    width: 4px;
+    width: 3px;
 }
 
 .tableBody::-webkit-scrollbar-thumb {
-    background: rgba(234, 179, 8, 0.3);
+    background: rgba(234, 179, 8, 0.25);
     border-radius: 2px;
 }
 
-/* ── Data Rows ── */
 .row {
     display: grid;
-    grid-template-columns: 56px 1fr 72px 96px;
-    padding: 14px 20px;
+    grid-template-columns: 56px 1fr 80px 96px;
+    padding: 13px 20px;
     align-items: center;
     border-bottom: 1px solid rgba(255, 255, 255, 0.03);
     transition: background 0.15s ease;
+}
+
+.row:hover {
+    background: rgba(255, 255, 255, 0.02);
 }
 
 .row:last-child {
@@ -117,57 +239,48 @@
 }
 
 .rowHighlight {
-    display: grid;
-    grid-template-columns: 56px 1fr 72px 96px;
-    padding: 14px 20px;
-    align-items: center;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-    transition: background 0.15s ease;
-    background: rgba(234, 179, 8, 0.1);
+    background: rgba(234, 179, 8, 0.07) !important;
+    border-left: 2px solid #eab308;
 }
 
 .recruiterRow {
     display: grid;
     grid-template-columns: 56px 1fr 110px;
-    padding: 14px 20px;
+    padding: 13px 20px;
     align-items: center;
     border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    transition: background 0.15s;
 }
 
-/* ── Rank Cell ── */
+.recruiterRow:hover {
+    background: rgba(234, 179, 8, 0.02);
+}
+
+.recruiterRow:last-child {
+    border-bottom: none;
+}
+
 .rankCell {
     display: flex;
     align-items: center;
     gap: 4px;
 }
 
-.rankNumTop {
-    font-weight: 900;
-    color: #eab308;
-    font-size: 16px;
-}
-
 .rankNum {
     font-weight: 900;
-    color: rgba(255, 255, 255, 0.35);
+    color: rgba(255, 255, 255, 0.3);
     font-size: 12px;
 }
 
-.rankPos {
-    font-weight: 900;
-    color: rgba(255, 255, 255, 0.5);
-    font-size: 13px;
-}
-
-/* ── Name Cell ── */
 .nameWallet,
 .nameUsername {
     font-weight: 700;
-    font-size: 13px;
+    font-size: 12px;
     text-transform: uppercase;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    letter-spacing: 0.5px;
 }
 
 .nameWallet {
@@ -178,6 +291,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    min-width: 0;
 }
 
 .recruiterNameText {
@@ -189,32 +303,30 @@
     white-space: nowrap;
 }
 
-/* ── Tier Badge ── */
 .tierCell {
     text-align: center;
 }
 
 .tierBadge {
-    font-size: 8px;
+    font-size: 7px;
     font-weight: 900;
     padding: 3px 8px;
     border-radius: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.5);
+    border: 1px solid;
     text-transform: uppercase;
     white-space: nowrap;
+    letter-spacing: 0.5px;
+    display: inline-block;
 }
 
-/* ── Points Cell ── */
 .pointsCell {
     text-align: right;
     font-weight: 900;
     color: #eab308;
-    font-size: 14px;
+    font-size: 13px;
     white-space: nowrap;
 }
 
-/* ── Recruiter Count ── */
 .recruitCount {
     display: flex;
     align-items: center;
@@ -225,9 +337,9 @@
 .recruitCountNum {
     color: #eab308;
     font-weight: 900;
+    font-size: 14px;
 }
 
-/* ── Loading State ── */
 .loading {
     padding: 60px 20px;
     text-align: center;
@@ -242,85 +354,86 @@
     }
 
     50% {
-        opacity: 0.4;
+        opacity: 0.35;
     }
 }
 
-/* ── Elite Recruiters Header ── */
 .recruiterHeader {
     text-align: center;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
 }
 
 .recruiterBadge {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 4px 16px;
+    padding: 5px 16px;
     border-radius: 20px;
-    background: rgba(234, 179, 8, 0.1);
+    background: rgba(234, 179, 8, 0.08);
     border: 1px solid rgba(234, 179, 8, 0.2);
 }
 
 .recruiterBadgeText {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 900;
     color: #eab308;
-    letter-spacing: 2px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
 }
 
-/* ── Bottom Spacer ── */
 .bottomSpacer {
     height: 140px;
 }
 
-/* ── Persistent Standing Bar ── */
 .standingBar {
     position: fixed;
     bottom: 100px;
     left: 50%;
     transform: translateX(-50%);
     width: 90%;
-    max-width: 400px;
-    background: rgba(234, 179, 8, 0.95);
-    /* Semi-transparent */
+    max-width: 420px;
+    background: #eab308;
     backdrop-filter: blur(8px);
-    /* Backdrop blur for readability */
     -webkit-backdrop-filter: blur(8px);
-    border-radius: 24px;
-    padding: 14px 20px;
+    border-radius: 16px;
+    padding: 12px 18px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 24px rgba(234, 179, 8, 0.2);
     z-index: 50;
+    font-family: 'IBM Plex Mono', monospace;
 }
 
 .standingLeft {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
 }
 
 .standingRankBox {
-    background: #000;
-    color: #fff;
-    padding: 8px 12px;
-    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 10px;
+    padding: 6px 12px;
     text-align: center;
+    min-width: 48px;
 }
 
 .standingRankLabel {
-    font-size: 8px;
+    font-size: 7px;
+    font-weight: 700;
+    color: rgba(0, 0, 0, 0.5);
+    letter-spacing: 1px;
+    text-transform: uppercase;
     margin: 0;
-    opacity: 0.6;
 }
 
 .standingRankNum {
     font-size: 16px;
     font-weight: 900;
+    color: #000;
     margin: 0;
-    line-height: 1;
+    line-height: 1.1;
 }
 
 .standingMeta {
@@ -332,78 +445,112 @@
 .standingTag {
     font-size: 8px;
     font-weight: 900;
-    color: rgba(0, 0, 0, 0.5);
+    color: rgba(0, 0, 0, 0.45);
     margin: 0;
     text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
 }
 
 .standingRankName {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 900;
     color: #000;
     margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.standingPoints {
+    text-align: right;
+    flex-shrink: 0;
 }
 
 .standingPointsNum {
-    font-size: 18px;
+    font-size: 17px;
     font-weight: 900;
     color: #000;
     margin: 0;
+    white-space: nowrap;
 }
 
 .standingPointsUnit {
-    font-size: 10px;
+    font-size: 9px;
+    font-weight: 700;
+    opacity: 0.6;
+    letter-spacing: 1px;
 }
 
 @media (max-width: 480px) {
     .wrapper {
-        padding: 32px 8px 0;
-        /* Reduced side padding to give table more room */
+        padding: 20px 8px 0;
+    }
+
+    .pageTitle {
+        font-size: 17px;
+    }
+
+    .podium {
+        gap: 6px;
+        padding: 0 4px;
+    }
+
+    .podiumName {
+        font-size: 8px;
+    }
+
+    .podiumPoints {
+        font-size: 9px;
+    }
+
+    .podiumAvatarFirst {
+        width: 44px;
+        height: 44px;
+    }
+
+    .podiumAvatar {
+        width: 36px;
+        height: 36px;
+    }
+
+    .podiumBlockFirst {
+        height: 48px;
+    }
+
+    .podiumBlockSecond {
+        height: 36px;
+    }
+
+    .podiumBlockThird {
+        height: 28px;
     }
 
     .card {
-        width: 100%;
-        margin-bottom: 24px;
+        margin-bottom: 20px;
     }
 
-    /* ── Shifting the Table Left ── */
     .tableHead,
     .row,
     .rowHighlight {
-        /* We shrink Rank to 32px and Seeker name is flexible (1fr) */
-        /* Tier and Points are set to fixed widths to prevent breaking */
-        grid-template-columns: 32px 1fr 55px 75px;
-        padding: 12px 6px;
-        /* Tightened internal padding */
-        gap: 2px;
-        /* Minimal gap between columns */
+        grid-template-columns: 36px 1fr 58px 72px;
+        padding: 11px 8px;
     }
 
-    .tierCell,
-    .headTier {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    }
-
-    /* ── Font & Scaling Adjustments ── */
     .nameWallet,
     .nameUsername {
         font-size: 10px;
-        /* Ensures the name truncates with ... instead of pushing the table */
-        max-width: 100%;
     }
 
     .tierBadge {
-        font-size: 7px;
-        padding: 2px 3px;
-        min-width: 45px;
-        /* Ensures badge doesn't collapse */
+        font-size: 6px;
+        padding: 2px 5px;
     }
 
     .pointsCell {
         font-size: 11px;
-        text-align: right;
     }
 
     .rankNumTop,
@@ -411,36 +558,44 @@
         font-size: 11px;
     }
 
-    /* Move Standing Bar up to avoid overlapping nav */
     .standingBar {
-        bottom: 115px;
+        bottom: 112px;
         width: 94%;
-        padding: 8px 12px;
+        padding: 10px 12px;
+        border-radius: 12px;
+    }
+
+    .standingRankNum {
+        font-size: 14px;
     }
 
     .standingPointsNum {
-        font-size: 13px;
+        font-size: 14px;
     }
 
-    .pageTitle {
-        font-size: 18px;
+    .standingRankName {
+        font-size: 11px;
+    }
+
+    .standingTag {
+        max-width: 90px;
     }
 }
 
 @media (min-width: 481px) and (max-width: 768px) {
     .wrapper {
-        padding: 20px 20px 0;
+        padding: 20px 16px 0;
     }
 
     .tableHead,
     .row,
     .rowHighlight {
-        grid-template-columns: 56px 1fr 68px 88px;
-        padding: 13px 18px;
+        grid-template-columns: 56px 1fr 72px 90px;
+        padding: 12px 16px;
     }
 
     .nameWallet,
     .nameUsername {
-        font-size: 12px;
+        font-size: 11px;
     }
 }

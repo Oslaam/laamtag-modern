@@ -1,8 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '../../../lib/prisma';
-import { Connection, PublicKey } from '@solana/web3.js';
+import { Connection } from '@solana/web3.js';
 
-// Configuration
 const RPC_URL = "https://mainnet.helius-rpc.com/?api-key=a2488320-5767-4074-8bfe-8eda86de12f3";
 const connection = new Connection(RPC_URL);
 const TREASURY_WALLET = "CFvNTWKRz5aXAajFQr6RVBhH93ypV1gw36Gj6DUxinyc";
@@ -13,41 +12,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { walletAddress, action, score, signature, type, history, duration } = req.body;
     const finalWallet = walletAddress || (req.query.walletAddress as string);
 
-    // --- UTC Reset Logic ---
     const now = new Date();
     const utcMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
 
     try {
-        // 1. FETCH LEADERBOARD WITH USERNAMES
+        // 1. FETCH LEADERBOARD
         if (req.method === 'GET' || action === 'GET_LEADERBOARD') {
             const isDaily = req.query.type === 'daily' || type === 'daily';
             const dateFilter = isDaily ? utcMidnight : new Date(0);
 
-            // Fetch activities including the User model for usernames
             const topActivities = await prisma.activity.findMany({
-                where: {
-                    type: 'RESISTANCE_SCORE',
-                    createdAt: { gte: dateFilter }
-                },
+                where: { type: 'RESISTANCE_SCORE', createdAt: { gte: dateFilter } },
                 distinct: ['userId'],
                 orderBy: { amount: 'desc' },
                 take: 10,
-                include: {
-                    user: {
-                        select: { username: true }
-                    }
-                }
+                include: { user: { select: { username: true } } }
             });
 
-            // Fetch specific user's best score
             let userBest = 0;
             if (finalWallet) {
                 const bestRecord = await prisma.activity.findFirst({
-                    where: {
-                        userId: finalWallet,
-                        type: 'RESISTANCE_SCORE',
-                        createdAt: { gte: dateFilter }
-                    },
+                    where: { userId: finalWallet, type: 'RESISTANCE_SCORE', createdAt: { gte: dateFilter } },
                     orderBy: { amount: 'desc' },
                     select: { amount: true }
                 });
@@ -57,7 +42,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             return res.status(200).json({
                 leaderboard: topActivities.map(act => ({
                     wallet: act.userId,
-                    username: act.user?.username || null, // Included username for the frontend
+                    username: act.user?.username || null,
                     score: act.amount
                 })),
                 userBest
@@ -66,7 +51,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         if (!finalWallet) return res.status(400).json({ error: "Missing wallet address" });
 
-        // 2. SECURE ONE-TIME UNLOCK
+        // 2. UNLOCK GAME
         if (action === 'UNLOCK_GAME') {
             if (!signature) return res.status(400).json({ error: "Missing transaction signature" });
 
@@ -84,31 +69,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 (b) => b.owner === TREASURY_WALLET && b.mint === SKR_MINT
             );
 
-            const amountReceived = (Number(treasuryBalanceChange?.uiTokenAmount.amount) || 0) - (Number(prevTreasuryBalance?.uiTokenAmount.amount) || 0);
+            const amountReceived =
+                (Number(treasuryBalanceChange?.uiTokenAmount.amount) || 0) -
+                (Number(prevTreasuryBalance?.uiTokenAmount.amount) || 0);
 
             if (amountReceived <= 0) return res.status(400).json({ error: "No SKR transfer detected" });
 
-            return await prisma.$transaction(async (tx) => {
-                await tx.user.upsert({
-                    where: { walletAddress: finalWallet },
-                    update: { hasResistanceUnlocked: true },
-                    create: { walletAddress: finalWallet, hasResistanceUnlocked: true }
-                });
-
-                await tx.activity.create({
-                    data: {
-                        userId: finalWallet,
-                        type: 'RESISTANCE_UNLOCK',
-                        amount: UNLOCK_AMOUNT,
-                        asset: 'SKR',
-                        signature: signature
-                    }
-                });
-                return res.status(200).json({ success: true });
+            // ── Sequential writes — no transaction needed ──
+            await prisma.user.upsert({
+                where: { walletAddress: finalWallet },
+                update: { hasResistanceUnlocked: true },
+                create: { walletAddress: finalWallet, hasResistanceUnlocked: true }
             });
+
+            await prisma.activity.create({
+                data: {
+                    userId: finalWallet,
+                    type: 'RESISTANCE_UNLOCK',
+                    amount: UNLOCK_AMOUNT,
+                    asset: 'SKR',
+                    signature: signature
+                }
+            });
+
+            return res.status(200).json({ success: true });
         }
 
-        // 3. SECURE SUBMIT SCORE
+        // 3. SUBMIT SCORE
         if (action === 'SUBMIT_SCORE') {
             const user = await prisma.user.findUnique({ where: { walletAddress: finalWallet } });
             if (!user?.hasResistanceUnlocked) return res.status(403).json({ error: "Unlock required" });
@@ -127,8 +114,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             let calculatedScore = 0;
             for (const move of history) {
                 const { coords, values, pointsEarned } = move;
-
-                // Math verification: verify numbers in selection sum to 10
                 const moveSum = values.reduce((a: number, b: number) => a + b, 0);
                 if (moveSum !== 10) return res.status(403).json({ error: "Math verification failed." });
 
@@ -146,13 +131,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 return res.status(403).json({ error: "Score verification failed." });
             }
 
-            // DAILY RESET LOGIC: Find existing record for TODAY (UTC)
+            // Daily best logic
             const dailyBest = await prisma.activity.findFirst({
-                where: {
-                    userId: finalWallet,
-                    type: 'RESISTANCE_SCORE',
-                    createdAt: { gte: utcMidnight }
-                }
+                where: { userId: finalWallet, type: 'RESISTANCE_SCORE', createdAt: { gte: utcMidnight } }
             });
 
             if (!dailyBest || score > dailyBest.amount) {
@@ -163,15 +144,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     });
                 } else {
                     await prisma.activity.create({
-                        data: {
-                            userId: finalWallet,
-                            type: 'RESISTANCE_SCORE',
-                            amount: score,
-                            asset: 'POINTS'
-                        }
+                        data: { userId: finalWallet, type: 'RESISTANCE_SCORE', amount: score, asset: 'POINTS' }
                     });
                 }
             }
+
             return res.status(200).json({ success: true });
         }
 

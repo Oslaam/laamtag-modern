@@ -88,21 +88,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         // --- DATABASE TRANSACTION ---
-        await prisma.$transaction(async (tx) => {
-            // Deduct spin cost and add instant rewards (TAG/LAAM)
-            await tx.user.update({ where: { walletAddress }, data: updateUserData });
+        await prisma.user.update({ where: { walletAddress }, data: updateUserData });
 
-            // Create claimable entry for SOL/USDC
-            if (pendingRewardData) {
-                await tx.pendingReward.create({
-                    data: {
-                        userId: walletAddress,
-                        asset: pendingRewardData.asset,
-                        amount: pendingRewardData.amount
-                    }
-                });
-            }
-        });
+        if (pendingRewardData) {
+            await prisma.pendingReward.create({
+                data: { userId: walletAddress, asset: pendingRewardData.asset, amount: pendingRewardData.amount }
+            });
+        }
 
         // LOG HISTORY
         await logActivity(walletAddress, 'SPIN_COST', -5, 'TAG');

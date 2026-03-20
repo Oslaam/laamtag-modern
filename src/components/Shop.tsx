@@ -1,9 +1,9 @@
 'use client';
 
 import React from 'react';
-import { Ticket, Zap, Loader2 } from 'lucide-react';
+import { Ticket, Zap, Loader2, Flame } from 'lucide-react';
+import styles from '../styles/Shop.module.css';
 
-// Define the shape of a Pack for the rest of the app to use
 export type Pack = {
     amount: number;
     price: number;
@@ -20,53 +20,47 @@ type ShopProps = {
 
 export default function ShopComponent({ packs, loading = false, onBuy }: ShopProps) {
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', padding: '24px 0' }}>
+        <div className={styles.grid}>
             {packs.map((pack) => (
-                <div key={pack.amount} className="terminal-card" style={{
-                    textAlign: 'center',
-                    padding: '32px 24px',
-                    border: pack.hot ? '1px solid #a855f7' : '1px solid rgba(255,255,255,0.1)',
-                    boxShadow: pack.hot ? '0 0 20px rgba(168, 85, 247, 0.15)' : 'none'
-                }}>
-                    <div style={{ marginBottom: '20px', display: 'inline-flex', padding: '16px', background: 'rgba(168, 85, 247, 0.05)', borderRadius: '24px', border: '1px solid rgba(168, 85, 247, 0.1)' }}>
-                        <Ticket className="text-purple-500" size={32} />
+                <div
+                    key={pack.amount}
+                    className={`${styles.card} ${pack.hot ? styles.cardHot : ''}`}
+                >
+                    {pack.hot && (
+                        <div className={styles.hotBadge}>
+                            <Flame size={9} fill="#a855f7" />
+                            BEST VALUE
+                        </div>
+                    )}
+
+                    <div className={styles.iconWrap}>
+                        <Ticket size={26} className={styles.ticketIcon} />
                     </div>
 
-                    <h3 style={{ color: '#fff', fontWeight: 900, fontSize: '18px', textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 4px 0' }}>
-                        {pack.label}
-                    </h3>
-                    <p style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>
-                        {pack.desc}
-                    </p>
+                    <h3 className={styles.packLabel}>{pack.label}</h3>
+                    <p className={styles.packDesc}>{pack.desc}</p>
 
-                    <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '16px', padding: '12px', marginBottom: '24px', border: '1px dotted rgba(255,255,255,0.1)' }}>
-                        <p style={{ color: '#a855f7', fontWeight: 900, fontSize: '20px', margin: 0 }}>
-                            {pack.amount} <span style={{ fontSize: '10px', color: '#fff' }}>TICKETS</span>
-                        </p>
+                    <div className={styles.amountBox}>
+                        <span className={styles.amountVal}>{pack.amount}</span>
+                        <span className={styles.amountUnit}>TICKETS</span>
+                    </div>
+
+                    <div className={styles.priceRow}>
+                        <span className={styles.priceLabel}>COST</span>
+                        <span className={styles.priceVal}>{pack.price} SOL</span>
                     </div>
 
                     <button
                         disabled={loading}
                         onClick={() => onBuy(pack)}
-                        className="terminal-button"
-                        style={{
-                            width: '100%',
-                            background: '#a855f7',
-                            color: '#fff',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '10px',
-                            fontWeight: 900,
-                            cursor: loading ? 'not-allowed' : 'pointer'
-                        }}
+                        className={`${styles.buyBtn} ${pack.hot ? styles.buyBtnHot : ''} ${loading ? styles.buyBtnDisabled : ''}`}
                     >
                         {loading ? (
-                            <Loader2 className="animate-spin" size={16} />
+                            <Loader2 size={15} className={styles.spinner} />
                         ) : (
                             <>
-                                <Zap size={14} fill="currentColor" />
-                                <span>REQUISITION: {pack.price} SOL</span>
+                                <Zap size={13} fill="currentColor" />
+                                REQUISITION
                             </>
                         )}
                     </button>
