@@ -41,7 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 _count: {
                     select: {
                         // Only count COMPLETED quests
-                        quests: { where: { status: 'COMPLETED' } },
+                        quests: { where: { status: 'APPROVED' } },
                         boosts: true,
                     }
                 }

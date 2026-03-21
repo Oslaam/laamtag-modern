@@ -27,7 +27,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 // 2. Fetch counts so the eligibility logic quests/boosts
                 _count: {
                     select: {
-                        quests: { where: { status: 'COMPLETED' } },
+                        quests: { where: { status: 'APPROVED' } },
                         boosts: true,
                         referrals: true
                     }

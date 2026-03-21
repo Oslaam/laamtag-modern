@@ -162,22 +162,7 @@ export default function Collectable() {
                     },
                 }));
 
-            // builder = builder.mapInstructions((wrapped) => {
-            //     if (wrapped.instruction.programId.toString() === "CndyV3L7kwLE9Vq89U9B9KdeE77VBaK5DEn3Yf2KNoR") {
-            //         return {
-            //             ...wrapped,
-            //             instruction: {
-            //                 ...wrapped.instruction,
-            //                 keys: [
-            //                     ...wrapped.instruction.keys,
-            //                     { pubkey: publicKey(T_WALLET_STR), isSigner: false, isWritable: true }
-            //                 ],
-            //             },
-            //         };
-            //     }
-            //     return wrapped;
-            // });
-
+                
             const { signature } = await builder.sendAndConfirm(umi, {
                 send: {
                     maxRetries: 3,
